@@ -2,7 +2,8 @@
 
 Un seul site pour les petits outils de la ferme (dose de semis, puis irrigation
 enrouleur et ce qu'on ajoutera), avec un espace par exploitation et un compte par personne.
-Il remplace à terme les sites séparés `dose-de-semis` et `calcul-irrigation-enrouleur`.
+Il a remplacé le 08/10/2026 les sites séparés `dose-de-semis` et `calcul-irrigation-enrouleur`
+(sites, base, dossiers et dépôts GitHub supprimés ; copie de l'ancienne base dans `sauvegardes/`).
 
 Julien Pichot n'est pas développeur. Réponds en français, explique ce que tu fais en
 mots simples, et évite le jargon quand un mot courant suffit.
@@ -24,7 +25,7 @@ mots simples, et évite le jargon quand un mot courant suffit.
     (Dimancheville, autres agriculteurs) et leur premier chef. Pas d'inscription libre.
   - Un compte ne se supprime pas, il se désactive.
 - Sans connexion, les outils marchent quand même (données dans l'appareil).
-- On commence par la dose de semis ; la vitesse d'enrouleur viendra ensuite.
+- Deux applis : dose de semis et irrigation enrouleur. D'autres viendront selon les idées.
 
 ## Où est quoi
 
@@ -52,12 +53,15 @@ puis `npx wrangler pages dev --port 8796`. Codes de test dans `.essai-local.txt`
 - Clés de l'appareil : `applis.moi` (qui est connecté), `dose-de-semis.semences` (semences sans
   compte), `dose-de-semis.semences@<id exploitation>` (copie hors ligne, effacée à la déconnexion).
 
-## Reste à faire
+## En ligne
 
-1. Mise en ligne (avec l'accord de Julien) : créer la base D1 et le projet Pages, appliquer le
-   schéma, créer le compte `julien` en ligne, publier, créer le dépôt GitHub.
-2. Reprendre les semences de l'ancien espace `bretonvilliers` (base D1 `dose-de-semis`) et
-   rediriger l'ancienne adresse dose-de-semis.bretonvilliers28.workers.dev vers le nouveau site
-   (en emportant les semences gardées dans les téléphones).
-3. Irrigation enrouleur (`../calcul-irrigation-enrouleur`), avec ses enrouleurs dans l'espace
-   de l'exploitation.
+- Publier : `git push` puis `npm run deploy` (pas de publication automatique depuis GitHub).
+- Une modification du schéma : l'appliquer en ligne avec `npm run db:schema` (tout est en
+  `CREATE … IF NOT EXISTS`), et en local avec `npm run db:schema:local`.
+- Piège : changer `database_id` dans `wrangler.toml` repart d'une base locale vide (recréer
+  les comptes de test).
+
+## Idées pour la suite
+
+- Une troisième appli, selon les idées de Julien.
+- Mentions légales si le site est proposé à d'autres agriculteurs.
