@@ -87,22 +87,35 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
 <section class="block" id="blocCompte" hidden>
   <div class="qui"><b id="quiNom"></b><span id="quiExpl"></span></div>
   <div class="actions">
-    <button type="button" class="lien" id="ouvrirMdp">Mon mot de passe</button>
+    <button type="button" class="lien" id="ouvrirMdp">Mon compte</button>
     <button type="button" class="lien" id="ouvrirComptes">Comptes de l'exploitation</button>
     <button type="button" class="lien" id="ouvrirExpl">Exploitations</button>
     <button type="button" class="lien" id="deconnexion">Se déconnecter</button>
   </div>
 
-  <form class="panneau" id="formMdp" hidden>
+  <div class="panneau" id="panneauMoi" hidden>
+  <form id="formIdent">
+    <div class="field"><label for="moiNom">Mon nom</label><input type="text" id="moiNom" maxlength="80" required></div>
+    <div class="field"><label for="moiId">Mon identifiant de connexion</label><input type="text" id="moiId" maxlength="40" autocapitalize="none" spellcheck="false" required></div>
+    <button type="submit" class="bouton">Enregistrer</button>
+    <p class="msg" id="identMsg" hidden></p>
+  </form>
+  <form id="formMdp" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
     <p class="msg erreur" id="mdpObligatoire" hidden style="margin-top:0">Vous avez un mot de passe provisoire : choisissez le vôtre (8 caractères au moins).</p>
     <input type="text" autocomplete="username" id="mdpIdentifiant" hidden>
-    <div class="field"><label for="mdpActuel">Mot de passe actuel</label><input type="password" id="mdpActuel" autocomplete="current-password" required></div>
+    <div class="field"><label for="mdpActuel">Changer de mot de passe — mot de passe actuel</label><input type="password" id="mdpActuel" autocomplete="current-password" required></div>
     <div class="field"><label for="mdpNouveau">Nouveau mot de passe</label><input type="password" id="mdpNouveau" autocomplete="new-password" minlength="8" required></div>
     <button type="submit" class="bouton">Enregistrer</button>
     <p class="msg" id="mdpMsg" hidden></p>
   </form>
+  </div>
 
   <div class="panneau" id="panneauComptes" hidden>
+    <form id="formNomExpl" style="margin-bottom:14px">
+      <div class="field"><label for="nomExpl">Nom de l'exploitation</label><input type="text" id="nomExpl" maxlength="80" required></div>
+      <button type="submit" class="bouton">Renommer</button>
+      <p class="msg" id="nomExplMsg" hidden></p>
+    </form>
     <table><tbody id="comptesLignes"></tbody></table>
     <form id="formCompte" style="margin-top:12px">
       <div class="field"><label for="ncNom">Nouveau compte — prénom et nom</label><input type="text" id="ncNom" maxlength="80" placeholder="Valentine Martin" required></div>
@@ -193,10 +206,10 @@ function dessiner(){
   // Mot de passe provisoire : on demande d'en choisir un tout de suite
   $("blocCompte").classList.toggle("alerte", moi.doitChanger);
   $("mdpObligatoire").hidden = !moi.doitChanger;
-  if(moi.doitChanger){ ["panneauComptes","panneauExpl"].forEach(x=>$(x).hidden=true); $("formMdp").hidden=false; }
+  if(moi.doitChanger){ ["panneauComptes","panneauExpl"].forEach(x=>$(x).hidden=true); $("panneauMoi").hidden=false; }
   try{ localStorage.setItem("applis.moi", JSON.stringify(moi)); }catch(e){}
 }
-function basculer(id){ const avant=$(id).hidden; ["formMdp","panneauComptes","panneauExpl"].forEach(x=>$(x).hidden=true); $(id).hidden=!avant; return !$(id).hidden; }
+function basculer(id){ const avant=$(id).hidden; ["panneauMoi","panneauComptes","panneauExpl"].forEach(x=>$(x).hidden=true); $(id).hidden=!avant; return !$(id).hidden; }
 
 // ----- connexion -----
 $("formConnexion").addEventListener("submit", async e=>{
@@ -218,13 +231,20 @@ $("deconnexion").addEventListener("click", async ()=>{
 });
 
 // ----- mon mot de passe -----
-$("ouvrirMdp").addEventListener("click",()=>basculer("formMdp"));
+$("ouvrirMdp").addEventListener("click",()=>{ if(basculer("panneauMoi")){ $("moiNom").value=moi.compte.nom; $("moiId").value=moi.compte.identifiant; } });
+$("formIdent").addEventListener("submit", async e=>{
+  e.preventDefault(); message("identMsg","");
+  try{
+    moi = await appel("PATCH","/api/moi",{nom:$("moiNom").value, identifiant:$("moiId").value});
+    dessiner(); message("identMsg","Enregistré. Votre identifiant de connexion est maintenant « "+moi.compte.identifiant+" ».","ok");
+  }catch(err){ message("identMsg", err.message, "erreur"); }
+});
 $("formMdp").addEventListener("submit", async e=>{
   e.preventDefault(); message("mdpMsg","");
   try{
     await appel("PATCH","/api/moi/mot-de-passe",{actuel:$("mdpActuel").value, nouveau:$("mdpNouveau").value});
     $("mdpActuel").value=""; $("mdpNouveau").value="";
-    moi.doitChanger=false; dessiner(); $("formMdp").hidden=false;
+    moi.doitChanger=false; dessiner(); $("panneauMoi").hidden=false;
     message("mdpMsg","Mot de passe changé.","ok");
   }catch(err){ message("mdpMsg", err.message, "erreur"); }
 });
@@ -258,7 +278,12 @@ async function dessinerComptes(){
     corps.appendChild(tr);
   });
 }
-$("ouvrirComptes").addEventListener("click",()=>{ if(basculer("panneauComptes")){ $("comptesCodes").innerHTML=""; dessinerComptes(); } });
+$("ouvrirComptes").addEventListener("click",()=>{ if(basculer("panneauComptes")){ $("comptesCodes").innerHTML=""; $("nomExpl").value=moi.exploitation.nom; message("nomExplMsg",""); dessinerComptes(); } });
+$("formNomExpl").addEventListener("submit", async e=>{
+  e.preventDefault(); message("nomExplMsg","");
+  try{ moi = await appel("PATCH","/api/exploitation",{nom:$("nomExpl").value}); dessiner(); message("nomExplMsg","Exploitation renommée.","ok"); }
+  catch(err){ message("nomExplMsg", err.message, "erreur"); }
+});
 lierIdentifiant("ncNom","ncId");
 $("formCompte").addEventListener("submit", async e=>{
   e.preventDefault(); message("ncErreur","");
@@ -280,6 +305,17 @@ async function dessinerExploitations(){
     tr.innerHTML="<td><span></span><small></small></td><td class=\"act\"></td>";
     tr.querySelector("span").textContent = x.nom+(x.actif ? "" : " (suspendue)");
     tr.querySelector("small").textContent = x.comptes+" compte(s) · "+x.semences+" semence(s)";
+    const rn=document.createElement("button"); rn.type="button"; rn.className="lien"; rn.textContent="Renommer";
+    rn.addEventListener("click", async ()=>{
+      const nom=prompt("Nouveau nom de l'exploitation :", x.nom);
+      if(nom===null || !nom.trim() || nom.trim()===x.nom) return;
+      try{
+        await appel("PATCH","/api/exploitations/"+x.id,{nom});
+        if(x.id===moi.exploitation.id){ moi=await appel("GET","/api/moi"); dessiner(); }
+        dessinerExploitations();
+      }catch(e){ alert(e.message); }
+    });
+    tr.lastChild.appendChild(rn);
     if(x.id!==moi.exploitation.id){
       const s=document.createElement("button"); s.type="button"; s.className="lien"; s.textContent=x.actif ? "Suspendre" : "Rouvrir";
       s.addEventListener("click", async ()=>{

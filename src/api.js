@@ -155,6 +155,26 @@ export async function api(request, env, url) {
     return json({ ok: true });
   }
 
+  // Chacun change son nom affiché et son identifiant de connexion
+  if (p[0] === 'moi' && p.length === 1 && methode === 'PATCH') {
+    const nom = texte(corps.nom, 80);
+    const identifiant = texte(corps.identifiant, 40).toLowerCase();
+    if (!nom) return erreur(400, 'Le nom est obligatoire.');
+    if (!identifiantValide(identifiant)) return erreur(400, 'Identifiant : de 3 à 40 caractères, lettres minuscules sans accent, chiffres, points et tirets.');
+    if (identifiant !== moi.identifiant && await compteExiste(env, identifiant)) return erreur(409, 'Cet identifiant est déjà pris. Ajoutez une initiale ou un chiffre.');
+    await env.DB.prepare('UPDATE comptes SET nom = ?, identifiant = ? WHERE id = ?').bind(nom, identifiant, moi.id).run();
+    return json(moiPourNavigateur({ ...moi, nom, identifiant }));
+  }
+
+  // Le chef d'exploitation renomme son exploitation
+  if (p[0] === 'exploitation' && p.length === 1 && methode === 'PATCH') {
+    if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
+    const nom = texte(corps.nom, 80);
+    if (!nom) return erreur(400, 'Le nom de l\'exploitation est obligatoire.');
+    await env.DB.prepare('UPDATE exploitations SET nom = ? WHERE id = ?').bind(nom, moi.exploitation_id).run();
+    return json(moiPourNavigateur({ ...moi, exploitation_nom: nom }));
+  }
+
   // ---------- comptes de l'exploitation (chef d'exploitation) ----------
   if (p[0] === 'comptes') {
     if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
@@ -292,8 +312,14 @@ export async function api(request, env, url) {
     const id = Number(p[1]);
     const e = Number.isInteger(id) && await env.DB.prepare('SELECT * FROM exploitations WHERE id = ?').bind(id).first();
     if (!e) return erreur(404, 'Exploitation introuvable.');
-    // Suspendre ou rouvrir un espace (rien n'est effacé)
+    // Renommer, ou suspendre / rouvrir un espace (rien n'est effacé)
     if (p.length === 2 && methode === 'PATCH') {
+      if (corps.nom !== undefined) {
+        const nom = texte(corps.nom, 80);
+        if (!nom) return erreur(400, 'Le nom de l\'exploitation est obligatoire.');
+        await env.DB.prepare('UPDATE exploitations SET nom = ? WHERE id = ?').bind(nom, id).run();
+        if (corps.actif === undefined) return json({ ok: true, nom });
+      }
       if (e.id === moi.exploitation_id) return erreur(400, 'Vous ne pouvez pas suspendre votre propre exploitation.');
       const actif = corps.actif ? 1 : 0;
       await env.DB.prepare('UPDATE exploitations SET actif = ? WHERE id = ?').bind(actif, id).run();

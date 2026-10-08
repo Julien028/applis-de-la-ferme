@@ -30,7 +30,7 @@ mots simples, et évite le jargon quand un mot courant suffit.
 
 | Élément | Contenu |
 |---|---|
-| `public/index.html` | Accueil : connexion, mon mot de passe, comptes de l'exploitation (chef), exploitations (administrateur), cases des applis. |
+| `public/index.html` | Accueil : connexion, mon compte (nom, identifiant, mot de passe), comptes et nom de l'exploitation (chef), exploitations : créer, renommer, suspendre (administrateur), cases des applis. |
 | `public/irrigation-enrouleur/` | Irrigation enrouleur (reprise de `../calcul-irrigation-enrouleur`) : enrouleurs et largeurs rangés dans l'espace (`/api/reglages/enrouleurs`, `largVille`), modifiables par le chef seulement. |
 | `public/dose-de-semis/` | La dose de semis (reprise de `../dose-de-semis`). La connexion se fait à l'accueil ; la page lit `applis.moi` dans l'appareil et vérifie `/api/moi`. |
 | `functions/api/[[chemin]].js` | Toutes les adresses `/api/…`, qui appellent `src/api.js`. |
