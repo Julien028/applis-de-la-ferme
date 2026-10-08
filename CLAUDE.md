@@ -31,10 +31,11 @@ mots simples, et évite le jargon quand un mot courant suffit.
 | Élément | Contenu |
 |---|---|
 | `public/index.html` | Accueil : connexion, mon mot de passe, comptes de l'exploitation (chef), exploitations (administrateur), cases des applis. |
+| `public/irrigation-enrouleur/` | Irrigation enrouleur (reprise de `../calcul-irrigation-enrouleur`) : enrouleurs et largeurs rangés dans l'espace (`/api/reglages/enrouleurs`, `largVille`), modifiables par le chef seulement. |
 | `public/dose-de-semis/` | La dose de semis (reprise de `../dose-de-semis`). La connexion se fait à l'accueil ; la page lit `applis.moi` dans l'appareil et vérifie `/api/moi`. |
 | `functions/api/[[chemin]].js` | Toutes les adresses `/api/…`, qui appellent `src/api.js`. |
 | `src/api.js`, `src/session.js` | Règles du serveur (code standard, sans dépendance à l'hébergeur). |
-| `db/schema.sql` | Tables : exploitations, comptes, sessions, echecs, semences. |
+| `db/schema.sql` | Tables : exploitations, comptes, sessions, echecs, semences, reglages (enrouleurs, largeurs). |
 | `scripts/premiere-exploitation.mjs` | Crée la 1re exploitation et son chef administrateur du site (une fois). |
 
 ## Essai sur l'ordinateur

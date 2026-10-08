@@ -59,3 +59,16 @@ CREATE TABLE IF NOT EXISTS semences (
   modifie_par INTEGER REFERENCES comptes(id)
 );
 CREATE INDEX IF NOT EXISTS semences_exploitation ON semences (exploitation_id);
+
+-- Réglages d'une appli pour l'exploitation, un par clé (ajouté le 08/10/2026) :
+--   enrouleurs : liste des enrouleurs enregistrés (irrigation enrouleur)
+--   largVille  : largeurs arrosées corrigées, par enrouleur et buse
+CREATE TABLE IF NOT EXISTS reglages (
+  exploitation_id INTEGER NOT NULL REFERENCES exploitations(id),
+  cle TEXT NOT NULL,
+  valeur TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  modifie_le TEXT NOT NULL DEFAULT (datetime('now')),
+  modifie_par INTEGER REFERENCES comptes(id),
+  PRIMARY KEY (exploitation_id, cle)
+);

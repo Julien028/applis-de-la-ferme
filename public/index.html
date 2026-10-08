@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Applis de la ferme</title>
-<meta name="description" content="Les petits outils de la ferme : dose de semis… Un espace par exploitation, un compte par personne.">
+<meta name="description" content="Les petits outils de la ferme : dose de semis, irrigation enrouleur… Un espace par exploitation, un compte par personne.">
 <meta name="theme-color" content="#1E241B">
 <link rel="icon" href="dose-de-semis/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="dose-de-semis/apple-touch-icon.png">
@@ -136,10 +136,10 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
       <img src="dose-de-semis/apple-touch-icon.png" alt="">
       <div><div class="t">Dose de semis</div><div class="d">Du PMG à la dose en kg/ha, surface faisable, essai de débit, récapitulatif par campagne.</div></div>
     </a>
-    <div class="tuile bientot" aria-disabled="true">
-      <div class="vide" aria-hidden="true">💧</div>
-      <div><div class="t">Irrigation enrouleur</div><div class="d">Vitesse d'avancement et dose. Bientôt.</div></div>
-    </div>
+    <a class="tuile" href="irrigation-enrouleur/">
+      <img src="irrigation-enrouleur/icon-192.png" alt="">
+      <div><div class="t">Irrigation enrouleur</div><div class="d">Dose d'eau ou vitesse d'avancement, enrouleurs de l'exploitation enregistrés.</div></div>
+    </a>
   </div>
 </section>
 
@@ -212,7 +212,7 @@ $("deconnexion").addEventListener("click", async ()=>{
   // On efface aussi les copies des données de l'exploitation gardées dans l'appareil
   try{
     localStorage.removeItem("applis.moi");
-    Object.keys(localStorage).filter(k=>k.startsWith("dose-de-semis.semences@")).forEach(k=>localStorage.removeItem(k));
+    Object.keys(localStorage).filter(k=>/^(dose-de-semis.semences|enrouleurs|largVille|versions)@/.test(k)).forEach(k=>localStorage.removeItem(k));
   }catch(e){}
   dessiner();
 });

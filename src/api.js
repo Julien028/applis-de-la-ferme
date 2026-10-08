@@ -14,6 +14,8 @@ import { hacher, verifier, nouveauJeton, cookieSession, lireJeton, EXPIRATION, m
 
 const TAILLE_MAX_SEMENCE = 8000;      // une semence pèse quelques centaines d'octets
 const MAX_SEMENCES = 1000;            // par exploitation
+const CLES_REGLAGES = ['enrouleurs', 'largVille']; // irrigation enrouleur
+const TAILLE_MAX_REGLAGE = 50000;
 const MAX_ECHECS = 10;                // essais ratés tolérés…
 const FENETRE_ECHECS = '-15 minutes'; // …sur cette durée
 
@@ -238,6 +240,31 @@ export async function api(request, env, url) {
       return json({ ok: true });
     }
     return erreur(405, 'Méthode non prise en charge.');
+  }
+
+  // ---------- réglages des applis (irrigation enrouleur…) ----------
+  if (p[0] === 'reglages' && p.length === 2) {
+    const cle = p[1];
+    if (!CLES_REGLAGES.includes(cle)) return erreur(404, 'Réglage inconnu.');
+    const l = await env.DB.prepare(
+      'SELECT r.*, c.nom AS modifie_par_nom FROM reglages r LEFT JOIN comptes c ON c.id = r.modifie_par WHERE r.exploitation_id = ? AND r.cle = ?'
+    ).bind(moi.exploitation_id, cle).first();
+    const pourNavigateur = x => x ? { valeur: JSON.parse(x.valeur), version: x.version, modifie_le: x.modifie_le, modifie_par: x.modifie_par_nom ?? null } : { valeur: null, version: 0 };
+    if (methode === 'GET') return json(pourNavigateur(l));
+    if (methode !== 'PUT') return erreur(405, 'Méthode non prise en charge.');
+    if (!chef) return erreur(403, 'Seul le chef d\x27exploitation peut modifier ces réglages.');
+    if (corps.valeur === undefined) return erreur(400, 'Valeur manquante.');
+    const t = JSON.stringify(corps.valeur);
+    if (t.length > TAILLE_MAX_REGLAGE) return erreur(400, 'Réglage trop gros.');
+    // Modifié entre-temps sur un autre appareil : on renvoie la version à jour
+    if (Number(corps.version) !== (l ? l.version : 0)) return erreur(409, 'Modifié sur un autre appareil.', pourNavigateur(l));
+    const maj = l
+      ? await env.DB.prepare("UPDATE reglages SET valeur = ?, version = version + 1, modifie_le = datetime('now'), modifie_par = ? WHERE exploitation_id = ? AND cle = ? AND version = ? RETURNING *")
+          .bind(t, moi.id, moi.exploitation_id, cle, l.version).first()
+      : await env.DB.prepare('INSERT INTO reglages (exploitation_id, cle, valeur, modifie_par) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING RETURNING *')
+          .bind(moi.exploitation_id, cle, t, moi.id).first();
+    if (!maj) return erreur(409, 'Modifié sur un autre appareil.', pourNavigateur(l));
+    return json(pourNavigateur(maj));
   }
 
   // ---------- exploitations (administrateur du site) ----------
