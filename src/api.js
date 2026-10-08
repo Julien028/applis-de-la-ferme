@@ -337,6 +337,16 @@ export async function api(request, env, url) {
       await env.DB.prepare('UPDATE pluviometres SET nom = ?, actif = ? WHERE id = ?').bind(nom, actif, id).run();
       return json({ id, nom, actif });
     }
+    // Suppression définitive, relevés compris. Garde-fou : le nom du pluviomètre,
+    // retapé par le chef, doit accompagner la demande (?confirmation=…).
+    if (p.length === 2 && methode === 'DELETE') {
+      const simple = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (simple(url.searchParams.get('confirmation')) !== simple(pl.nom))
+        return erreur(400, 'Le nom tapé ne correspond pas : rien n\'a été supprimé.');
+      await env.DB.prepare('DELETE FROM releves_pluie WHERE pluviometre_id = ?').bind(id).run();
+      await env.DB.prepare('DELETE FROM pluviometres WHERE id = ?').bind(id).run();
+      return json({ ok: true });
+    }
     return erreur(405, 'Méthode non prise en charge.');
   }
 

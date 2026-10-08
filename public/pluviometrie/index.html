@@ -206,7 +206,19 @@ function dessinerPluvios(){
     a.addEventListener("click", async ()=>{
       if(p.actif && !confirm("Archiver « "+p.nom+" » ? Il n'apparaîtra plus dans la liste ; ses relevés sont gardés.")) return;
       try{ await appel("PATCH","/api/pluviometres/"+p.id,{actif:!p.actif}); await chargerPluvios(); await chargerAnnee(); }catch(e){ alert(e.message); } });
-    li.append(r,a); ul.appendChild(li);
+    // Supprimer pour de bon : il faut retaper le nom du pluviomètre
+    const x=document.createElement("button"); x.className="lien"; x.type="button"; x.textContent="Supprimer"; x.style.color="var(--rouge)";
+    x.addEventListener("click", async ()=>{
+      const tape = prompt("Supprimer définitivement « "+p.nom+" » et TOUS ses relevés ?\nCela ne peut pas être annulé. Pour confirmer, tapez son nom :");
+      if(tape===null) return;
+      try{
+        await appel("DELETE","/api/pluviometres/"+p.id+"?confirmation="+encodeURIComponent(tape));
+        if(pluvio && pluvio.id===p.id) pluvio=null;
+        await chargerPluvios(); await chargerAnnee();
+        alert("« "+p.nom+" » est supprimé.");
+      }catch(e){ alert(e.message); }
+    });
+    li.append(r,a,x); ul.appendChild(li);
   });
 }
 $("choixPluvio").addEventListener("change", async ()=>{

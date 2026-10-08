@@ -67,7 +67,7 @@ puis `npx wrangler pages dev --port 8796`. Codes de test dans `.essai-local.txt`
 
 ## Idées pour la suite
 
-- Reprendre les relevés de pluie du site des heures (base D1 `heures-bretonvilliers`) dans un pluviomètre, puis retirer la pluviométrie de ce site (depuis son propre dossier).
+- Pluie 2026 reprise du site des heures le 08/10/2026 (49 relevés, pluviomètre « Bretonvilliers »). Supprimer un pluviomètre : le chef retape son nom (vérifié aussi par le serveur).
 
 - Une troisième appli, selon les idées de Julien.
 - Mentions légales si le site est proposé à d'autres agriculteurs.
