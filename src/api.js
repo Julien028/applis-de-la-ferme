@@ -16,6 +16,20 @@ const TAILLE_MAX_SEMENCE = 8000;      // une semence pèse quelques centaines d'
 const MAX_SEMENCES = 1000;            // par exploitation
 const CLES_REGLAGES = ['enrouleurs', 'largVille']; // irrigation enrouleur
 const TAILLE_MAX_REGLAGE = 50000;
+// Ce qu'un salarié peut modifier, coché par le chef (le chef peut tout)
+export const DROITS = ['pluie', 'pmg', 'semences', 'enrouleurs'];
+function lireDroits(brut) {
+  let d = {};
+  try { d = JSON.parse(brut || '{}') || {}; } catch {}
+  return Object.fromEntries(DROITS.map(k => [k, !!d[k]]));
+}
+const droitsDe = m => m.role === 'chef' ? Object.fromEntries(DROITS.map(k => [k, true])) : lireDroits(m.droits);
+const peut = (m, droit) => droitsDe(m)[droit];
+function droitsDepuis(corps, defaut) {
+  if (!corps || typeof corps !== 'object') return JSON.stringify(defaut);
+  return JSON.stringify(Object.fromEntries(DROITS.map(k => [k, !!corps[k]])));
+}
+const TAILLE_MAX_NOM = 60;
 const MAX_ECHECS = 10;                // essais ratés tolérés…
 const FENETRE_ECHECS = '-15 minutes'; // …sur cette durée
 
@@ -43,7 +57,7 @@ async function connecte(request, env) {
   const jeton = lireJeton(request);
   if (!jeton) return null;
   const c = await env.DB.prepare(
-    `SELECT c.id, c.identifiant, c.nom, c.role, c.super_admin, c.doit_changer, c.exploitation_id,
+    `SELECT c.id, c.identifiant, c.nom, c.role, c.super_admin, c.doit_changer, c.exploitation_id, c.droits,
             e.nom AS exploitation_nom, s.expire_le
        FROM sessions s JOIN comptes c ON c.id = s.compte_id JOIN exploitations e ON e.id = c.exploitation_id
       WHERE s.jeton = ? AND s.expire_le > datetime('now') AND c.actif = 1 AND e.actif = 1`
@@ -59,7 +73,8 @@ const moiPourNavigateur = m => ({
   compte: { id: m.id, nom: m.nom, identifiant: m.identifiant, role: m.role },
   exploitation: { id: m.exploitation_id, nom: m.exploitation_nom },
   superAdmin: !!m.super_admin,
-  doitChanger: !!m.doit_changer
+  doitChanger: !!m.doit_changer,
+  droits: droitsDe(m)
 });
 
 function lireDonnees(brut) {
@@ -77,13 +92,13 @@ function semencePourNavigateur(l) {
 const compteExiste = (env, identifiant) => env.DB.prepare('SELECT 1 FROM comptes WHERE identifiant = ?').bind(identifiant).first();
 
 // Crée un compte avec un mot de passe provisoire (montré une seule fois)
-async function creerCompte(env, { exploitationId, identifiant, nom, role, creePar }) {
+async function creerCompte(env, { exploitationId, identifiant, nom, role, creePar, droits = '{"pluie":true}' }) {
   const mdp = motDePasseProvisoire();
   const c = await env.DB.prepare(
-    `INSERT INTO comptes (exploitation_id, identifiant, nom, role, mot_de_passe, doit_changer, cree_par)
-     VALUES (?, ?, ?, ?, ?, 1, ?) RETURNING id, identifiant, nom, role, actif`
-  ).bind(exploitationId, identifiant, nom, role, await hacher(mdp), creePar).first();
-  return { ...c, motDePasse: mdp };
+    `INSERT INTO comptes (exploitation_id, identifiant, nom, role, mot_de_passe, doit_changer, cree_par, droits)
+     VALUES (?, ?, ?, ?, ?, 1, ?, ?) RETURNING id, identifiant, nom, role, actif, droits`
+  ).bind(exploitationId, identifiant, nom, role, await hacher(mdp), creePar, droits).first();
+  return { ...c, droits: lireDroits(c.droits), motDePasse: mdp };
 }
 
 function lireNouveauCompte(corps) {
@@ -180,16 +195,16 @@ export async function api(request, env, url) {
     if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
     if (p.length === 1 && methode === 'GET') {
       const { results } = await env.DB.prepare(
-        'SELECT id, identifiant, nom, role, actif, doit_changer, cree_le FROM comptes WHERE exploitation_id = ? ORDER BY actif DESC, role, nom'
+        'SELECT id, identifiant, nom, role, actif, doit_changer, cree_le, droits FROM comptes WHERE exploitation_id = ? ORDER BY actif DESC, role, nom'
       ).bind(moi.exploitation_id).all();
-      return json(results);
+      return json(results.map(c => ({ ...c, droits: lireDroits(c.droits) })));
     }
     if (p.length === 1 && methode === 'POST') {
       const n = lireNouveauCompte(corps);
       if (n.pb) return erreur(400, n.pb);
       const role = corps.role === 'chef' ? 'chef' : 'salarie';
       if (await compteExiste(env, n.identifiant)) return erreur(409, 'Cet identifiant est déjà pris (peut-être dans une autre exploitation). Ajoutez une initiale ou un chiffre.');
-      return json(await creerCompte(env, { exploitationId: moi.exploitation_id, ...n, role, creePar: moi.id }), 201);
+      return json(await creerCompte(env, { exploitationId: moi.exploitation_id, ...n, role, creePar: moi.id, droits: droitsDepuis(corps.droits, { pluie: true }) }), 201);
     }
     const id = Number(p[1]);
     const c = Number.isInteger(id) && await env.DB.prepare('SELECT * FROM comptes WHERE id = ? AND exploitation_id = ?').bind(id, moi.exploitation_id).first();
@@ -202,11 +217,12 @@ export async function api(request, env, url) {
       await env.DB.prepare('DELETE FROM sessions WHERE compte_id = ?').bind(id).run();
       return json({ id, nom: c.nom, identifiant: c.identifiant, motDePasse: mdp });
     }
-    // Désactiver / réactiver, changer de rôle
+    // Désactiver / réactiver, changer de rôle, cocher ce qu'il peut modifier
     if (p.length === 2 && methode === 'PATCH') {
       const actif = corps.actif === undefined ? c.actif : (corps.actif ? 1 : 0);
       const role = corps.role === undefined ? c.role : (corps.role === 'chef' ? 'chef' : 'salarie');
-      await env.DB.prepare('UPDATE comptes SET actif = ?, role = ? WHERE id = ?').bind(actif, role, id).run();
+      const droits = corps.droits === undefined ? c.droits : droitsDepuis(corps.droits, {});
+      await env.DB.prepare('UPDATE comptes SET actif = ?, role = ?, droits = ? WHERE id = ?').bind(actif, role, droits, id).run();
       if (!actif) await env.DB.prepare('DELETE FROM sessions WHERE compte_id = ?').bind(id).run();
       return json({ ok: true });
     }
@@ -221,7 +237,8 @@ export async function api(request, env, url) {
           WHERE s.exploitation_id = ? ORDER BY s.id`).bind(moi.exploitation_id).all();
       return json(results.map(semencePourNavigateur));
     }
-    if (!chef) return erreur(403, 'Seul le chef d\'exploitation peut modifier les semences.');
+    const toutModifier = peut(moi, 'semences');
+    if (!toutModifier && !(methode === 'PUT' && peut(moi, 'pmg'))) return erreur(403, 'Vous ne pouvez pas modifier les semences.');
 
     // Création d'une ou plusieurs semences (plusieurs : rangement de celles d'un appareil)
     if (p.length === 1 && methode === 'POST') {
@@ -245,8 +262,14 @@ export async function api(request, env, url) {
     if (!l) return erreur(404, 'Cette semence n\'existe plus.');
 
     if (methode === 'PUT') {
-      const t = lireDonnees(corps.donnees);
+      let t = lireDonnees(corps.donnees);
       if (!t) return erreur(400, 'Semence illisible ou trop grosse.');
+      // Droit « PMG » seulement : on ne garde que le PMG, le reste ne bouge pas
+      if (!toutModifier) {
+        let avant = {};
+        try { avant = JSON.parse(l.donnees) || {}; } catch {}
+        t = JSON.stringify({ ...avant, pmg: String(corps.donnees.pmg ?? avant.pmg ?? '').slice(0, 20) });
+      }
       // Modifiée entre-temps sur un autre appareil : on renvoie la version à jour
       if (Number(corps.version) !== l.version) return erreur(409, 'Modifiée sur un autre appareil.', { semence: semencePourNavigateur(l) });
       const maj = await env.DB.prepare(
@@ -256,6 +279,7 @@ export async function api(request, env, url) {
       return json(semencePourNavigateur(maj));
     }
     if (methode === 'DELETE') {
+      if (!toutModifier) return erreur(403, 'Vous ne pouvez pas supprimer de semence.');
       await env.DB.prepare('DELETE FROM semences WHERE id = ?').bind(id).run();
       return json({ ok: true });
     }
@@ -272,7 +296,7 @@ export async function api(request, env, url) {
     const pourNavigateur = x => x ? { valeur: JSON.parse(x.valeur), version: x.version, modifie_le: x.modifie_le, modifie_par: x.modifie_par_nom ?? null } : { valeur: null, version: 0 };
     if (methode === 'GET') return json(pourNavigateur(l));
     if (methode !== 'PUT') return erreur(405, 'Méthode non prise en charge.');
-    if (!chef) return erreur(403, 'Seul le chef d\x27exploitation peut modifier ces réglages.');
+    if (!peut(moi, 'enrouleurs')) return erreur(403, 'Vous ne pouvez pas modifier les enrouleurs.');
     if (corps.valeur === undefined) return erreur(400, 'Valeur manquante.');
     const t = JSON.stringify(corps.valeur);
     if (t.length > TAILLE_MAX_REGLAGE) return erreur(400, 'Réglage trop gros.');
@@ -285,6 +309,75 @@ export async function api(request, env, url) {
           .bind(moi.exploitation_id, cle, t, moi.id).first();
     if (!maj) return erreur(409, 'Modifié sur un autre appareil.', pourNavigateur(l));
     return json(pourNavigateur(maj));
+  }
+
+  // ---------- pluviométrie ----------
+  // Les pluviomètres de l'exploitation : tout le monde les voit, le chef les crée et les renomme
+  if (p[0] === 'pluviometres') {
+    if (p.length === 1 && methode === 'GET') {
+      const { results } = await env.DB.prepare(
+        'SELECT id, nom, actif FROM pluviometres WHERE exploitation_id = ? ORDER BY actif DESC, id').bind(moi.exploitation_id).all();
+      return json(results);
+    }
+    if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
+    if (p.length === 1 && methode === 'POST') {
+      const nom = texte(corps.nom, TAILLE_MAX_NOM);
+      if (!nom) return erreur(400, 'Donnez un nom au pluviomètre.');
+      const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM pluviometres WHERE exploitation_id = ?').bind(moi.exploitation_id).first();
+      if (n >= 20) return erreur(400, 'Vingt pluviomètres au plus.');
+      return json(await env.DB.prepare('INSERT INTO pluviometres (exploitation_id, nom) VALUES (?, ?) RETURNING id, nom, actif').bind(moi.exploitation_id, nom).first(), 201);
+    }
+    const id = Number(p[1]);
+    const pl = Number.isInteger(id) && await env.DB.prepare('SELECT * FROM pluviometres WHERE id = ? AND exploitation_id = ?').bind(id, moi.exploitation_id).first();
+    if (!pl) return erreur(404, 'Pluviomètre introuvable.');
+    if (p.length === 2 && methode === 'PATCH') {
+      const nom = corps.nom === undefined ? pl.nom : texte(corps.nom, TAILLE_MAX_NOM);
+      if (!nom) return erreur(400, 'Donnez un nom au pluviomètre.');
+      const actif = corps.actif === undefined ? pl.actif : (corps.actif ? 1 : 0);
+      await env.DB.prepare('UPDATE pluviometres SET nom = ?, actif = ? WHERE id = ?').bind(nom, actif, id).run();
+      return json({ id, nom, actif });
+    }
+    return erreur(405, 'Méthode non prise en charge.');
+  }
+
+  // Relevés : /api/pluie/<pluviomètre>?annee=2026 (un an), /api/pluie/<pluviomètre>/mois (historique)
+  if (p[0] === 'pluie') {
+    const id = Number(p[1]);
+    const pl = Number.isInteger(id) && await env.DB.prepare('SELECT * FROM pluviometres WHERE id = ? AND exploitation_id = ?').bind(id, moi.exploitation_id).first();
+    if (!pl) return erreur(404, 'Pluviomètre introuvable.');
+    if (p.length === 2 && methode === 'GET') {
+      const annee = /^\d{4}$/.test(url.searchParams.get('annee') || '') ? url.searchParams.get('annee') : String(new Date().getUTCFullYear());
+      const { results } = await env.DB.prepare(
+        `SELECT r.jour, r.mm, r.saisi_le, c.nom AS saisi_par FROM releves_pluie r LEFT JOIN comptes c ON c.id = r.saisi_par
+          WHERE r.pluviometre_id = ? AND r.jour >= ? AND r.jour <= ? ORDER BY r.jour`).bind(id, annee + '-01-01', annee + '-12-31').all();
+      return json(results);
+    }
+    // Totaux par mois, toutes années : pour l'histogramme et la comparaison
+    if (p[2] === 'mois' && methode === 'GET') {
+      const { results } = await env.DB.prepare(
+        `SELECT substr(jour, 1, 4) AS annee, CAST(substr(jour, 6, 2) AS INTEGER) AS mois,
+                ROUND(SUM(mm), 1) AS total, SUM(CASE WHEN mm > 0 THEN 1 ELSE 0 END) AS jours
+           FROM releves_pluie WHERE pluviometre_id = ? GROUP BY annee, mois ORDER BY annee, mois`).bind(id).all();
+      return json(results);
+    }
+    // Saisir ou corriger un relevé ; mm vide = effacer le relevé du jour
+    if (p.length === 2 && methode === 'PUT') {
+      if (!peut(moi, 'pluie')) return erreur(403, 'Vous ne pouvez pas saisir la pluviométrie.');
+      const jour = String(corps.jour || '');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(jour) || isNaN(Date.parse(jour + 'T00:00:00Z'))) return erreur(400, 'Date invalide.');
+      if (corps.mm === null || corps.mm === '') {
+        await env.DB.prepare('DELETE FROM releves_pluie WHERE pluviometre_id = ? AND jour = ?').bind(id, jour).run();
+        return json({ jour, mm: null });
+      }
+      const mm = Math.round(Number(String(corps.mm).replace(',', '.')) * 10) / 10;
+      if (!(mm >= 0) || mm > 500) return erreur(400, 'Hauteur de pluie invalide (en mm, entre 0 et 500).');
+      await env.DB.prepare(
+        `INSERT INTO releves_pluie (pluviometre_id, jour, mm, saisi_par) VALUES (?, ?, ?, ?)
+         ON CONFLICT (pluviometre_id, jour) DO UPDATE SET mm = excluded.mm, saisi_par = excluded.saisi_par, saisi_le = datetime('now')`
+      ).bind(id, jour, mm, moi.id).run();
+      return json({ jour, mm, saisi_par: moi.nom });
+    }
+    return erreur(405, 'Méthode non prise en charge.');
   }
 
   // ---------- exploitations (administrateur du site) ----------

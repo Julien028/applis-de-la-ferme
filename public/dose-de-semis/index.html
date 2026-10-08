@@ -599,7 +599,7 @@ function sauver(){
   if(!pret) return;
   Object.assign(semences[actuelle], lireSemence());
   enregistrerLocal();
-  if(espace && espace.compte.role==="chef" && semences.some(x=>JSON.stringify(donnees(x))!==x._empreinte)) planifierEnvoi();
+  if(espace && peutPmg() && semences.some(x=>empreinteDe(x)!==x._empreinte)) planifierEnvoi();
   dessinerRecap();
 }
 function nomDe(s,i){ return (s.nom||"").trim() || "Semence "+(i+1); }
@@ -794,7 +794,13 @@ let aSupprimer = [];          // semences effacées, à retirer en ligne
 let envoiTimer = null, envoiEnCours = false;
 
 const cleStockage = () => espace ? CLE+"@"+espace.exploitation.id : CLE;
-const lectureSeule = () => !!espace && espace.compte.role!=="chef";
+const droit = d => !espace || espace.compte.role==="chef" || !!(espace.droits && espace.droits[d]);
+const peutSemences = () => droit("semences");
+const peutPmg = () => peutSemences() || droit("pmg");
+const lectureSeule = () => !peutSemences();
+// Ce qui part en ligne : toute la semence, ou seulement le PMG
+const envoiDe = x => peutSemences() ? donnees(x) : {pmg: x.pmg};
+const empreinteDe = x => JSON.stringify(envoiDe(x));
 function donnees(x){ const d={}; for(const k in x) if(k[0]!=="_") d[k]=x[k]; return d; }
 function nouvelleSemence(rang, annee){ return Object.assign({}, DEFAUT, {nom:"Semence "+rang, annee}); }
 
@@ -825,7 +831,7 @@ function chargerListe(liste, act){
   if(!semences.length){
     semences = espace ? [nouvelleSemence(1, ANNEE)] : [1,2,3].map(n=>nouvelleSemence(n, ANNEE));
     // Semence vide proposée dans un espace : envoyée seulement si on la remplit
-    if(espace) semences[0]._empreinte = JSON.stringify(donnees(semences[0]));
+    if(espace) semences[0]._empreinte = empreinteDe(semences[0]);
   }
   actuelle = Math.min(Math.max(act|0,0), semences.length-1);
   pret=false; appliquerSemence(semences[actuelle]); pret=true;
@@ -835,18 +841,20 @@ function chargerListe(liste, act){
 
 function versLocal(x){
   const o = Object.assign({}, DEFAUT, x.donnees, {_id:x.id, _version:x.version});
-  o._empreinte = JSON.stringify(donnees(o));
+  o._empreinte = empreinteDe(o);
   return o;
 }
 
 function appliquerDroits(){
   const ro = lectureSeule();
-  ["especeSem","nomSem","anneeSem","stockKg","stockGr","aFaire","pmg","dens","fgN","fgR","perteN","perteR"].forEach(id=>$(id).disabled=ro);
+  ["especeSem","nomSem","anneeSem","stockKg","stockGr","aFaire","dens","fgN","fgR","perteN","perteR"].forEach(id=>$(id).disabled=ro);
+  $("pmg").disabled = !peutPmg();
   document.querySelectorAll("#stockMode button, #cible button").forEach(b=>b.disabled=ro);
   $("ajoutCampagne").hidden = ro;
   $("semHint").textContent = !espace
     ? "Chaque semence garde ses propres chiffres, sur cet appareil."
-    : ro ? "Accès salarié : les semences se consultent et servent aux calculs ; seul le chef d'exploitation les modifie."
+    : ro ? (peutPmg() ? "Vous pouvez modifier le PMG ; le reste des semences est réglé par le chef d'exploitation."
+                      : "Accès salarié : les semences se consultent et servent aux calculs ; seul le chef d'exploitation les modifie.")
          : "Enregistrées dans l'espace de l'exploitation : les mêmes sur tous vos appareils.";
 }
 
@@ -864,14 +872,15 @@ function planifierEnvoi(delai){
   if(delai===undefined) etat("Enregistrement…", "attente");
 }
 async function envoyer(){
-  if(!espace || espace.compte.role!=="chef") return;
+  if(!espace || !peutPmg()) return;
   if(envoiEnCours){ planifierEnvoi(); return; }
   envoiEnCours = true;
   try{
     for(const x of [...semences]){
-      const d = donnees(x), t = JSON.stringify(d);
+      const d = donnees(x), t = empreinteDe(x);
       if(t===x._empreinte) continue;
       if(!x._id){
+        if(!peutSemences()) continue;
         const [n] = await appel("POST", "/api/semences", {donnees:d});
         x._id=n.id; x._version=n.version; x._empreinte=t;
         continue;
@@ -890,7 +899,7 @@ async function envoyer(){
         else throw e;
       }
     }
-    while(aSupprimer.length){
+    while(aSupprimer.length && peutSemences()){
       await appel("DELETE", "/api/semences/"+aSupprimer[0]).catch(e=>{ if(e.status!==404) throw e; });
       aSupprimer.shift();
     }
@@ -928,14 +937,14 @@ async function modeEspace(moi){
     dessinerCompte();
     await proposerRangement(espace);
     // …puis on envoie ce qui ne l'était pas encore, et on recharge la liste en ligne
-    if(espace.compte.role==="chef") await envoyer();
+    if(peutPmg()) await envoyer();
     const liste = await appel("GET", "/api/semences");
     const idActuel = semences[actuelle] && semences[actuelle]._id;
     const locales = liste.map(versLocal);
     const i = locales.findIndex(x=>x._id===idActuel);
     chargerListe(locales, i>=0 ? i : 0);
     enregistrerLocal();
-    etat(espace.doitChanger ? "Mot de passe provisoire : changez-le depuis l'accueil." : espace.compte.role==="chef" ? "Enregistré" : "À jour", espace.doitChanger ? "attente" : "ok");
+    etat(espace.doitChanger ? "Mot de passe provisoire : changez-le depuis l'accueil." : peutPmg() ? "Enregistré" : "À jour", espace.doitChanger ? "attente" : "ok");
   }catch(e){
     if(e.status===401) return perdreSession();
     etat("Hors ligne : dernières semences connues", "attente");
@@ -950,7 +959,7 @@ function perdreSession(){
 
 // Les semences déjà créées sur cet appareil, rangées dans l'espace (une fois)
 async function proposerRangement(moi){
-  if(moi.compte.role!=="chef") return;
+  if(moi.compte.role!=="chef" && !(moi.droits && moi.droits.semences)) return;
   const fait = "dose-de-semis.range@"+moi.exploitation.id;
   try{ if(localStorage.getItem(fait)) return; }catch(e){ return; }
   const d = lireCache(CLE);
@@ -965,7 +974,7 @@ async function proposerRangement(moi){
 }
 
 // ----- démarrage -----
-window.addEventListener("online", ()=>{ if(espace && espace.compte.role==="chef") planifierEnvoi(0); });
+window.addEventListener("online", ()=>{ if(espace && peutPmg()) planifierEnvoi(0); });
 (async function demarrer(){
   let memo = null;
   try{ memo = JSON.parse(localStorage.getItem(CLE_ESPACE)); }catch(e){}

@@ -20,12 +20,14 @@ mots simples, et évite le jargon quand un mot courant suffit.
   - **chef d'exploitation** (`chef`) : administrateur de son exploitation ; crée les comptes
     des salariés (mot de passe provisoire, à changer à la 1re connexion), les désactive,
     leur redonne un mot de passe ; modifie les données des applis (semences…).
-  - **salarié** (`salarie`) : consulte et fait les calculs, ne modifie pas les semences.
+  - **salarié** (`salarie`) : consulte et fait les calculs ; ce qu'il peut modifier est coché par le chef
+    (colonne `droits`, décidé le 08/10/2026) : saisir la pluie (coché par défaut), PMG des semences
+    seulement, semences (tout le reste), enrouleurs. Le serveur vérifie (PMG seul : il ne garde que le PMG).
   - **administrateur du site** (`super_admin`, Julien) : crée les exploitations
     (Dimancheville, autres agriculteurs) et leur premier chef. Pas d'inscription libre.
   - Un compte ne se supprime pas, il se désactive.
 - Sans connexion, les outils marchent quand même (données dans l'appareil).
-- Deux applis : dose de semis et irrigation enrouleur. D'autres viendront selon les idées.
+- Trois applis : dose de semis, irrigation enrouleur, pluviométrie. D'autres viendront selon les idées.
 
 ## Où est quoi
 
@@ -34,9 +36,10 @@ mots simples, et évite le jargon quand un mot courant suffit.
 | `public/index.html` | Accueil : connexion, mon compte (nom, identifiant, mot de passe), comptes et nom de l'exploitation (chef), exploitations : créer, renommer, suspendre (administrateur), cases des applis. |
 | `public/irrigation-enrouleur/` | Irrigation enrouleur, une seule page (onglet Villechèvre retiré le 08/10/2026) : calcul dose ↔ vitesse avec menus enrouleur puis buse (remplissent débit et largeur, temps pour tout le tuyau) ; « Mes enrouleurs » = {nom, diametre, tuyau, buses:[{buse, pression, debit, largeur}]}, modèles Beinlich Ø135/Ø125 et Perrot Ø110 à 8 bars, rangés dans l'espace (`/api/reglages/enrouleurs`), modifiables par le chef seulement. |
 | `public/dose-de-semis/` | La dose de semis (reprise de `../dose-de-semis`). La connexion se fait à l'accueil ; la page lit `applis.moi` dans l'appareil et vérifie `/api/moi`. |
+| `public/pluviometrie/` | Pluviométrie (08/10/2026) : pluviomètres créés par le chef, saisie rapide du jour, tableau jours × mois (décades, jours de pluie, total, cumul), historique (histogramme par mois + moyenne des autres années, totaux par année), export tableur. Connexion obligatoire. |
 | `functions/api/[[chemin]].js` | Toutes les adresses `/api/…`, qui appellent `src/api.js`. |
 | `src/api.js`, `src/session.js` | Règles du serveur (code standard, sans dépendance à l'hébergeur). |
-| `db/schema.sql` | Tables : exploitations, comptes, sessions, echecs, semences, reglages (enrouleurs, largeurs). |
+| `db/schema.sql` | Tables : exploitations, comptes (avec `droits`), sessions, echecs, semences, reglages (enrouleurs), pluviometres, releves_pluie. Migrations à passer une fois en ligne : `db/migrations/`. |
 | `scripts/premiere-exploitation.mjs` | Crée la 1re exploitation et son chef administrateur du site (une fois). |
 
 ## Essai sur l'ordinateur
@@ -63,6 +66,8 @@ puis `npx wrangler pages dev --port 8796`. Codes de test dans `.essai-local.txt`
   les comptes de test).
 
 ## Idées pour la suite
+
+- Reprendre les relevés de pluie du site des heures (base D1 `heures-bretonvilliers`) dans un pluviomètre, puis retirer la pluviométrie de ce site (depuis son propre dossier).
 
 - Une troisième appli, selon les idées de Julien.
 - Mentions légales si le site est proposé à d'autres agriculteurs.

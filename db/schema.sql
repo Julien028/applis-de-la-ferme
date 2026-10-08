@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS comptes (
   doit_changer INTEGER NOT NULL DEFAULT 1,
   actif INTEGER NOT NULL DEFAULT 1,
   super_admin INTEGER NOT NULL DEFAULT 0,
+  -- Ce qu'un salarié peut modifier (cases cochées par le chef), en JSON :
+  -- {"pluie":true,"pmg":false,"semences":false,"enrouleurs":false}. Le chef peut tout.
+  droits TEXT NOT NULL DEFAULT '{"pluie":true}',
   cree_le TEXT NOT NULL DEFAULT (datetime('now')),
   cree_par INTEGER REFERENCES comptes(id)
 );
@@ -71,4 +74,24 @@ CREATE TABLE IF NOT EXISTS reglages (
   modifie_le TEXT NOT NULL DEFAULT (datetime('now')),
   modifie_par INTEGER REFERENCES comptes(id),
   PRIMARY KEY (exploitation_id, cle)
+);
+
+-- Pluviométrie (ajouté le 08/10/2026) : un ou plusieurs pluviomètres par exploitation,
+-- créés par le chef ; un relevé par jour, en mm au dixième.
+CREATE TABLE IF NOT EXISTS pluviometres (
+  id INTEGER PRIMARY KEY,
+  exploitation_id INTEGER NOT NULL REFERENCES exploitations(id),
+  nom TEXT NOT NULL,
+  actif INTEGER NOT NULL DEFAULT 1,
+  cree_le TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS pluviometres_exploitation ON pluviometres (exploitation_id);
+
+CREATE TABLE IF NOT EXISTS releves_pluie (
+  pluviometre_id INTEGER NOT NULL REFERENCES pluviometres(id),
+  jour TEXT NOT NULL,              -- AAAA-MM-JJ
+  mm REAL NOT NULL CHECK (mm >= 0),
+  saisi_par INTEGER REFERENCES comptes(id),
+  saisi_le TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (pluviometre_id, jour)
 );

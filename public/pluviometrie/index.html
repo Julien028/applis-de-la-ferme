@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pluviométrie</title>
+<meta name="theme-color" content="#12628C">
+<link rel="icon" type="image/png" href="../irrigation-enrouleur/icon-192.png">
+<style>
+  :root{--bg:#EEF3F5;--ink:#132430;--muted:#5B7080;--card:#FFFFFF;--line:#D6E0E6;--grille:#E3EAEE;--eau:#1E86BE;--eau-fonce:#155F87;--eau-clair:#E4F1F8;--moyenne:#C2571F;--rouge:#B4472B;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  [hidden]{display:none!important}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45;padding:18px;max-width:820px;margin:0 auto}
+  h1{font-size:1.35rem;margin:.2rem 0 .1rem;letter-spacing:-.01em}
+  h2{font-size:1.05rem;margin:0 0 10px}
+  .sub{color:var(--muted);font-size:.9rem;margin:0 0 14px}
+  .applis{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:.85rem;color:var(--muted);margin-bottom:10px}
+  .applis a{color:var(--eau-fonce);font-weight:600;text-decoration:none}
+  .applis b{color:var(--ink)}
+  .applis .etat{font-size:.78rem}
+  .applis .etat.attente{color:var(--rouge)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(19,36,48,.04)}
+  label{display:block;font-size:.82rem;font-weight:600;color:var(--muted);margin:10px 0 5px}
+  .row{display:flex;gap:10px;align-items:center}
+  input[type=number],input[type=text],input[type=date],select{width:100%;padding:11px 12px;font-size:1.05rem;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font-family:inherit;-moz-appearance:textfield}
+  select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M3 5l4 4 4-4' fill='none' stroke='%235B7080' stroke-width='2'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+  input:focus,select:focus{outline:2px solid var(--eau);border-color:var(--eau)}
+  .unit{color:var(--muted);font-size:.9rem;min-width:30px}
+  .principal{background:var(--eau);color:#fff;border:none;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer;font-size:1rem;white-space:nowrap}
+  .lien{background:none;border:0;color:var(--eau-fonce);font-weight:600;font-size:.85rem;cursor:pointer;padding:4px 6px;text-decoration:underline}
+  .hint{font-size:.78rem;color:var(--muted);margin:8px 0 0}
+  .msg{font-size:.85rem;margin:8px 0 0}
+  .msg.erreur{color:var(--rouge)} .msg.ok{color:#3F7D3A}
+  .vide{color:var(--muted);font-size:.92rem}
+
+  .saisie{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+  .saisie .principal{grid-column:1/-1}
+  @media(min-width:560px){.saisie{grid-template-columns:1.2fr 1fr auto}.saisie .principal{grid-column:auto}}
+  .saisie label{margin-top:0}
+
+  .annee{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+  .annee b{font-size:1.25rem}
+  .annee button{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:1.1rem;cursor:pointer;color:var(--eau-fonce)}
+  .annee button:disabled{opacity:.35;cursor:default}
+  .tuiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .tuiles div{background:var(--eau-clair);border-radius:12px;padding:10px 6px;text-align:center}
+  .tuiles .v{font-size:1.1rem;white-space:nowrap;font-weight:800;color:var(--eau-fonce);font-variant-numeric:tabular-nums}
+  .tuiles .k{font-size:.72rem;color:var(--muted)}
+
+  .defile{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px}
+  table.feuille{border-collapse:collapse;font-size:.82rem;font-variant-numeric:tabular-nums;min-width:100%}
+  .feuille th,.feuille td{border-bottom:1px solid var(--grille);border-right:1px solid var(--grille);padding:4px 5px;text-align:right;min-width:38px;height:26px}
+  .feuille thead th{background:var(--eau-clair);color:var(--eau-fonce);font-size:.72rem;text-align:center;position:sticky;top:0}
+  .feuille th.j{position:sticky;left:0;background:#F7FAFB;color:var(--muted);font-weight:600;text-align:center;min-width:28px;z-index:1}
+  .feuille thead th.j{z-index:2;background:var(--eau-clair)}
+  .feuille td.hors{background:repeating-linear-gradient(135deg,#F4F6F8 0 4px,#fff 4px 8px)}
+  .feuille td.pluie{color:var(--eau-fonce);font-weight:700}
+  .feuille td.sec{color:#B9C6CE}
+  .feuille td.auj{outline:2px solid var(--eau);outline-offset:-2px}
+  .feuille td.saisissable{cursor:pointer}
+  .feuille tfoot th,.feuille tfoot td{background:#F7FAFB;font-weight:700;color:var(--ink)}
+  .feuille tfoot tr.total td,.feuille tfoot tr.total th{background:var(--eau-clair);color:var(--eau-fonce)}
+  .feuille tfoot th{font-size:.7rem;text-align:left;white-space:nowrap}
+
+  .graphe{position:relative;margin-top:6px}
+  .graphe svg{display:block;width:100%;height:auto;overflow:visible}
+  .legende{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--muted);margin-top:4px}
+  .legende span{display:inline-flex;align-items:center;gap:6px}
+  .legende i{display:inline-block;width:12px;height:12px;border-radius:3px}
+  .bulle{position:absolute;pointer-events:none;background:var(--ink);color:#fff;font-size:.78rem;border-radius:8px;padding:6px 9px;white-space:normal;max-width:min(300px,94%);text-align:center;transform:translate(-50%,-100%);margin-top:-8px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+  table.annees{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:14px;font-variant-numeric:tabular-nums}
+  .annees th{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;text-align:right;padding:6px 4px;border-bottom:1px solid var(--line)}
+  .annees td{text-align:right;padding:7px 4px;border-bottom:1px solid var(--grille)}
+  .annees th:first-child,.annees td:first-child{text-align:left}
+  .annees td.barre{width:42%}
+  .annees td.barre div{height:10px;border-radius:0 4px 4px 0;background:var(--eau)}
+  .annees tr.choisie td{font-weight:700}
+
+  .gestion li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--grille)}
+  .gestion ul{list-style:none;margin:0;padding:0}
+  .gestion li span{flex:1}
+</style>
+</head>
+<body>
+  <div class="applis"><a href="../">← Applis de la ferme</a><span id="qui"></span><span class="etat" id="etat"></span></div>
+  <h1>Pluviométrie</h1>
+  <p class="sub">Un relevé par jour, en millimètres. Tableau de l'année et historique.</p>
+
+  <div class="card" id="pasConnecte" hidden>
+    <p class="vide" style="margin:0">La pluviométrie est enregistrée dans l'espace de l'exploitation : <a href="../">connectez-vous depuis l'accueil</a>.</p>
+  </div>
+
+  <div id="contenu" hidden>
+    <!-- ============ PLUVIOMÈTRE ============ -->
+    <div class="card">
+      <div id="choixBloc">
+        <label for="choixPluvio" style="margin-top:0">Pluviomètre</label>
+        <select id="choixPluvio"></select>
+      </div>
+      <p class="vide" id="aucun" hidden style="margin:0"></p>
+      <button class="lien" id="ouvrirGestion" type="button" hidden>Gérer les pluviomètres</button>
+      <div class="gestion" id="gestion" hidden>
+        <ul id="gestionListe"></ul>
+        <label for="nouveauNom">Nouveau pluviomètre</label>
+        <div class="row"><input type="text" id="nouveauNom" maxlength="60" placeholder="ex. Bretonvilliers, cour de la ferme"><button class="principal" id="creer" type="button">Créer</button></div>
+        <p class="msg erreur" id="gestionMsg" hidden></p>
+      </div>
+    </div>
+
+    <div id="avecPluvio" hidden>
+      <!-- ============ SAISIE ============ -->
+      <div class="card" id="carteSaisie">
+        <h2>Noter un relevé</h2>
+        <div class="saisie">
+          <div><label for="sJour">Jour</label><input type="date" id="sJour"></div>
+          <div><label for="sMm">Pluie</label><div class="row"><input type="number" id="sMm" inputmode="decimal" step="0.1" min="0" max="500" placeholder="0,0"><span class="unit">mm</span></div></div>
+          <button class="principal" id="sOk" type="button">Noter</button>
+        </div>
+        <p class="msg" id="sMsg" hidden></p>
+        <p class="hint">Au dixième de millimètre (ex. 0,5 · 9,3 · 34). « 0 » note un jour sans pluie. Pour effacer un relevé, touchez sa case dans le tableau.</p>
+      </div>
+
+      <!-- ============ ANNÉE ============ -->
+      <div class="card">
+        <div class="annee"><button id="anPrec" type="button" aria-label="Année précédente">◀</button><b id="anTitre"></b><button id="anSuiv" type="button" aria-label="Année suivante">▶</button></div>
+        <div class="tuiles">
+          <div><div class="v" id="tCumul">—</div><div class="k">cumul de l'année</div></div>
+          <div><div class="v" id="tJours">—</div><div class="k">jours de pluie</div></div>
+          <div><div class="v" id="tMax">—</div><div class="k" id="tMaxK">plus gros relevé</div></div>
+        </div>
+        <div class="defile"><table class="feuille" id="feuille"></table></div>
+        <p class="hint" id="feuilleHint"></p>
+        <button class="lien" id="exporter" type="button">Exporter l'année (tableur)</button>
+      </div>
+
+      <!-- ============ HISTORIQUE ============ -->
+      <div class="card">
+        <h2 id="histTitre">Historique</h2>
+        <div class="graphe" id="graphe"></div>
+        <div class="legende" id="legende"></div>
+        <table class="annees" id="annees"></table>
+      </div>
+    </div>
+  </div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const MOIS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const MOIS_COURTS = ["J","F","M","A","M","J","J","A","S","O","N","D"];
+const fmt = (x,d=1) => isFinite(x) ? x.toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d}) : "—";
+const deuxChiffres = n => String(n).padStart(2,"0");
+const joursDuMois = (an, m) => new Date(Date.UTC(an, m, 0)).getUTCDate(); // m de 1 à 12
+function aujourdhui(){ const d=new Date(); return d.getFullYear()+"-"+deuxChiffres(d.getMonth()+1)+"-"+deuxChiffres(d.getDate()); }
+
+let moi=null, pluvios=[], pluvio=null, annee=new Date().getFullYear(), releves={}, parMois=[];
+
+async function appel(methode,chemin,corps){
+  let r;
+  try{ r=await fetch(chemin,{method:methode,credentials:"same-origin",headers:corps?{"content-type":"application/json"}:{},body:corps?JSON.stringify(corps):undefined}); }
+  catch(e){ throw {status:0,message:"Pas de réseau."}; }
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw {status:r.status,message:data.erreur||"Erreur.",data};
+  return data;
+}
+const chef = () => moi && moi.compte.role==="chef";
+const peutSaisir = () => chef() || !!(moi && moi.droits && moi.droits.pluie);
+function message(id, txt, cls){ const m=$(id); m.textContent=txt||""; m.className="msg "+(cls||""); m.hidden=!txt; }
+function etat(t, attente){ const e=$("etat"); e.textContent=t||""; e.className="etat"+(attente?" attente":""); }
+
+// Copie dans l'appareil, pour consulter sans réseau
+const cleCache = (k) => "pluie@"+(moi?moi.exploitation.id:0)+":"+k;
+function garder(k, v){ try{ localStorage.setItem(cleCache(k), JSON.stringify(v)); }catch(e){} }
+function relire(k){ try{ return JSON.parse(localStorage.getItem(cleCache(k))); }catch(e){ return null; } }
+
+/* ============ PLUVIOMÈTRES ============ */
+async function chargerPluvios(){
+  try{ pluvios = await appel("GET","/api/pluviometres"); garder("liste", pluvios); }
+  catch(e){ if(e.status===401) throw e; pluvios = relire("liste") || []; etat("Hors ligne : derniers relevés connus", true); }
+  const actifs = pluvios.filter(p=>p.actif);
+  const memo = Number(localStorage.getItem("pluie.choix")) || 0;
+  pluvio = actifs.find(p=>p.id===memo) || actifs[0] || null;
+  dessinerPluvios();
+}
+function dessinerPluvios(){
+  const actifs = pluvios.filter(p=>p.actif);
+  const s=$("choixPluvio"); s.innerHTML="";
+  actifs.forEach(p=>{ const o=document.createElement("option"); o.value=p.id; o.textContent=p.nom; s.appendChild(o); });
+  if(pluvio) s.value=pluvio.id;
+  $("choixBloc").hidden = !actifs.length;
+  $("aucun").hidden = !!actifs.length;
+  $("aucun").textContent = chef() ? "Aucun pluviomètre pour l'instant : créez le premier ci-dessous." : "Le chef d'exploitation n'a pas encore créé de pluviomètre.";
+  $("ouvrirGestion").hidden = !chef();
+  if(chef() && !actifs.length) $("gestion").hidden=false;
+  $("avecPluvio").hidden = !pluvio;
+  // liste de gestion (chef)
+  const ul=$("gestionListe"); ul.innerHTML="";
+  pluvios.forEach(p=>{
+    const li=document.createElement("li");
+    const n=document.createElement("span"); n.textContent=p.nom+(p.actif?"":" (archivé)"); li.appendChild(n);
+    const r=document.createElement("button"); r.className="lien"; r.type="button"; r.textContent="Renommer";
+    r.addEventListener("click", async ()=>{ const nom=prompt("Nouveau nom du pluviomètre :", p.nom); if(!nom||!nom.trim()) return;
+      try{ await appel("PATCH","/api/pluviometres/"+p.id,{nom}); await chargerPluvios(); }catch(e){ alert(e.message); } });
+    const a=document.createElement("button"); a.className="lien"; a.type="button"; a.textContent=p.actif?"Archiver":"Rouvrir";
+    a.addEventListener("click", async ()=>{
+      if(p.actif && !confirm("Archiver « "+p.nom+" » ? Il n'apparaîtra plus dans la liste ; ses relevés sont gardés.")) return;
+      try{ await appel("PATCH","/api/pluviometres/"+p.id,{actif:!p.actif}); await chargerPluvios(); await chargerAnnee(); }catch(e){ alert(e.message); } });
+    li.append(r,a); ul.appendChild(li);
+  });
+}
+$("choixPluvio").addEventListener("change", async ()=>{
+  pluvio = pluvios.find(p=>p.id===Number($("choixPluvio").value)) || null;
+  try{ localStorage.setItem("pluie.choix", String(pluvio?pluvio.id:"")); }catch(e){}
+  await chargerAnnee();
+});
+$("ouvrirGestion").addEventListener("click",()=>{ $("gestion").hidden=!$("gestion").hidden; });
+$("creer").addEventListener("click", async ()=>{
+  message("gestionMsg","");
+  try{
+    const p = await appel("POST","/api/pluviometres",{nom:$("nouveauNom").value});
+    $("nouveauNom").value=""; try{ localStorage.setItem("pluie.choix", String(p.id)); }catch(e){}
+    await chargerPluvios(); await chargerAnnee();
+  }catch(e){ message("gestionMsg", e.message, "erreur"); }
+});
+
+/* ============ RELEVÉS DE L'ANNÉE ============ */
+async function chargerAnnee(){
+  if(!pluvio){ return; }
+  const k = pluvio.id+":"+annee;
+  releves = {};
+  (relire(k)||[]).forEach(r=>releves[r.jour]=r);
+  parMois = relire(pluvio.id+":mois") || [];
+  dessinerTout();
+  try{
+    const [liste, mois] = await Promise.all([
+      appel("GET","/api/pluie/"+pluvio.id+"?annee="+annee),
+      appel("GET","/api/pluie/"+pluvio.id+"/mois")
+    ]);
+    releves = {}; liste.forEach(r=>releves[r.jour]=r); parMois = mois;
+    garder(k, liste); garder(pluvio.id+":mois", mois);
+    etat("À jour");
+    dessinerTout();
+  }catch(e){
+    if(e.status===401) return deconnecte();
+    etat("Hors ligne : derniers relevés connus", true);
+  }
+}
+function dessinerTout(){ dessinerAnnee(); dessinerHistorique(); remplirSaisie(); }
+
+function totauxMois(m){
+  const n=joursDuMois(annee,m); let d=[0,0,0], jours=0, total=0, notes=0;
+  for(let j=1;j<=n;j++){
+    const r=releves[annee+"-"+deuxChiffres(m)+"-"+deuxChiffres(j)];
+    if(!r) continue;
+    notes++; total+=r.mm; d[j<=10?0:j<=20?1:2]+=r.mm; if(r.mm>0) jours++;
+  }
+  return {d, jours, total, notes};
+}
+
+function dessinerAnnee(){
+  $("anTitre").textContent = annee;
+  $("anSuiv").disabled = annee >= new Date().getFullYear();
+  const t=$("feuille"); t.innerHTML="";
+  const tete=document.createElement("thead"); const tr0=document.createElement("tr");
+  tr0.innerHTML="<th class=\"j\">Jour</th>"+MOIS.map(m=>"<th title=\""+m+"\">"+m.slice(0,3)+".</th>").join("");
+  tete.appendChild(tr0); t.appendChild(tete);
+  const corps=document.createElement("tbody"); const auj=aujourdhui(); const saisir=peutSaisir();
+  for(let j=1;j<=31;j++){
+    const tr=document.createElement("tr");
+    tr.innerHTML="<th class=\"j\">"+j+"</th>";
+    for(let m=1;m<=12;m++){
+      const td=document.createElement("td");
+      if(j>joursDuMois(annee,m)){ td.className="hors"; tr.appendChild(td); continue; }
+      const jour=annee+"-"+deuxChiffres(m)+"-"+deuxChiffres(j), r=releves[jour];
+      if(r){ td.textContent = r.mm>0 ? fmt(r.mm) : "0"; td.className = r.mm>0 ? "pluie" : "sec"; td.title = MOIS[m-1]+" "+j+" : "+fmt(r.mm)+" mm"+(r.saisi_par?" — noté par "+r.saisi_par:""); }
+      if(jour===auj) td.classList.add("auj");
+      if(saisir && jour<=auj){ td.classList.add("saisissable"); td.addEventListener("click",()=>corrigerCase(jour, r)); }
+      tr.appendChild(td);
+    }
+    corps.appendChild(tr);
+  }
+  t.appendChild(corps);
+  // pied : décades, jours de pluie, total, cumul
+  const pied=document.createElement("tfoot"); const tots=[...Array(12)].map((_,i)=>totauxMois(i+1));
+  const ligne=(titre, f, cls)=>{ const tr=document.createElement("tr"); if(cls) tr.className=cls; tr.innerHTML="<th class=\"j\">"+titre+"</th>"+tots.map((x,i)=>"<td>"+f(x,i)+"</td>").join(""); pied.appendChild(tr); };
+  const v = (x, val) => x.notes ? fmt(val) : "";
+  ligne("1<sup>re</sup> déc.", x=>v(x,x.d[0]));
+  ligne("2<sup>e</sup> déc.", x=>v(x,x.d[1]));
+  ligne("3<sup>e</sup> déc.", x=>v(x,x.d[2]));
+  ligne("Jours", x=>x.notes ? x.jours : "");
+  ligne("Total", x=>v(x,x.total), "total");
+  let cumul=0; ligne("Cumul", x=>{ cumul+=x.total; return x.notes ? fmt(cumul) : ""; });
+  t.appendChild(pied);
+  // tuiles
+  const tout=Object.values(releves); const max=tout.reduce((a,r)=>r.mm>(a?a.mm:-1)?r:a,null);
+  $("tCumul").textContent = tout.length ? fmt(tout.reduce((s,r)=>s+r.mm,0))+" mm" : "—";
+  $("tJours").textContent = tout.length ? tout.filter(r=>r.mm>0).length : "—";
+  $("tMax").textContent = max && max.mm>0 ? fmt(max.mm)+" mm" : "—";
+  $("tMaxK").textContent = max && max.mm>0 ? "le "+Number(max.jour.slice(8))+" "+MOIS[Number(max.jour.slice(5,7))-1].toLowerCase() : "plus gros relevé";
+  $("feuilleHint").textContent = saisir ? "Touchez une case pour noter ou corriger le relevé de ce jour. Le tableau défile sur le côté." : "Le tableau défile sur le côté.";
+  // aller au mois en cours
+  const defile=document.querySelector(".defile");
+  if(annee===new Date().getFullYear()){ const col=new Date().getMonth(); requestAnimationFrame(()=>{ defile.scrollLeft = Math.max(0, col*42 - defile.clientWidth/2); }); }
+}
+
+async function noter(jour, valeur){
+  const mm = String(valeur??"").trim()==="" ? null : String(valeur).replace(",",".");
+  const r = await appel("PUT","/api/pluie/"+pluvio.id,{jour, mm});
+  if(r.mm===null) delete releves[jour]; else releves[jour]={jour, mm:r.mm, saisi_par:r.saisi_par};
+  garder(pluvio.id+":"+annee, Object.values(releves));
+  // totaux mensuels pour l'historique
+  try{ parMois = await appel("GET","/api/pluie/"+pluvio.id+"/mois"); garder(pluvio.id+":mois", parMois); }catch(e){}
+  dessinerTout();
+}
+async function corrigerCase(jour, r){
+  const lib = Number(jour.slice(8))+" "+MOIS[Number(jour.slice(5,7))-1].toLowerCase()+" "+jour.slice(0,4);
+  const v = prompt("Pluie du "+lib+" (mm) — laisser vide pour effacer :", r ? String(r.mm).replace(".",",") : "");
+  if(v===null) return;
+  if(v.trim()==="" && !r) return;
+  if(v.trim()==="" && !confirm("Effacer le relevé du "+lib+" ("+fmt(r.mm)+" mm) ?")) return;
+  try{ await noter(jour, v); }catch(e){ alert(e.message); }
+}
+
+/* ============ SAISIE RAPIDE ============ */
+function remplirSaisie(){
+  $("carteSaisie").hidden = !peutSaisir();
+  if(!$("sJour").value) $("sJour").value = aujourdhui();
+  $("sJour").max = aujourdhui();
+  const r = releves[$("sJour").value];
+  if(document.activeElement!==$("sMm")) $("sMm").value = r ? r.mm : "";
+}
+$("sJour").addEventListener("change", async ()=>{
+  const an=Number($("sJour").value.slice(0,4));
+  if(an && an!==annee){ annee=an; await chargerAnnee(); } else remplirSaisie();
+  $("sMm").value = releves[$("sJour").value] ? releves[$("sJour").value].mm : "";
+});
+$("sOk").addEventListener("click", async ()=>{
+  message("sMsg","");
+  const jour=$("sJour").value;
+  if(!jour){ message("sMsg","Choisissez le jour.","erreur"); return; }
+  if(jour>aujourdhui()){ message("sMsg","On ne note pas la pluie d'un jour à venir.","erreur"); return; }
+  // Case vide ou illisible : on n'efface jamais un relevé depuis ici (seulement depuis le tableau)
+  if($("sMm").validity.badInput || String($("sMm").value).trim()===""){ message("sMsg","Tapez la hauteur de pluie en mm (0 s'il n'a pas plu).","erreur"); return; }
+  try{
+    const an=Number(jour.slice(0,4)); if(an!==annee){ annee=an; await chargerAnnee(); }
+    await noter(jour, $("sMm").value);
+    const r=releves[jour];
+    message("sMsg", r ? "Noté : "+fmt(r.mm)+" mm le "+Number(jour.slice(8))+" "+MOIS[Number(jour.slice(5,7))-1].toLowerCase()+"." : "Relevé effacé.", "ok");
+  }catch(e){ message("sMsg", e.message, "erreur"); }
+});
+$("sMm").addEventListener("keydown", e=>{ if(e.key==="Enter") $("sOk").click(); });
+
+/* ============ HISTORIQUE ============ */
+function niceMax(v){ if(v<=0) return 10; const p=Math.pow(10,Math.floor(Math.log10(v))); const n=v/p; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p; }
+function dessinerHistorique(){
+  $("histTitre").textContent = "Historique — "+annee;
+  const ans=[...new Set(parMois.map(x=>Number(x.annee)))].sort((a,b)=>a-b);
+  const cette = m => { const x=parMois.find(y=>Number(y.annee)===annee && y.mois===m); return x ? x.total : 0; };
+  const autres = ans.filter(a=>a!==annee);
+  // moyenne des autres années, mois par mois (années complètes ou non : on prend celles qui ont des relevés ce mois-là)
+  const moyenne = m => { const v=parMois.filter(y=>Number(y.annee)!==annee && y.mois===m).map(y=>y.total); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
+  const W=340, H=190, g={l:30, r:6, t:14, b:22};
+  const vals=[...Array(12)].map((_,i)=>cette(i+1)), moys=[...Array(12)].map((_,i)=>moyenne(i+1));
+  const max=niceMax(Math.max(...vals, ...moys.filter(v=>v!=null), 1));
+  const iw=W-g.l-g.r, ih=H-g.t-g.b, band=iw/12, bw=Math.min(18, band*0.62);
+  const y=v=>g.t+ih-(v/max)*ih;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Pluie par mois en ${annee}">`;
+  for(let k=0;k<=4;k++){ const v=max*k/4, yy=y(v).toFixed(1);
+    svg+=`<line x1="${g.l}" x2="${W-g.r}" y1="${yy}" y2="${yy}" stroke="var(--grille)" stroke-width="1"/>`;
+    svg+=`<text x="${g.l-5}" y="${(+yy+3.5).toFixed(1)}" font-size="9" text-anchor="end" fill="var(--muted)">${fmt(v,0)}</text>`; }
+  const iMax = vals.indexOf(Math.max(...vals));
+  vals.forEach((v,i)=>{
+    const cx=g.l+band*i+band/2, x0=cx-bw/2;
+    if(v>0){ const top=y(v), h=g.t+ih-top, r=Math.min(4,h);
+      svg+=`<path d="M${x0},${g.t+ih} V${top+r} Q${x0},${top} ${x0+r},${top} H${x0+bw-r} Q${x0+bw},${top} ${x0+bw},${top+r} V${g.t+ih} Z" fill="var(--eau)"/>`; }
+    if(moys[i]!=null) svg+=`<circle cx="${cx}" cy="${y(moys[i]).toFixed(1)}" r="4.5" fill="var(--moyenne)" stroke="#fff" stroke-width="2"/>`;
+    svg+=`<text x="${cx}" y="${H-6}" font-size="10" text-anchor="middle" fill="var(--muted)">${MOIS_COURTS[i]}</text>`;
+    if(i===iMax && v>0) svg+=`<text x="${cx}" y="${(y(v)-5).toFixed(1)}" font-size="9.5" font-weight="700" text-anchor="middle" fill="var(--ink)">${fmt(v, v<100?1:0)}</text>`;
+    svg+=`<rect class="cible" data-i="${i}" x="${g.l+band*i}" y="${g.t}" width="${band}" height="${ih+g.b}" fill="transparent"/>`;
+  });
+  svg+=`<line x1="${g.l}" x2="${W-g.r}" y1="${g.t+ih}" y2="${g.t+ih}" stroke="var(--muted)" stroke-width="1"/></svg>`;
+  const box=$("graphe"); box.innerHTML=svg+`<div class="bulle" id="bulle" hidden></div>`;
+  const svgEl=box.querySelector("svg");
+  const montrer = i => {
+    const b=$("bulle"), rect=svgEl.getBoundingClientRect(), sx=rect.width/W;
+    const jours=(parMois.find(x=>Number(x.annee)===annee && x.mois===i+1)||{}).jours;
+    b.textContent = MOIS[i]+" "+annee+" : "+fmt(vals[i])+" mm"+(jours?" ("+jours+" j)":"")+(moys[i]!=null?" · moyenne : "+fmt(moys[i])+" mm":"");
+    b.hidden=false;
+    const cx=(g.l+band*i+band/2)*sx, top=Math.min(y(vals[i]), moys[i]!=null?y(moys[i]):Infinity)*sx;
+    const demi=b.offsetWidth/2+2;   // la bulle reste dans le cadre
+    b.style.left=Math.min(Math.max(cx, demi), rect.width-demi)+"px"; b.style.top=top+"px";
+  };
+  box.querySelectorAll(".cible").forEach(c=>{
+    c.addEventListener("mouseenter",()=>montrer(+c.dataset.i));
+    c.addEventListener("click",()=>montrer(+c.dataset.i));
+    c.addEventListener("mouseleave",()=>{ $("bulle").hidden=true; });
+  });
+  // légende (deux séries)
+  const lg=$("legende");
+  lg.innerHTML = `<span><i style="background:var(--eau)"></i>${annee}</span>`
+    + (autres.length ? `<span><i style="background:var(--moyenne);border-radius:50%"></i>Moyenne ${autres.length>1 ? autres[0]+"–"+autres[autres.length-1] : autres[0]}</span>` : `<span>La moyenne des années précédentes apparaîtra quand il y en aura.</span>`);
+  // totaux par année (vue en tableau)
+  const t=$("annees");
+  const totaux=ans.map(a=>({a, total:parMois.filter(x=>Number(x.annee)===a).reduce((s,x)=>s+x.total,0), jours:parMois.filter(x=>Number(x.annee)===a).reduce((s,x)=>s+x.jours,0)}));
+  const tmax=Math.max(1,...totaux.map(x=>x.total));
+  t.innerHTML = totaux.length ? "<tr><th>Année</th><th></th><th>Total</th><th>Jours</th></tr>" : "";
+  totaux.slice().reverse().forEach(x=>{
+    const tr=document.createElement("tr"); if(x.a===annee) tr.className="choisie";
+    tr.innerHTML=`<td>${x.a}</td><td class="barre"><div style="width:${(x.total/tmax*100).toFixed(1)}%"></div></td><td>${fmt(x.total)} mm</td><td>${x.jours}</td>`;
+    tr.style.cursor="pointer"; tr.addEventListener("click", async ()=>{ annee=x.a; await chargerAnnee(); });
+    t.appendChild(tr);
+  });
+}
+
+$("anPrec").addEventListener("click", async ()=>{ annee--; await chargerAnnee(); });
+$("anSuiv").addEventListener("click", async ()=>{ annee++; await chargerAnnee(); });
+
+/* ============ EXPORT ============ */
+$("exporter").addEventListener("click",()=>{
+  const lignes=[["Jour",...MOIS].join(";")];
+  for(let j=1;j<=31;j++){
+    lignes.push([j, ...[...Array(12)].map((_,i)=>{ if(j>joursDuMois(annee,i+1)) return ""; const r=releves[annee+"-"+deuxChiffres(i+1)+"-"+deuxChiffres(j)]; return r ? String(r.mm).replace(".",",") : ""; })].join(";"));
+  }
+  const tots=[...Array(12)].map((_,i)=>totauxMois(i+1));
+  lignes.push(["Total",...tots.map(x=>x.notes?String(Math.round(x.total*10)/10).replace(".",","):"")].join(";"));
+  lignes.push(["Jours de pluie",...tots.map(x=>x.notes?x.jours:"")].join(";"));
+  const blob=new Blob(["﻿"+lignes.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="pluviometrie-"+(pluvio?pluvio.nom.replace(/[^\p{L}\p{N}]+/gu,"-"):"")+"-"+annee+".csv";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+
+/* ============ DÉMARRAGE ============ */
+function deconnecte(){ moi=null; $("pasConnecte").hidden=false; $("contenu").hidden=true; $("qui").textContent=""; try{ localStorage.removeItem("applis.moi"); }catch(e){} }
+(async function(){
+  try{ moi=JSON.parse(localStorage.getItem("applis.moi")); if(!moi||!moi.compte) moi=null; }catch(e){}
+  try{ moi=await appel("GET","/api/moi"); localStorage.setItem("applis.moi", JSON.stringify(moi)); }
+  catch(e){ if(e.status===401) moi=null; else if(moi) etat("Hors ligne", true); }
+  if(!moi) return deconnecte();
+  const q=$("qui"); q.innerHTML="<b></b> · <span></span>"; q.firstChild.textContent=moi.exploitation.nom; q.lastChild.textContent=moi.compte.nom;
+  $("contenu").hidden=false;
+  try{ await chargerPluvios(); await chargerAnnee(); }catch(e){ if(e.status===401) deconnecte(); }
+})();
+</script>
+</body>
+</html>

@@ -53,6 +53,9 @@ input:focus-visible,button:focus-visible,a:focus-visible,select:focus-visible{ou
 .tuile .t{font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-size:22px;font-weight:600;line-height:1.1}
 .tuile .d{font-size:13px;color:var(--muted);margin-top:3px}
 .tuile.bientot{border-left-color:var(--line-strong);opacity:.65;pointer-events:none}
+.droits{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:4px}
+.droits label{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--ink);margin:0;cursor:pointer}
+.droits input{width:18px;height:18px;accent-color:var(--ink)}
 .tuile .vide{width:64px;height:64px;flex:none;border-radius:12px;background:var(--line);display:grid;place-items:center;font-size:28px}
 
 table{width:100%;border-collapse:collapse}
@@ -122,6 +125,15 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
       <div class="field"><label for="ncId">Identifiant de connexion</label><input type="text" id="ncId" maxlength="40" autocapitalize="none" spellcheck="false" placeholder="valentine" required></div>
       <div class="field"><label for="ncRole">Rôle</label>
         <select id="ncRole"><option value="salarie">Salarié — consulte et calcule</option><option value="chef">Chef d'exploitation — modifie et gère les comptes</option></select></div>
+      <div class="field" id="ncDroitsBloc"><label>Ce qu'il peut modifier</label>
+        <div class="droits" id="ncDroits">
+          <label><input type="checkbox" value="pluie" checked> Saisir la pluie</label>
+          <label><input type="checkbox" value="pmg"> PMG des semences</label>
+          <label><input type="checkbox" value="semences"> Semences (dose, quantités…)</label>
+          <label><input type="checkbox" value="enrouleurs"> Enrouleurs</label>
+        </div>
+        <p class="hint">Sans case cochée, il consulte et fait les calculs. Modifiable plus tard dans la liste ci-dessus.</p>
+      </div>
       <button type="submit" class="bouton">Créer le compte</button>
       <p class="msg erreur" id="ncErreur" hidden></p>
     </form>
@@ -152,6 +164,10 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
     <a class="tuile" href="irrigation-enrouleur/">
       <img src="irrigation-enrouleur/icon-192.png" alt="">
       <div><div class="t">Irrigation enrouleur</div><div class="d">Dose d'eau ou vitesse d'avancement, enrouleurs de l'exploitation enregistrés.</div></div>
+    </a>
+    <a class="tuile" href="pluviometrie/">
+      <div class="vide" aria-hidden="true">🌧️</div>
+      <div><div class="t">Pluviométrie</div><div class="d">Relevés de pluie par pluviomètre, tableau de l'année, historique en graphique.</div></div>
     </a>
   </div>
 </section>
@@ -250,6 +266,7 @@ $("formMdp").addEventListener("submit", async e=>{
 });
 
 // ----- comptes de l'exploitation (chef) -----
+const DROITS = [["pluie","Pluie"],["pmg","PMG"],["semences","Semences"],["enrouleurs","Enrouleurs"]];
 async function dessinerComptes(){
   const corps=$("comptesLignes"); corps.innerHTML="";
   let liste=[];
@@ -260,6 +277,19 @@ async function dessinerComptes(){
     tr.querySelector("span").textContent = c.nom + (c.actif ? "" : " (désactivé)");
     tr.querySelector("small").textContent = c.identifiant+" · "+(c.role==="chef" ? "chef d'exploitation" : "salarié")+(c.doit_changer && c.actif ? " · mot de passe provisoire" : "");
     const act=tr.lastChild;
+    if(c.role==="salarie" && c.actif){
+      const box=document.createElement("div"); box.className="droits";
+      DROITS.forEach(([k,lib])=>{
+        const l=document.createElement("label"); const i=document.createElement("input"); i.type="checkbox"; i.checked=!!(c.droits&&c.droits[k]);
+        i.addEventListener("change", async ()=>{
+          const droits={...c.droits, [k]:i.checked};
+          try{ await appel("PATCH","/api/comptes/"+c.id,{droits}); c.droits=droits; }
+          catch(e){ i.checked=!i.checked; alert(e.message); }
+        });
+        l.append(i, " "+lib); box.appendChild(l);
+      });
+      tr.firstChild.appendChild(box);
+    }
     if(c.id!==moi.compte.id){
       const r=document.createElement("button"); r.type="button"; r.className="lien"; r.textContent="Nouveau mot de passe";
       r.addEventListener("click", async ()=>{
@@ -285,11 +315,13 @@ $("formNomExpl").addEventListener("submit", async e=>{
   catch(err){ message("nomExplMsg", err.message, "erreur"); }
 });
 lierIdentifiant("ncNom","ncId");
+$("ncRole").addEventListener("change",()=>{ $("ncDroitsBloc").hidden = $("ncRole").value==="chef"; });
 $("formCompte").addEventListener("submit", async e=>{
   e.preventDefault(); message("ncErreur","");
   try{
-    const n=await appel("POST","/api/comptes",{nom:$("ncNom").value, identifiant:$("ncId").value, role:$("ncRole").value});
-    $("ncNom").value=""; $("ncId").value=""; delete $("ncId").dataset.touche; $("ncRole").value="salarie";
+    const droits={}; $("ncDroits").querySelectorAll("input").forEach(i=>droits[i.value]=i.checked);
+    const n=await appel("POST","/api/comptes",{nom:$("ncNom").value, identifiant:$("ncId").value, role:$("ncRole").value, droits});
+    $("ncNom").value=""; $("ncId").value=""; delete $("ncId").dataset.touche; $("ncRole").value="salarie"; $("ncDroitsBloc").hidden=false;
     codes("comptesCodes", n.nom, [["Identifiant",n.identifiant],["Mot de passe provisoire",n.motDePasse]]);
     dessinerComptes();
   }catch(err){ message("ncErreur", err.message, "erreur"); }

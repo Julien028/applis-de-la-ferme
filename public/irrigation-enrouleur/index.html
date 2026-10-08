@@ -389,14 +389,14 @@ function charger(){
 let espace=null, versions={}, enAttente={};
 try{ espace=JSON.parse(localStorage.getItem("applis.moi")); if(!espace||!espace.compte) espace=null; }catch(e){}
 function cle(k){ return espace ? k+"@"+espace.exploitation.id : k; }
-function lectureSeule(){ return !!espace && espace.compte.role!=="chef"; }
+function lectureSeule(){ return !!espace && espace.compte.role!=="chef" && !(espace.droits && espace.droits.enrouleurs); }
 function etatEsp(t,attente){ const e=$("etatEsp"); e.textContent=t||""; e.className="etat"+(attente?" attente":""); }
 function lireVersions(){ try{ versions=JSON.parse(localStorage.getItem(cle("versions")))||{}; }catch(e){ versions={}; } }
 function garderVersions(){ try{ localStorage.setItem(cle("versions"), JSON.stringify(versions)); }catch(e){} }
 function dessinerEspace(){
   const q=$("qui");
   if(!espace){ q.textContent="Enrouleurs gardés sur cet appareil."; etatEsp(""); }
-  else { q.innerHTML="<b></b> · <span></span>"; q.firstChild.textContent=espace.exploitation.nom; q.lastChild.textContent=espace.compte.nom+(lectureSeule()?" (salarié : consultation)":" (chef d'exploitation)"); }
+  else { q.innerHTML="<b></b> · <span></span>"; q.firstChild.textContent=espace.exploitation.nom; q.lastChild.textContent=espace.compte.nom+(espace.compte.role==="chef"?" (chef d'exploitation)":lectureSeule()?" (salarié : consultation)":" (salarié)"); }
 }
 async function appel(methode,chemin,corps){
   let r;
