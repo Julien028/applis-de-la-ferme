@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 112" width="200" height="112">
+  <defs>
+    <clipPath id="sol"><rect x="0" y="80" width="200" height="32"/></clipPath>
+  </defs>
+
+  <!-- ============ terre ============ -->
+  <rect x="2" y="80" width="196" height="26" rx="3" fill="#D9CEB8"/>
+  <g clip-path="url(#sol)" stroke="#C0B49B" stroke-width="2" stroke-linecap="round">
+    <path d="M10 92h22M40 98h26M96 94h30M140 100h34M60 88h18"/>
+  </g>
+  <path d="M2 80h196" stroke="#8A9179" stroke-width="3" stroke-linecap="round" fill="none"/>
+
+  <!-- grains déjà en terre -->
+  <circle cx="24" cy="86" r="2.6" fill="#D62F5B"/>
+  <circle cx="46" cy="87" r="2.6" fill="#D62F5B"/>
+  <circle cx="60" cy="86" r="2.6" fill="#D62F5B"/>
+
+  <!-- ============ la graine qui pousse ============ -->
+  <g>
+    <path d="M14 80V54" stroke="#5AA13F" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+    <path d="M14 66c-9 0-13-5-13-11 8 0 13 4 13 11z" fill="#6FB050"/>
+    <path d="M14 58c8 0 12-4 12-11-7 0-12 5-12 11z" fill="#6FB050"/>
+    <circle cx="14" cy="80" r="4" fill="#D62F5B"/>
+  </g>
+
+  <g stroke="#1E241B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+
+    <!-- ============ SEMOIR ============ -->
+    <!-- châssis -->
+    <path d="M30 58h64" stroke-width="3" fill="none"/>
+    <path d="M94 58l10-4" stroke-width="3" fill="none"/>
+    <!-- trémie -->
+    <path d="M38 26h50l-8 26H46z" fill="#EFEDE1"/>
+    <path d="M36 26h54" stroke-width="3" fill="none"/>
+    <path d="M56 26v-4h14v4" fill="#EFEDE1"/>
+    <!-- doseur -->
+    <path d="M56 52h14v6H56z" fill="#3A4038"/>
+    <!-- éléments semeurs : tubes de descente -->
+    <path d="M50 58h6v18h-6z" fill="#F7F8F2"/>
+    <path d="M70 58h6v18h-6z" fill="#F7F8F2"/>
+    <!-- socs -->
+    <path d="M47 76h12l-6 8z" fill="#3A4038"/>
+    <path d="M67 76h12l-6 8z" fill="#3A4038"/>
+    <!-- roue du semoir -->
+    <circle cx="34" cy="69" r="11" fill="#2A2E28"/>
+    <circle cx="34" cy="69" r="5.5" fill="#C4392B"/>
+    <circle cx="34" cy="69" r="1.6" fill="#1E241B" stroke="none"/>
+
+    <!-- ============ TRACTEUR ============ -->
+    <!-- carrosserie -->
+    <path d="M108 64V15h38l6 29h32v20z" fill="#2F7A4B"/>
+    <path d="M152 44h32" fill="none"/>
+    <path d="M114 21h28l4 20h-32z" fill="#CBDDD6"/>
+    <path d="M176 48h8v14h-8z" fill="#3A4038"/>
+    <circle cx="180" cy="45" r="3" fill="#F0C34B"/>
+    <path d="M158 50h18" stroke-width="2" fill="none"/>
+    <path d="M100 62h8" stroke-width="3" fill="none"/>
+    <!-- échappement -->
+    <path d="M151 44V12" stroke-width="3" fill="none"/>
+    <!-- garde-boue -->
+    <path d="M104 60a18 18 0 0 1 36 0" fill="none" stroke-width="3"/>
+    <!-- roue arrière -->
+    <circle cx="122" cy="62" r="18" fill="#2A2E28"/>
+    <circle cx="122" cy="62" r="9" fill="#C4392B"/>
+    <circle cx="122" cy="62" r="2.6" fill="#1E241B" stroke="none"/>
+    
+    <!-- roue avant -->
+    <circle cx="170" cy="68" r="12" fill="#2A2E28"/>
+    <circle cx="170" cy="68" r="6" fill="#C4392B"/>
+    <circle cx="170" cy="68" r="1.8" fill="#1E241B" stroke="none"/>
+  </g>
+
+  <!-- grains qui descendent dans les tubes -->
+  <g fill="#D62F5B">
+    <circle cx="53" cy="63" r="2.1"/>
+    <circle cx="53" cy="70" r="2.1"/>
+    <circle cx="73" cy="61" r="2.1"/>
+    <circle cx="73" cy="68" r="2.1"/>
+    <circle cx="73" cy="75" r="2.1"/>
+  </g>
+</svg>

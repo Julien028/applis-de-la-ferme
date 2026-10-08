@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dose de Semis — calculateur de dose à partir du PMG</title>
+<meta name="description" content="Calculateur de dose de semis : à partir du PMG et de l'objectif de grains au m², la dose en kg/ha, la surface faite avec sa semence, le poids d'essai de débit et la vérification à l'envers.">
+<meta name="theme-color" content="#1E241B">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Dose de Semis">
+<meta property="og:description" content="Du PMG à la dose en kg/ha : surface faite avec sa semence, essai de débit, vérification à l'envers.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%231E241B'/%3E%3Cpath d='M120 400h272' stroke='%236E7A63' stroke-width='14' stroke-linecap='round'/%3E%3Cpath d='M256 400V210' stroke='%238DBE76' stroke-width='22' stroke-linecap='round'/%3E%3Cpath d='M256 330c-62 0-92-34-92-80 58 0 92 28 92 80z' fill='%238DBE76'/%3E%3Cpath d='M256 270c58 0 86-28 86-74-50 0-86 34-86 74z' fill='%238DBE76'/%3E%3Ccircle cx='256' cy='400' r='26' fill='%23D62F5B'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:image" content="og-image.png">
+<style>
+:root{
+  --paper:#E9EBE1;
+  --card:#F7F8F2;
+  --ink:#1E241B;
+  --muted:#6B7364;
+  --line:#D0D4C2;
+  --line-strong:#B6BCA5;
+  --seed:#D62F5B;
+  --seed-soft:#F7DCE3;
+  --ok:#3F7D3A;
+  --display:"Bahnschrift Condensed","Bahnschrift SemiCondensed","Bahnschrift","DIN Condensed","Arial Narrow",sans-serif;
+  --body:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 16px 64px}
+
+header{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:22px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:14px}
+.brand svg{width:172px;height:auto;flex:none}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(30px,6vw,46px);letter-spacing:.02em;text-transform:uppercase;margin:0;line-height:.9}
+h1 em{font-style:normal;color:var(--seed);display:block}
+.baseline{font-size:13px;color:var(--muted);max-width:34ch;text-align:right;margin:0}
+@media(max-width:640px){.baseline{text-align:left}.brand svg{width:134px}}
+
+.grid{display:grid;grid-template-columns:1fr;gap:18px}
+@media(min-width:900px){.grid{grid-template-columns:1fr 1fr;align-items:start}.grid > .block:first-child{grid-row:span 2}}
+
+.semences{margin-bottom:18px}
+.compte{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink);border-radius:3px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--muted)}
+.compte b{color:var(--ink);font-size:15px}
+.compte .ligne{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.compte .etat{font-size:12px}
+.compte a.lien{color:var(--muted);font-size:13px;padding:6px 4px}
+.compte .etat.ok{color:var(--ok)}
+.compte .etat.attente{color:var(--seed)}
+.compte form,.compte .panneau{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.compte input[type=text],.compte input[type=password]{max-width:240px;font-size:16px}
+.compte .field{margin-bottom:10px}
+.bouton{font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;font-size:14px;padding:9px 16px;border:0;border-radius:2px;background:var(--ink);color:var(--card);cursor:pointer}
+.msg{font-size:13px;margin:6px 0 0}
+.msg.erreur{color:var(--seed)}
+.codes{background:#fff;border:1px solid var(--line-strong);border-left:3px solid var(--seed);padding:10px 12px;margin-top:10px;color:var(--ink);font-size:14px;line-height:1.7}
+.codes code{font-family:var(--display);font-size:17px;letter-spacing:.03em}
+.expl{width:100%;border-collapse:collapse;margin-top:6px}
+.expl td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink)}
+.expl td small{display:block;color:var(--muted)}
+input:disabled{background:var(--paper);color:var(--muted);border-color:var(--line)}
+.seg button:disabled{cursor:default;opacity:.6}
+.campagnes{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+.campagnes .seg{margin-bottom:0}
+.recap{margin-bottom:18px}
+.recap tbody tr.grp{cursor:default}
+.recap tbody tr.grp td{padding:14px 0 4px;border-bottom:1px solid var(--line-strong);font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:13px;color:var(--muted);text-align:left}
+.recap tbody tr.st{cursor:default}
+.recap tbody tr.st td{color:var(--muted);font-size:13px}
+.recap tbody tr.st td.ha{font-size:17px;color:var(--ink)}
+.chips .grp{flex-basis:100%;font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--muted);margin-top:4px}
+.chips .grp:first-child{margin-top:0}
+.recap table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.recap th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;text-align:right;padding:6px 6px;border-bottom:1px solid var(--line-strong)}
+.recap th:first-child,.recap td:first-child{text-align:left;padding-left:0}
+.recap td{text-align:right;padding:9px 6px;border-bottom:1px solid var(--line);font-size:14px}
+.recap td small{display:block;font-size:11px;color:var(--muted);font-family:var(--body);font-weight:400;white-space:nowrap}
+.recap td small.manque{color:var(--seed)}
+.recap td small.reste{color:var(--ok)}
+.recap tbody tr{cursor:pointer}
+.recap tbody tr.actif td:first-child{font-weight:600;box-shadow:inset 3px 0 0 var(--seed);padding-left:8px}
+.recap td.ha{font-family:var(--display);font-size:20px;font-weight:600;white-space:nowrap}
+.recap tfoot td{border-bottom:0;border-top:2px solid var(--ink);font-weight:600}
+.recap tfoot td.ha{font-size:24px;color:var(--seed)}
+.recap th:last-child,.recap td:last-child{padding-right:0}
+@media(max-width:480px){.recap th,.recap td{padding-left:3px;padding-right:3px}.recap td.ha{font-size:17px}.recap tfoot td.ha{font-size:20px}.recap td{font-size:13px}}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chips button{font-family:var(--display);font-size:17px;letter-spacing:.03em;padding:10px 14px;border:1px solid var(--line-strong);border-radius:2px;background:#fff;color:var(--ink);cursor:pointer}
+.chips button[aria-pressed="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.chips button.ajout{border-style:dashed;color:var(--muted);background:transparent}
+input[type=text],input[type=password]{font-family:var(--body);font-size:17px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:2px;background:#fff;color:var(--ink);width:100%;max-width:260px}
+.lien{font-size:12px;color:var(--muted);background:none;border:0;text-decoration:underline;cursor:pointer;padding:6px}
+.dosebar .stock{margin-top:12px;padding-top:10px;border-top:1px solid #3A4038;font-size:13px;color:#9BA490}
+.dosebar .stock b{display:block;font-family:var(--display);font-size:30px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+
+.block{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:16px 16px 18px}
+.block > h2{font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;font-size:14px;font-weight:600;margin:0 0 14px;display:flex;align-items:center;gap:10px}
+.block > h2::after{content:"";flex:1;height:1px;background:var(--line-strong)}
+
+.field{margin-bottom:15px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+.field label b{color:var(--ink);font-weight:600}
+.entry{display:flex;align-items:center;gap:10px}
+input[type=number]{font-family:var(--display);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;width:100%;max-width:130px;padding:6px 8px;border:1px solid var(--line-strong);border-radius:2px;background:#fff;color:var(--ink)}
+.big input[type=number]{font-size:30px;max-width:160px;border-color:var(--ink);border-width:2px}
+input:focus-visible,button:focus-visible{outline:2px solid var(--seed);outline-offset:1px}
+.unit{font-size:13px;color:var(--muted);white-space:nowrap}
+input[type=range]{flex:1;min-width:90px;accent-color:var(--seed);height:26px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line-strong);border-radius:2px;overflow:hidden;margin-bottom:14px}
+.seg button{font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;font-size:12px;padding:7px 12px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line-strong)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--card)}
+.seg.parts button{font-size:17px;padding:8px 14px;letter-spacing:0}
+.seg.parts button small{display:block;font-family:var(--body);font-size:10px;letter-spacing:.06em;text-transform:none;opacity:.75}
+
+.dosebar{background:var(--ink);color:var(--card);margin:20px -16px -18px;padding:16px 16px 18px}
+.dosebar .k{font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;font-size:12px;color:#9BA490;margin-bottom:4px}
+.dosebar .line{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.dosebar .num{font-family:var(--display);font-weight:600;font-variant-numeric:tabular-nums;font-size:clamp(54px,13vw,84px);line-height:.85;color:#fff}
+.dosebar .u{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:16px;color:var(--seed-soft)}
+.dosebar .sous{font-size:12px;color:#9BA490;margin-top:10px}
+.dosebar .sous b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+
+.out{margin-top:14px;padding:12px 14px;background:#fff;border:1px solid var(--line-strong);border-left:3px solid var(--seed)}
+.out .k{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.out .v{font-family:var(--display);font-size:34px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.05}
+.out .v span{font-size:15px;color:var(--muted);letter-spacing:.04em}
+.out .note{font-size:12px;color:var(--muted);margin-top:4px}
+.ecart{font-family:var(--display);font-size:15px;letter-spacing:.04em;margin-top:6px}
+.ecart.plus{color:var(--seed)}
+.ecart.bon{color:var(--ok)}
+
+footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;font-size:12px;color:var(--muted)}
+footer code{font-family:var(--display);font-size:14px;letter-spacing:.03em;color:var(--ink)}
+@media print{body{background:#fff}.dosebar{background:#fff;color:#000;border:2px solid #000}.dosebar .num,.dosebar .sous b{color:#000}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 200 112" role="img" aria-label="Logo Dose de Semis : un tracteur vert tire un semoir, les grains descendent dans le sol et une graine germe derriere">
+  <defs>
+    <clipPath id="sol"><rect x="0" y="80" width="200" height="32"/></clipPath>
+  </defs>
+
+  <!-- ============ terre ============ -->
+  <rect x="2" y="80" width="196" height="26" rx="3" fill="#D9CEB8"/>
+  <g clip-path="url(#sol)" stroke="#C0B49B" stroke-width="2" stroke-linecap="round">
+    <path d="M10 92h22M40 98h26M96 94h30M140 100h34M60 88h18"/>
+  </g>
+  <path d="M2 80h196" stroke="#8A9179" stroke-width="3" stroke-linecap="round" fill="none"/>
+
+  <!-- grains déjà en terre -->
+  <circle cx="24" cy="86" r="2.6" fill="#D62F5B"/>
+  <circle cx="46" cy="87" r="2.6" fill="#D62F5B"/>
+  <circle cx="60" cy="86" r="2.6" fill="#D62F5B"/>
+
+  <!-- ============ la graine qui pousse ============ -->
+  <g>
+    <path d="M14 80V54" stroke="#5AA13F" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+    <path d="M14 66c-9 0-13-5-13-11 8 0 13 4 13 11z" fill="#6FB050"/>
+    <path d="M14 58c8 0 12-4 12-11-7 0-12 5-12 11z" fill="#6FB050"/>
+    <circle cx="14" cy="80" r="4" fill="#D62F5B"/>
+  </g>
+
+  <g stroke="#1E241B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+
+    <!-- ============ SEMOIR ============ -->
+    <!-- châssis -->
+    <path d="M30 58h64" stroke-width="3" fill="none"/>
+    <path d="M94 58l10-4" stroke-width="3" fill="none"/>
+    <!-- trémie -->
+    <path d="M38 26h50l-8 26H46z" fill="#EFEDE1"/>
+    <path d="M36 26h54" stroke-width="3" fill="none"/>
+    <path d="M56 26v-4h14v4" fill="#EFEDE1"/>
+    <!-- doseur -->
+    <path d="M56 52h14v6H56z" fill="#3A4038"/>
+    <!-- éléments semeurs : tubes de descente -->
+    <path d="M50 58h6v18h-6z" fill="#F7F8F2"/>
+    <path d="M70 58h6v18h-6z" fill="#F7F8F2"/>
+    <!-- socs -->
+    <path d="M47 76h12l-6 8z" fill="#3A4038"/>
+    <path d="M67 76h12l-6 8z" fill="#3A4038"/>
+    <!-- roue du semoir -->
+    <circle cx="34" cy="69" r="11" fill="#2A2E28"/>
+    <circle cx="34" cy="69" r="5.5" fill="#C4392B"/>
+    <circle cx="34" cy="69" r="1.6" fill="#1E241B" stroke="none"/>
+
+    <!-- ============ TRACTEUR ============ -->
+    <!-- carrosserie -->
+    <path d="M108 64V15h38l6 29h32v20z" fill="#2F7A4B"/>
+    <path d="M152 44h32" fill="none"/>
+    <path d="M114 21h28l4 20h-32z" fill="#CBDDD6"/>
+    <path d="M176 48h8v14h-8z" fill="#3A4038"/>
+    <circle cx="180" cy="45" r="3" fill="#F0C34B"/>
+    <path d="M158 50h18" stroke-width="2" fill="none"/>
+    <path d="M100 62h8" stroke-width="3" fill="none"/>
+    <!-- échappement -->
+    <path d="M151 44V12" stroke-width="3" fill="none"/>
+    <!-- garde-boue -->
+    <path d="M104 60a18 18 0 0 1 36 0" fill="none" stroke-width="3"/>
+    <!-- roue arrière -->
+    <circle cx="122" cy="62" r="18" fill="#2A2E28"/>
+    <circle cx="122" cy="62" r="9" fill="#C4392B"/>
+    <circle cx="122" cy="62" r="2.6" fill="#1E241B" stroke="none"/>
+    
+    <!-- roue avant -->
+    <circle cx="170" cy="68" r="12" fill="#2A2E28"/>
+    <circle cx="170" cy="68" r="6" fill="#C4392B"/>
+    <circle cx="170" cy="68" r="1.8" fill="#1E241B" stroke="none"/>
+  </g>
+
+  <!-- grains qui descendent dans les tubes -->
+  <g fill="#D62F5B">
+    <circle cx="53" cy="63" r="2.1"/>
+    <circle cx="53" cy="70" r="2.1"/>
+    <circle cx="73" cy="61" r="2.1"/>
+    <circle cx="73" cy="68" r="2.1"/>
+    <circle cx="73" cy="75" r="2.1"/>
+  </g>
+</svg>
+    <h1>Dose de <em>semis</em></h1>
+  </div>
+  <p class="baseline">Du PMG à la dose en kg/ha : surface faite avec sa semence, essai de débit, vérification à l'envers.</p>
+</header>
+
+<div class="compte" id="compte">
+  <div class="ligne" id="compteLocal"><a class="lien" href="../">← Applis de la ferme</a><span id="compteLocalTxt">Semences gardées sur cet appareil.</span><a class="lien" href="../">Se connecter</a></div>
+  <div id="compteEspace" hidden>
+    <div class="ligne"><a class="lien" href="../">← Applis</a><b id="compteNom"></b><span id="compteRole"></span></div>
+    <div class="ligne"><span class="etat" id="compteEtat"></span></div>
+  </div>
+</div>
+
+<section class="block semences">
+  <h2>Mes semences</h2>
+  <div class="campagnes">
+    <div class="seg" id="campagnes" role="group" aria-label="Choisir une campagne"></div>
+    <button type="button" class="lien" id="ajoutCampagne">+ Nouvelle campagne</button>
+  </div>
+  <div class="chips" id="chips" role="group" aria-label="Choisir une semence"></div>
+  <div class="field">
+    <label for="especeSem">Espèce</label>
+    <div class="entry"><input type="text" id="especeSem" list="especes" maxlength="30" autocomplete="off" placeholder="Blé tendre, orge, colza…"></div>
+    <datalist id="especes"><option value="Blé tendre"><option value="Blé dur"><option value="Orge"><option value="Colza"></datalist>
+  </div>
+  <div class="field">
+    <label for="nomSem">Variété et année de campagne</label>
+    <div class="entry"><input type="text" id="nomSem" maxlength="40" autocomplete="off"><input type="number" id="anneeSem" inputmode="numeric" step="1" min="2000" max="2100" aria-label="Année" style="max-width:96px;font-size:18px"></div>
+    <button type="button" class="lien" id="supprSem">Supprimer cette semence</button>
+    <p class="hint" id="semHint">Chaque semence garde ses propres chiffres, sur cet appareil.</p>
+  </div>
+  <div class="field">
+    <label for="stockKg">Semence disponible — <b>quantité totale</b></label>
+    <div class="seg" id="stockMode" role="group" aria-label="Unité de la quantité disponible">
+      <button type="button" data-stock="kg" aria-pressed="true">En kg</button>
+      <button type="button" data-stock="grains" aria-pressed="false">En grains</button>
+    </div>
+    <div class="entry" id="fieldStockKg"><input type="number" id="stockKg" inputmode="decimal" step="10" min="0" value="0"><span class="unit">kg</span></div>
+    <div class="entry" id="fieldStockGr" hidden><input type="number" id="stockGr" inputmode="decimal" step="0.1" min="0" value="0"><span class="unit">millions de grains</span></div>
+    <p class="hint">La surface que tu peux semer avec s’affiche sous la dose. Laisse à 0 si tu n’en as pas besoin.</p>
+  </div>
+  <div class="field">
+    <label for="aFaire">Surface à semer — <b>mes parcelles</b></label>
+    <div class="entry"><input type="number" id="aFaire" inputmode="decimal" step="0.5" min="0" value="0"><span class="unit">ha</span></div>
+    <p class="hint">Pour savoir s’il manque ou s’il reste de la semence.</p>
+  </div>
+</section>
+
+<section class="block recap">
+  <h2 id="recapTitre">Récapitulatif</h2>
+  <table>
+    <thead><tr><th>Semence</th><th>Disponible</th><th>Possible</th><th>À semer</th></tr></thead>
+    <tbody id="recapLignes"></tbody>
+    <tfoot id="recapPied"></tfoot>
+  </table>
+  <p class="hint">Touche une ligne pour ouvrir la semence. « Possible » : surface faisable avec la semence disponible. « À semer » : surface de tes parcelles, avec ce qui manque ou ce qui reste.</p>
+</section>
+
+<div class="grid">
+
+    <section class="block">
+      <h2>Le calcul</h2>
+
+      <div class="field big">
+        <label for="pmg">PMG — <b>poids de mille grains</b></label>
+        <div class="entry"><input type="number" id="pmg" inputmode="decimal" step="0.1" min="0.1" max="2000" value="45"><span class="unit">g</span></div>
+        <p class="hint">Sur l'étiquette du lot. Blé 40–50, colza 3–6, féverole 400–600.</p>
+      </div>
+
+      <div class="field big">
+        <label for="dens" id="densLabel">Objectif — <b>grains semés au m²</b></label>
+        <div class="entry"><input type="number" id="dens" inputmode="decimal" step="1" min="0.1" max="5000" value="200"><span class="unit">/ m²</span></div>
+        <p class="hint" id="densHint"></p>
+      </div>
+
+      <div class="seg" id="cible" role="group" aria-label="Nature de l'objectif">
+        <button type="button" data-cible="semes" aria-pressed="true">Objectif en grains semés</button>
+        <button type="button" data-cible="leves" aria-pressed="false">Objectif en plantes levées</button>
+      </div>
+
+      <div class="field">
+        <label for="fgN">Faculté germinative</label>
+        <div class="entry">
+          <input type="number" id="fgN" inputmode="decimal" step="1" min="50" max="100" value="100">
+          <span class="unit">%</span>
+          <input type="range" id="fgR" min="50" max="100" step="1" value="100" aria-label="Faculté germinative">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="perteN">Pertes à la levée</label>
+        <div class="entry">
+          <input type="number" id="perteN" inputmode="decimal" step="1" min="0" max="60" value="0">
+          <span class="unit">%</span>
+          <input type="range" id="perteR" min="0" max="60" step="1" value="0" aria-label="Pertes à la levée">
+        </div>
+        <p class="hint">Ces deux réglages ne servent qu'à passer des plantes levées aux grains semés, et inversement.</p>
+      </div>
+
+      <div class="dosebar">
+        <div class="k">La dose</div>
+        <div class="line">
+          <div class="num" id="doseNum">—</div>
+          <div class="u">kg / ha</div>
+        </div>
+        <div class="sous" id="doseSous"></div>
+        <div class="stock" id="stockLine" hidden></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Essai de débit</h2>
+      <p class="hint" style="margin-top:-8px;margin-bottom:12px">Choisis la fraction d'hectare sur laquelle tu fais l'essai, pèse ce que tu récupères.</p>
+
+      <div class="seg parts" id="fraction" role="group" aria-label="Fraction d'hectare"></div>
+
+      <div class="out">
+        <div class="k">Poids théorique à récupérer</div>
+        <div class="v" id="theoPoids">—</div>
+        <div class="note" id="theoNote"></div>
+      </div>
+
+      <div class="field" style="margin-top:16px">
+        <label for="pese">Poids réellement pesé</label>
+        <div class="entry"><input type="number" id="pese" inputmode="decimal" step="0.01" min="0" value="0"><span class="unit">kg</span></div>
+        <p class="hint">Laisse à 0 tant que tu n'as pas pesé.</p>
+      </div>
+
+      <div class="out">
+        <div class="k">Dose réelle du semoir</div>
+        <div class="v" id="reelDose">—</div>
+        <div class="ecart" id="reelEcart"></div>
+        <div class="note" id="reelNote"></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Vérification à l'envers</h2>
+
+      <p class="hint" style="margin-top:-8px;margin-bottom:12px">Après le chantier : ce que tu as semé et la surface faite.</p>
+
+      <div class="seg" id="invMode" role="group" aria-label="Unité de la quantité semée">
+        <button type="button" data-inv="kg" aria-pressed="true">En kg</button>
+        <button type="button" data-inv="grains" aria-pressed="false">En grains</button>
+      </div>
+
+      <div class="field">
+        <label for="invKg">J'ai semé</label>
+        <div class="entry" id="fieldInvKg"><input type="number" id="invKg" inputmode="decimal" step="10" min="0" value="0"><span class="unit">kg</span></div>
+        <div class="entry" id="fieldInvGr" hidden><input type="number" id="invGr" inputmode="decimal" step="0.1" min="0" value="0"><span class="unit">millions de grains</span></div>
+      </div>
+
+      <div class="field">
+        <label for="invHa">Sur une surface de</label>
+        <div class="entry"><input type="number" id="invHa" inputmode="decimal" step="0.1" min="0" value="0"><span class="unit">ha</span></div>
+      </div>
+
+      <div class="out">
+        <div class="k">Ça fait</div>
+        <div class="v" id="invOut">—</div>
+        <div class="ecart" id="invEcart"></div>
+        <div class="note" id="invNote"></div>
+      </div>
+    </section>
+
+</div>
+
+<footer>
+  <p><code>Dose (kg/ha) = grains semés/m² × PMG (g) ÷ 100</code> — objectif en plantes levées : <code>grains semés = objectif ÷ (faculté germinative × (1 − pertes))</code> — essai : <code>dose = poids pesé ÷ fraction d'hectare</code>.</p>
+</footer>
+
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+const FRACTIONS = [
+  {t:"1/50", f:1/50, m2:200},
+  {t:"1/20", f:1/20, m2:500},
+  {t:"1/10", f:1/10, m2:1000},
+  {t:"1/5",  f:1/5,  m2:2000},
+  {t:"1/2",  f:1/2,  m2:5000}
+];
+let fraction = FRACTIONS[2];
+let cible = "semes";
+let invMode = "kg";
+let stockMode = "kg";
+
+function boutonsFraction(boxId, defaut, onPick){
+  const box = $(boxId);
+  FRACTIONS.forEach(fr=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.innerHTML = fr.t + "<small>" + fr.m2.toLocaleString("fr-FR") + " m²</small>";
+    b.setAttribute("aria-pressed", String(fr===defaut));
+    b.addEventListener("click",()=>{
+      [...box.children].forEach(c=>c.setAttribute("aria-pressed","false"));
+      b.setAttribute("aria-pressed","true");
+      onPick(fr); calcul();
+    });
+    box.appendChild(b);
+  });
+}
+boutonsFraction("fraction", fraction, fr=>fraction=fr);
+
+function couple(nId,rId){
+  const n=$(nId), r=$(rId);
+  n.addEventListener("input",()=>{r.value=n.value;calcul();});
+  r.addEventListener("input",()=>{n.value=r.value;calcul();});
+}
+couple("fgN","fgR"); couple("perteN","perteR");
+
+["pmg","dens","pese","stockKg","stockGr","invKg","invGr","invHa","aFaire"]
+  .forEach(id=>$(id).addEventListener("input",calcul));
+
+function presser(boxId, attr, v){
+  [...$(boxId).children].forEach(c=>c.setAttribute("aria-pressed", String(c.dataset[attr]===v)));
+}
+function setCible(v){
+  cible=v; presser("cible","cible",v);
+  $("densLabel").innerHTML = cible==="semes"
+    ? "Objectif — <b>grains semés au m²</b>"
+    : "Objectif — <b>plantes levées au m²</b>";
+}
+function setInv(v){
+  invMode=v; presser("invMode","inv",v);
+  $("fieldInvKg").hidden = invMode!=="kg";
+  $("fieldInvGr").hidden = invMode!=="grains";
+}
+function setStock(v){
+  stockMode=v; presser("stockMode","stock",v);
+  $("fieldStockKg").hidden = stockMode!=="kg";
+  $("fieldStockGr").hidden = stockMode!=="grains";
+}
+function setFractionBox(boxId, i){
+  [...$(boxId).children].forEach((c,j)=>c.setAttribute("aria-pressed", String(j===i)));
+}
+
+function surBouton(boxId, attr, faire){
+  $(boxId).addEventListener("click",e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    faire(b.dataset[attr]); calcul();
+  });
+}
+surBouton("cible","cible",setCible);
+surBouton("invMode","inv",setInv);
+surBouton("stockMode","stock",setStock);
+
+const val = id => { const v=parseFloat(String($(id).value).replace(",",".")); return isFinite(v)?v:0; };
+function fmt(x,d){
+  if(!isFinite(x)) return "—";
+  if(d===undefined) d = Math.abs(x)<10 ? 1 : 0;
+  return x.toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d});
+}
+function grainsFmt(n){
+  if(!isFinite(n)||n<=0) return "—";
+  return n>=1e6 ? fmt(n/1e6,2)+" millions de" : fmt(n,0);
+}
+function poids(kg){
+  return kg>=1 ? fmt(kg,2)+" <span>kg</span>" : fmt(kg*1000,0)+" <span>g</span>";
+}
+
+function calcul(){
+  const pmg=val("pmg");
+  const fg=Math.min(Math.max(val("fgN"),1),100)/100;
+  const pertes=Math.min(Math.max(val("perteN"),0),95)/100;
+  const objectif=val("dens");
+
+  const semes  = cible==="semes" ? objectif : objectif/(fg*(1-pertes));
+  const levees = semes*fg*(1-pertes);
+  const dose   = semes*pmg/100;
+
+  $("doseNum").textContent = dose>0 ? fmt(dose, dose<20?1:0) : "—";
+  $("doseSous").innerHTML = dose>0
+    ? "<b>"+fmt(semes)+"</b> grains semés/m² &nbsp;·&nbsp; <b>"+fmt(levees)+"</b> plantes levées/m² attendues"
+    : "";
+  $("densHint").textContent = cible==="semes"
+    ? "Environ "+fmt(levees)+" plantes levées/m² avec les réglages ci-dessous."
+    : "Il faut semer "+fmt(semes)+" grains/m² pour y arriver.";
+
+  let stockKg=0, stockGrains=0;
+  if(stockMode==="kg"){ stockKg=val("stockKg"); stockGrains = pmg>0 ? stockKg*1e6/pmg : 0; }
+  else { stockGrains=val("stockGr")*1e6; stockKg=stockGrains*pmg/1e6; }
+  const haStock = dose>0 ? stockKg/dose : 0;
+  const aFaire = val("aFaire");
+  let txt = "";
+  if(haStock>0) txt += "Avec ma semence ("+fmt(stockKg,0)+" kg, "+grainsFmt(stockGrains)+" grains) je sème <b>"+fmt(haStock,2)+" ha</b>";
+  if(aFaire>0 && dose>0){
+    const besoin = aFaire*dose;
+    txt += (txt ? "<br>" : "") + "Pour mes "+fmt(aFaire,2)+" ha à semer il faut "+fmt(besoin,0)+" kg"
+      + (stockKg>0 ? (stockKg>=besoin ? " : il en reste "+fmt(stockKg-besoin,0)+" kg." : " : il en <b style=\"display:inline;font-size:inherit;color:var(--seed-soft)\">manque "+fmt(besoin-stockKg,0)+" kg</b>.") : ".");
+  }
+  $("stockLine").hidden = !txt;
+  $("stockLine").innerHTML = txt;
+
+
+  const theo = dose*fraction.f;
+  if(dose>0){
+    $("theoPoids").innerHTML = poids(theo);
+    $("theoNote").textContent = "Sur "+fraction.t+" d'hectare, soit "+fraction.m2.toLocaleString("fr-FR")+" m².";
+  } else {
+    $("theoPoids").textContent="—"; $("theoNote").textContent="";
+  }
+
+  const pese=val("pese");
+  if(pese>0){
+    const doseReelle = pese/fraction.f;
+    const grReels = pmg>0 ? doseReelle*100/pmg : 0;
+    const ec = theo>0 ? (pese/theo-1)*100 : 0;
+    $("reelDose").innerHTML = fmt(doseReelle, doseReelle<20?1:0)+" <span>kg/ha</span>";
+    const e=$("reelEcart");
+    e.textContent = (ec>=0?"+":"−")+fmt(Math.abs(ec),1)+" % par rapport à la dose visée";
+    e.className = "ecart " + (Math.abs(ec)<=3 ? "bon" : "plus");
+    $("reelNote").textContent = "Le semoir sème "+fmt(grReels)+" grains/m². "
+      + (Math.abs(ec)<=3 ? "Réglage bon." : (ec>0 ? "Il débite trop : baisse le réglage." : "Il débite trop peu : monte le réglage."));
+  } else {
+    $("reelDose").textContent="—"; $("reelEcart").textContent=""; $("reelNote").textContent="";
+  }
+
+  let kgInv=0, grInv=0;
+  if(invMode==="kg"){ kgInv=val("invKg"); grInv = pmg>0 ? kgInv*1e6/pmg : 0; }
+  else { grInv=val("invGr")*1e6; kgInv=grInv*pmg/1e6; }
+  const haInv=val("invHa");
+  if(grInv>0 && haInv>0){
+    const gr=grInv/(haInv*10000);
+    const kgHa=kgInv/haInv;
+    $("invOut").innerHTML = fmt(gr)+" <span>grains/m²</span>";
+    const e=$("invEcart");
+    if(semes>0){
+      const ec=(gr/semes-1)*100;
+      e.textContent = (ec>=0?"+":"−")+fmt(Math.abs(ec),1)+" % par rapport à l'objectif de "+fmt(semes)+" grains/m²";
+      e.className = "ecart " + (Math.abs(ec)<=3 ? "bon" : "plus");
+    } else { e.textContent=""; }
+    $("invNote").textContent = "Soit "+fmt(kgHa, kgHa<20?1:0)+" kg/ha ("+grainsFmt(grInv)+" grains, "+fmt(kgInv,0)+" kg avec un PMG de "+fmt(pmg,1)+" g). Environ "+fmt(gr*fg*(1-pertes))+" plantes levées/m².";
+  } else {
+    $("invOut").textContent="—"; $("invEcart").textContent=""; $("invNote").textContent="";
+  }
+  sauver();
+}
+
+// Chaque semence garde tous les chiffres de la page. Rangées dans le
+// navigateur du téléphone (localStorage) : rien n'est envoyé ailleurs.
+const CLE = "dose-de-semis.semences";
+const VERSION = 2;
+const CHAMPS = ["pmg","dens","fgN","perteN","stockKg","stockGr","aFaire","pese","invKg","invGr","invHa"];
+let semences = [], actuelle = 0, pret = false;
+
+function lireSemence(){
+  const s = {};
+  CHAMPS.forEach(id=>s[id]=$(id).value);
+  Object.assign(s, {cible, invMode, stockMode, fraction: FRACTIONS.indexOf(fraction)});
+  return s;
+}
+function appliquerSemence(s){
+  CHAMPS.forEach(id=>{ if(s[id]!==undefined) $(id).value=s[id]; });
+  $("fgR").value=$("fgN").value; $("perteR").value=$("perteN").value;
+  setCible(s.cible||"semes"); setInv(s.invMode==="grains" ? "grains" : "kg"); setStock(s.stockMode||"kg");
+  fraction = FRACTIONS[s.fraction] || FRACTIONS[2];
+  setFractionBox("fraction", FRACTIONS.indexOf(fraction));
+  $("nomSem").value = s.nom || "";
+  $("anneeSem").value = s.annee || "";
+  $("especeSem").value = s.espece || "";
+}
+function sauver(){
+  if(!pret) return;
+  Object.assign(semences[actuelle], lireSemence());
+  enregistrerLocal();
+  if(espace && espace.compte.role==="chef" && semences.some(x=>JSON.stringify(donnees(x))!==x._empreinte)) planifierEnvoi();
+  dessinerRecap();
+}
+function nomDe(s,i){ return (s.nom||"").trim() || "Semence "+(i+1); }
+const campagneDe = s => String(s.annee||"").trim();
+const libelleCampagne = c => c ? "Semis "+c : "Sans année";
+const especeDe = s => String(s.espece||"").trim();
+// Les semences d'une campagne, rangées par espèce (ordre alphabétique, « sans espèce » à la fin).
+function groupes(c){
+  const g = new Map();
+  semences.forEach((s,i)=>{
+    if(campagneDe(s)!==c) return;
+    const e = especeDe(s), cle = e.toLocaleLowerCase("fr");
+    if(!g.has(cle)) g.set(cle, {nom: e || "Sans espèce", lignes: []});
+    g.get(cle).lignes.push(i);
+  });
+  return [...g.entries()]
+    .sort(([a],[b]) => (a==="")-(b==="") || a.localeCompare(b,"fr"))
+    .map(([,v])=>v);
+}
+
+// Les chiffres d'une semence enregistrée, calculés comme dans « Le calcul ».
+function chiffres(s){
+  const n = k => { const v=parseFloat(String(s[k]??"").replace(",",".")); return isFinite(v)?v:0; };
+  const pmg=n("pmg");
+  const fg=Math.min(Math.max(n("fgN"),1),100)/100;
+  const pertes=Math.min(Math.max(n("perteN"),0),95)/100;
+  const semes = s.cible==="leves" ? n("dens")/(fg*(1-pertes)) : n("dens");
+  const dose = semes*pmg/100;
+  const kg = s.stockMode==="grains" ? n("stockGr")*pmg : n("stockKg");
+  const grains = pmg>0 ? kg*1e6/pmg : 0;
+  const aFaire = n("aFaire");
+  return {dose, kg, grains, ha: dose>0 ? kg/dose : 0, aFaire, besoin: aFaire*dose};
+}
+
+function dessinerRecap(){
+  const c = campagneDe(semences[actuelle]);
+  $("recapTitre").textContent = "Récapitulatif — "+libelleCampagne(c);
+  const corps=$("recapLignes"); corps.innerHTML="";
+  const vide = () => ({kg:0, ha:0, aFaire:0, besoin:0, kgCompte:0});
+  const ajouter = (t, r) => { t.kg+=r.kg; t.ha+=r.ha; t.aFaire+=r.aFaire; t.besoin+=r.besoin; if(r.aFaire>0) t.kgCompte+=r.kg; };
+  // Cellule « À semer » : la surface, puis ce qui manque ou reste (si la quantité est connue)
+  const celluleAFaire = t => {
+    if(!(t.aFaire>0)) return "—";
+    let bilan = "";
+    if(t.besoin>0 && t.kgCompte>0){
+      const d = t.kgCompte - t.besoin;
+      bilan = d<0 ? "<small class=\"manque\">manque "+fmt(-d,0)+" kg</small>" : "<small class=\"reste\">reste "+fmt(d,0)+" kg</small>";
+    } else if(t.besoin>0) bilan = "<small>besoin "+fmt(t.besoin,0)+" kg</small>";
+    return fmt(t.aFaire,2)+" ha"+bilan;
+  };
+  const cellules = t =>
+      "<td>"+(t.kg>0 ? fmt(t.kg,0)+"&nbsp;kg"+(t.grains ? "<small>"+fmt(t.grains/1e6,1)+"&nbsp;M&nbsp;grains</small>" : "") : "—")+"</td>"
+    + "<td class=\"ha\">"+(t.ha>0 ? fmt(t.ha,2)+" ha" : "—")+"</td>"
+    + "<td class=\"ha\">"+celluleAFaire(t)+"</td>";
+  const ligneTotal = (parent, cls, texte, t) => {
+    const tr=document.createElement("tr"); tr.className=cls;
+    tr.innerHTML = "<td></td>"+cellules(t);
+    tr.firstChild.textContent = texte;
+    parent.appendChild(tr);
+  };
+  const tot = vide();
+  groupes(c).forEach(g=>{
+    const tr=document.createElement("tr"); tr.className="grp";
+    tr.innerHTML="<td colspan=\"4\"></td>"; tr.firstChild.textContent=g.nom;
+    corps.appendChild(tr);
+    const sg = vide();
+    g.lignes.forEach(i=>{
+      const r=chiffres(semences[i]);
+      ajouter(sg, r); ajouter(tot, r);
+      const tr=document.createElement("tr");
+      if(i===actuelle) tr.className="actif";
+      tr.innerHTML = "<td><span></span>"+(r.dose>0 ? "<small>"+fmt(r.dose, r.dose<20?1:0)+" kg/ha</small>" : "")+"</td>"
+        + cellules({...r, kgCompte: r.aFaire>0 ? r.kg : 0});
+      tr.querySelector("span").textContent = nomDe(semences[i],i);
+      tr.addEventListener("click",()=>{ choisirSemence(i); window.scrollTo({top:0,behavior:"smooth"}); });
+      corps.appendChild(tr);
+    });
+    if(g.lignes.length>1) ligneTotal(corps, "st", "Sous-total", sg);
+  });
+  const pied=$("recapPied"); pied.innerHTML="";
+  // Au total, on ne compense pas une espèce par une autre : seulement les hectares
+  ligneTotal(pied, "", "Total", {...tot, besoin:0, kgCompte:0});
+}
+
+function dessinerCampagnes(){
+  const c = campagneDe(semences[actuelle]);
+  const liste = [...new Set(semences.map(campagneDe))].sort((a,b)=>b.localeCompare(a));
+  const box=$("campagnes"); box.innerHTML="";
+  liste.forEach(x=>{
+    const b=document.createElement("button");
+    b.type="button"; b.textContent=libelleCampagne(x);
+    b.setAttribute("aria-pressed", String(x===c));
+    b.addEventListener("click",()=>{ if(x!==c) choisirSemence(semences.findIndex(s=>campagneDe(s)===x)); });
+    box.appendChild(b);
+  });
+}
+
+function dessinerChips(){
+  dessinerCampagnes();
+  const c = campagneDe(semences[actuelle]);
+  const box=$("chips"); box.innerHTML="";
+  const gs = groupes(c);
+  gs.forEach(g=>{
+    if(gs.length>1 || g.nom!=="Sans espèce"){
+      const t=document.createElement("span"); t.className="grp"; t.textContent=g.nom;
+      box.appendChild(t);
+    }
+    g.lignes.forEach(i=>{
+      const b=document.createElement("button");
+      b.type="button"; b.textContent=nomDe(semences[i],i);
+      b.setAttribute("aria-pressed", String(i===actuelle));
+      b.addEventListener("click",()=>choisirSemence(i));
+      box.appendChild(b);
+    });
+  });
+  const plus=document.createElement("button");
+  plus.type="button"; plus.className="ajout"; plus.textContent="+ Ajouter";
+  plus.addEventListener("click",()=>{
+    sauver();
+    const c = campagneDe(semences[actuelle]);
+    const rang = semences.filter(s=>campagneDe(s)===c).length+1;
+    semences.push(Object.assign({}, DEFAUT, {nom:"Semence "+rang, annee:c}));
+    choisirSemence(semences.length-1);
+    $("nomSem").select();
+  });
+  plus.hidden = lectureSeule();
+  box.appendChild(plus);
+  $("supprSem").hidden = semences.length<2 || lectureSeule();
+}
+function choisirSemence(i){
+  sauver();
+  actuelle=i;
+  pret=false; appliquerSemence(semences[i]); pret=true;
+  dessinerChips(); calcul(); dessinerRecap();
+}
+
+const DEFAUT = lireSemence();
+const ANNEE = String(new Date().getFullYear());
+
+$("nomSem").addEventListener("input",()=>{
+  semences[actuelle].nom = $("nomSem").value;
+  dessinerChips(); sauver();
+});
+$("especeSem").addEventListener("change",()=>{
+  semences[actuelle].espece = $("especeSem").value.trim();
+  dessinerChips(); sauver();
+});
+$("anneeSem").addEventListener("input",()=>{
+  semences[actuelle].annee = $("anneeSem").value;
+  dessinerChips(); sauver();
+});
+$("ajoutCampagne").addEventListener("click",()=>{
+  const max = Math.max(Number(ANNEE)-1, ...semences.map(s=>Number(campagneDe(s))||0));
+  const rep = prompt("Année de la nouvelle campagne :", String(max+1));
+  if(rep===null) return;
+  const c = rep.trim();
+  if(!/^\d{4}$/.test(c)){ alert("Écris l'année sur 4 chiffres, par exemple "+(max+1)+"."); return; }
+  const deja = semences.findIndex(s=>campagneDe(s)===c);
+  if(deja>=0){ choisirSemence(deja); return; }
+  sauver();
+  semences.push(Object.assign({}, DEFAUT, {nom:"Semence 1", annee:c}));
+  choisirSemence(semences.length-1);
+  $("nomSem").select();
+});
+$("supprSem").addEventListener("click",()=>{
+  if(semences.length<2) return;
+  if(!confirm("Supprimer « "+nomDe(semences[actuelle],actuelle)+" » ("+libelleCampagne(campagneDe(semences[actuelle]))+") et ses chiffres ?")) return;
+  const [partie] = semences.splice(actuelle,1);
+  if(partie._id){ aSupprimer.push(partie._id); planifierEnvoi(); }
+  actuelle=Math.max(0,actuelle-1);
+  pret=false; appliquerSemence(semences[actuelle]); pret=true;
+  dessinerChips(); calcul(); dessinerRecap(); enregistrerLocal();
+});
+
+// ================= espace de l'exploitation (connexion) =================
+// Sans connexion : semences gardées dans l'appareil (comme avant).
+// Connecté : semences de l'exploitation, enregistrées en ligne et gardées en
+// copie dans l'appareil pour s'afficher même sans réseau dans la plaine.
+const CLE_ESPACE = "applis.moi";   // partagé avec la page d'accueil
+let espace = null;            // {exploitation:{nom, identifiant}, role, admin}
+let aSupprimer = [];          // semences effacées, à retirer en ligne
+let envoiTimer = null, envoiEnCours = false;
+
+const cleStockage = () => espace ? CLE+"@"+espace.exploitation.id : CLE;
+const lectureSeule = () => !!espace && espace.compte.role!=="chef";
+function donnees(x){ const d={}; for(const k in x) if(k[0]!=="_") d[k]=x[k]; return d; }
+function nouvelleSemence(rang, annee){ return Object.assign({}, DEFAUT, {nom:"Semence "+rang, annee}); }
+
+function enregistrerLocal(){
+  try{ localStorage.setItem(cleStockage(), JSON.stringify({v:VERSION, liste:semences, actuelle, aSupprimer})); }catch(e){}
+}
+function lireCache(cle){
+  try{ const d=JSON.parse(localStorage.getItem(cle)); if(d && Array.isArray(d.liste)) return d; }catch(e){}
+  return null;
+}
+
+async function appel(methode, chemin, corps){
+  let r;
+  try{
+    r = await fetch(chemin, {method:methode, credentials:"same-origin",
+      headers: corps ? {"content-type":"application/json"} : {},
+      body: corps ? JSON.stringify(corps) : undefined});
+  }catch(e){ throw {status:0, message:"Pas de réseau."}; }
+  const data = await r.json().catch(()=>({}));
+  if(!r.ok) throw {status:r.status, message:data.erreur||"Erreur.", data};
+  return data;
+}
+
+function etat(txt, cls){ const e=$("compteEtat"); e.textContent=txt||""; e.className="etat "+(cls||""); }
+
+function chargerListe(liste, act){
+  semences = liste;
+  if(!semences.length){
+    semences = espace ? [nouvelleSemence(1, ANNEE)] : [1,2,3].map(n=>nouvelleSemence(n, ANNEE));
+    // Semence vide proposée dans un espace : envoyée seulement si on la remplit
+    if(espace) semences[0]._empreinte = JSON.stringify(donnees(semences[0]));
+  }
+  actuelle = Math.min(Math.max(act|0,0), semences.length-1);
+  pret=false; appliquerSemence(semences[actuelle]); pret=true;
+  appliquerDroits(); dessinerCompte();
+  dessinerChips(); calcul(); dessinerRecap();
+}
+
+function versLocal(x){
+  const o = Object.assign({}, DEFAUT, x.donnees, {_id:x.id, _version:x.version});
+  o._empreinte = JSON.stringify(donnees(o));
+  return o;
+}
+
+function appliquerDroits(){
+  const ro = lectureSeule();
+  ["especeSem","nomSem","anneeSem","stockKg","stockGr","aFaire","pmg","dens","fgN","fgR","perteN","perteR"].forEach(id=>$(id).disabled=ro);
+  document.querySelectorAll("#stockMode button, #cible button").forEach(b=>b.disabled=ro);
+  $("ajoutCampagne").hidden = ro;
+  $("semHint").textContent = !espace
+    ? "Chaque semence garde ses propres chiffres, sur cet appareil."
+    : ro ? "Accès salarié : les semences se consultent et servent aux calculs ; seul le chef d'exploitation les modifie."
+         : "Enregistrées dans l'espace de l'exploitation : les mêmes sur tous vos appareils.";
+}
+
+function dessinerCompte(){
+  $("compteLocal").hidden = !!espace;
+  $("compteEspace").hidden = !espace;
+  if(!espace) return;
+  $("compteNom").textContent = espace.exploitation.nom;
+  $("compteRole").textContent = "· "+espace.compte.nom+(espace.compte.role==="chef" ? " (chef d'exploitation)" : " (salarié)");
+}
+
+function planifierEnvoi(delai){
+  clearTimeout(envoiTimer);
+  envoiTimer = setTimeout(envoyer, delai===undefined ? 800 : delai);
+  if(delai===undefined) etat("Enregistrement…", "attente");
+}
+async function envoyer(){
+  if(!espace || espace.compte.role!=="chef") return;
+  if(envoiEnCours){ planifierEnvoi(); return; }
+  envoiEnCours = true;
+  try{
+    for(const x of [...semences]){
+      const d = donnees(x), t = JSON.stringify(d);
+      if(t===x._empreinte) continue;
+      if(!x._id){
+        const [n] = await appel("POST", "/api/semences", {donnees:d});
+        x._id=n.id; x._version=n.version; x._empreinte=t;
+        continue;
+      }
+      try{
+        const n = await appel("PUT", "/api/semences/"+x._id, {version:x._version, donnees:d});
+        x._version=n.version; x._empreinte=t;
+      }catch(e){
+        if(e.status===409 && e.data && e.data.semence){
+          // Modifiée entre-temps sur un autre appareil : on reprend la version en ligne
+          const srv = versLocal(e.data.semence);
+          Object.keys(x).forEach(k=>delete x[k]); Object.assign(x, srv);
+          if(semences[actuelle]===x){ pret=false; appliquerSemence(x); pret=true; dessinerChips(); calcul(); }
+          alert("« "+nomDe(x,0)+" » avait été modifiée sur un autre appareil : la version à jour est affichée.");
+        } else if(e.status===404){ delete x._id; delete x._version; delete x._empreinte; }
+        else throw e;
+      }
+    }
+    while(aSupprimer.length){
+      await appel("DELETE", "/api/semences/"+aSupprimer[0]).catch(e=>{ if(e.status!==404) throw e; });
+      aSupprimer.shift();
+    }
+    etat("Enregistré", "ok");
+    enregistrerLocal(); dessinerRecap();
+  }catch(e){
+    if(e.status===401) perdreSession();
+    else { etat(e.status===0 ? "Pas de réseau : enregistrement en attente" : e.message, "attente"); planifierEnvoi(20000); }
+  }finally{ envoiEnCours = false; }
+}
+
+function modeLocal(){
+  espace = null; aSupprimer = [];
+  try{ localStorage.removeItem(CLE_ESPACE); }catch(e){}
+  const d = lireCache(CLE);
+  if(d && d.liste.length){
+    // 08/10/2026 : faculté germinative 100 % et pertes 0 % par défaut,
+    // remis une seule fois sur les semences enregistrées avant.
+    if((d.v|0) < 2) d.liste.forEach(x=>{ x.fgN="100"; x.perteN="0"; });
+    chargerListe(d.liste, d.actuelle);
+  } else chargerListe([], 0);
+}
+
+async function modeEspace(moi){
+  espace = moi;
+  try{ localStorage.setItem(CLE_ESPACE, JSON.stringify(moi)); }catch(e){}
+  // D'abord la copie de l'appareil (affichage immédiat, même sans réseau)…
+  const d = lireCache(cleStockage());
+  aSupprimer = d && Array.isArray(d.aSupprimer) ? d.aSupprimer : [];
+  chargerListe(d ? d.liste : [], d ? d.actuelle : 0);
+  etat("Mise à jour…");
+  try{
+    espace = await appel("GET", "/api/moi");
+    localStorage.setItem(CLE_ESPACE, JSON.stringify(espace));
+    dessinerCompte();
+    await proposerRangement(espace);
+    // …puis on envoie ce qui ne l'était pas encore, et on recharge la liste en ligne
+    if(espace.compte.role==="chef") await envoyer();
+    const liste = await appel("GET", "/api/semences");
+    const idActuel = semences[actuelle] && semences[actuelle]._id;
+    const locales = liste.map(versLocal);
+    const i = locales.findIndex(x=>x._id===idActuel);
+    chargerListe(locales, i>=0 ? i : 0);
+    enregistrerLocal();
+    etat(espace.doitChanger ? "Mot de passe provisoire : changez-le depuis l'accueil." : espace.compte.role==="chef" ? "Enregistré" : "À jour", espace.doitChanger ? "attente" : "ok");
+  }catch(e){
+    if(e.status===401) return perdreSession();
+    etat("Hors ligne : dernières semences connues", "attente");
+  }
+}
+
+function perdreSession(){
+  try{ localStorage.removeItem(cleStockage()); }catch(e){}
+  modeLocal();
+  $("compteLocalTxt").textContent = "Vous avez été déconnecté : semences gardées sur cet appareil.";
+}
+
+// Les semences déjà créées sur cet appareil, rangées dans l'espace (une fois)
+async function proposerRangement(moi){
+  if(moi.compte.role!=="chef") return;
+  const fait = "dose-de-semis.range@"+moi.exploitation.id;
+  try{ if(localStorage.getItem(fait)) return; }catch(e){ return; }
+  const d = lireCache(CLE);
+  const utiles = d ? d.liste.filter(x=>!/^Semence \d+$/.test(String(x.nom||"").trim()) || parseFloat(x.stockKg)>0 || parseFloat(x.stockGr)>0 || x.espece) : [];
+  if(!utiles.length) return;
+  const noms = utiles.map((x,i)=>nomDe(x,i)).join(", ");
+  const quoi = utiles.length===1 ? "la semence créée" : "les "+utiles.length+" semences créées";
+  try{ localStorage.setItem(fait, new Date().toISOString()); }catch(e){}
+  if(!confirm("Ranger dans l'espace « "+moi.exploitation.nom+" » "+quoi+" sur cet appareil ?\n\n"+noms)) return;
+  try{ await appel("POST", "/api/semences", {liste: utiles.map(donnees)}); }
+  catch(e){ try{ localStorage.removeItem(fait); }catch(_){} alert("Le rangement n'a pas pu se faire : "+e.message); }
+}
+
+// ----- démarrage -----
+window.addEventListener("online", ()=>{ if(espace && espace.compte.role==="chef") planifierEnvoi(0); });
+(async function demarrer(){
+  let memo = null;
+  try{ memo = JSON.parse(localStorage.getItem(CLE_ESPACE)); }catch(e){}
+  if(memo && memo.exploitation && memo.compte) return modeEspace(memo);
+  modeLocal();
+  // Connecté depuis l'accueil sans que cet appareil s'en souvienne : on vérifie
+  try{ const moi = await appel("GET", "/api/moi"); modeEspace(moi); }catch(e){}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "applis-de-la-ferme",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Applis de la ferme : dose de semis, irrigation enrouleur…, un espace par exploitation",
+  "scripts": {
+    "dev": "wrangler pages dev --port 8796",
+    "db:schema": "wrangler d1 execute applis-de-la-ferme --remote --file=db/schema.sql",
+    "db:schema:local": "wrangler d1 execute applis-de-la-ferme --local --file=db/schema.sql",
+    "deploy": "wrangler pages deploy public --project-name applis-de-la-ferme --branch master --commit-dirty=true"
+  }
+}

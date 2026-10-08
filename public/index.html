@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Applis de la ferme</title>
+<meta name="description" content="Les petits outils de la ferme : dose de semis… Un espace par exploitation, un compte par personne.">
+<meta name="theme-color" content="#1E241B">
+<link rel="icon" href="dose-de-semis/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="dose-de-semis/apple-touch-icon.png">
+<style>
+:root{
+  --paper:#E9EBE1; --card:#F7F8F2; --ink:#1E241B; --muted:#6B7364;
+  --line:#D0D4C2; --line-strong:#B6BCA5; --seed:#D62F5B; --seed-soft:#F7DCE3; --ok:#3F7D3A;
+  --display:"Bahnschrift Condensed","Bahnschrift SemiCondensed","Bahnschrift","DIN Condensed","Arial Narrow",sans-serif;
+  --body:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+.wrap{max-width:820px;margin:0 auto;padding:20px 16px 64px}
+header{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:20px}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(32px,8vw,48px);letter-spacing:.02em;text-transform:uppercase;margin:0;line-height:.95}
+h1 em{font-style:normal;color:var(--seed)}
+.baseline{font-size:13px;color:var(--muted);margin:6px 0 0}
+h2{font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;font-size:14px;font-weight:600;margin:0 0 12px;display:flex;align-items:center;gap:10px}
+h2::after{content:"";flex:1;height:1px;background:var(--line-strong)}
+.block{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:16px;margin-bottom:16px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+input[type=text],input[type=password]{font-family:var(--body);font-size:17px;padding:9px 10px;border:1px solid var(--line-strong);border-radius:2px;background:#fff;color:var(--ink);width:100%;max-width:300px}
+select{font-size:16px;padding:8px;border:1px solid var(--line-strong);border-radius:2px;background:#fff}
+input:focus-visible,button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--seed);outline-offset:1px}
+.bouton{font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;font-size:15px;padding:10px 18px;border:0;border-radius:2px;background:var(--ink);color:var(--card);cursor:pointer}
+.lien{font-size:13px;color:var(--muted);background:none;border:0;text-decoration:underline;cursor:pointer;padding:6px 4px}
+.msg{font-size:13px;margin:8px 0 0}
+.msg.erreur{color:var(--seed)}
+.msg.ok{color:var(--ok)}
+.hint{font-size:12px;color:var(--muted);margin:4px 0 0}
+.qui{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.qui b{font-size:18px}
+.qui span{color:var(--muted);font-size:14px}
+.actions{display:flex;flex-wrap:wrap;gap:0 8px;margin-top:6px}
+.panneau{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.alerte{border-left:4px solid var(--seed)}
+
+.tuiles{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:620px){.tuiles{grid-template-columns:1fr 1fr}}
+.tuile{display:flex;gap:14px;align-items:center;text-decoration:none;color:var(--ink);background:var(--card);border:1px solid var(--line);border-left:4px solid var(--seed);border-radius:3px;padding:16px}
+.tuile:hover{border-color:var(--ink);border-left-color:var(--seed)}
+.tuile img{width:64px;height:64px;flex:none;border-radius:12px}
+.tuile .t{font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-size:22px;font-weight:600;line-height:1.1}
+.tuile .d{font-size:13px;color:var(--muted);margin-top:3px}
+.tuile.bientot{border-left-color:var(--line-strong);opacity:.65;pointer-events:none}
+.tuile .vide{width:64px;height:64px;flex:none;border-radius:12px;background:var(--line);display:grid;place-items:center;font-size:28px}
+
+table{width:100%;border-collapse:collapse}
+td{padding:8px 4px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
+td small{display:block;color:var(--muted);font-size:12px}
+td.act{text-align:right;white-space:nowrap}
+.codes{background:#fff;border:1px solid var(--line-strong);border-left:3px solid var(--seed);padding:10px 12px;margin-top:10px;font-size:14px;line-height:1.7}
+.codes code{font-family:var(--display);font-size:18px;letter-spacing:.03em}
+footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Applis <em>de la ferme</em></h1>
+  <p class="baseline">Les petits outils de tous les jours, sur le téléphone. Un espace par exploitation, un compte par personne.</p>
+</header>
+
+<!-- ======== compte ======== -->
+<section class="block" id="blocConnexion">
+  <h2>Se connecter</h2>
+  <form id="formConnexion">
+    <div class="field"><label for="cxId">Identifiant</label><input type="text" id="cxId" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+    <div class="field"><label for="cxMdp">Mot de passe</label><input type="password" id="cxMdp" autocomplete="current-password" required></div>
+    <button type="submit" class="bouton">Se connecter</button>
+    <p class="msg erreur" id="cxErreur" hidden></p>
+  </form>
+  <p class="hint">Sans compte, les outils marchent aussi : les données restent alors dans l'appareil. Les comptes sont créés par le chef d'exploitation.</p>
+</section>
+
+<section class="block" id="blocCompte" hidden>
+  <div class="qui"><b id="quiNom"></b><span id="quiExpl"></span></div>
+  <div class="actions">
+    <button type="button" class="lien" id="ouvrirMdp">Mon mot de passe</button>
+    <button type="button" class="lien" id="ouvrirComptes">Comptes de l'exploitation</button>
+    <button type="button" class="lien" id="ouvrirExpl">Exploitations</button>
+    <button type="button" class="lien" id="deconnexion">Se déconnecter</button>
+  </div>
+
+  <form class="panneau" id="formMdp" hidden>
+    <p class="msg erreur" id="mdpObligatoire" hidden style="margin-top:0">Vous avez un mot de passe provisoire : choisissez le vôtre (8 caractères au moins).</p>
+    <input type="text" autocomplete="username" id="mdpIdentifiant" hidden>
+    <div class="field"><label for="mdpActuel">Mot de passe actuel</label><input type="password" id="mdpActuel" autocomplete="current-password" required></div>
+    <div class="field"><label for="mdpNouveau">Nouveau mot de passe</label><input type="password" id="mdpNouveau" autocomplete="new-password" minlength="8" required></div>
+    <button type="submit" class="bouton">Enregistrer</button>
+    <p class="msg" id="mdpMsg" hidden></p>
+  </form>
+
+  <div class="panneau" id="panneauComptes" hidden>
+    <table><tbody id="comptesLignes"></tbody></table>
+    <form id="formCompte" style="margin-top:12px">
+      <div class="field"><label for="ncNom">Nouveau compte — prénom et nom</label><input type="text" id="ncNom" maxlength="80" placeholder="Valentine Martin" required></div>
+      <div class="field"><label for="ncId">Identifiant de connexion</label><input type="text" id="ncId" maxlength="40" autocapitalize="none" spellcheck="false" placeholder="valentine" required></div>
+      <div class="field"><label for="ncRole">Rôle</label>
+        <select id="ncRole"><option value="salarie">Salarié — consulte et calcule</option><option value="chef">Chef d'exploitation — modifie et gère les comptes</option></select></div>
+      <button type="submit" class="bouton">Créer le compte</button>
+      <p class="msg erreur" id="ncErreur" hidden></p>
+    </form>
+    <div id="comptesCodes"></div>
+  </div>
+
+  <div class="panneau" id="panneauExpl" hidden>
+    <table><tbody id="explLignes"></tbody></table>
+    <form id="formExpl" style="margin-top:12px">
+      <div class="field"><label for="neNom">Nouvelle exploitation — nom</label><input type="text" id="neNom" maxlength="80" placeholder="Dimancheville" required></div>
+      <div class="field"><label for="neChef">Son chef d'exploitation — prénom et nom</label><input type="text" id="neChef" maxlength="80" required></div>
+      <div class="field"><label for="neId">Identifiant de connexion du chef</label><input type="text" id="neId" maxlength="40" autocapitalize="none" spellcheck="false" required></div>
+      <button type="submit" class="bouton">Créer l'exploitation</button>
+      <p class="msg erreur" id="neErreur" hidden></p>
+    </form>
+    <div id="explCodes"></div>
+  </div>
+</section>
+
+<!-- ======== les applis ======== -->
+<section>
+  <h2>Les applis</h2>
+  <div class="tuiles">
+    <a class="tuile" href="dose-de-semis/">
+      <img src="dose-de-semis/apple-touch-icon.png" alt="">
+      <div><div class="t">Dose de semis</div><div class="d">Du PMG à la dose en kg/ha, surface faisable, essai de débit, récapitulatif par campagne.</div></div>
+    </a>
+    <div class="tuile bientot" aria-disabled="true">
+      <div class="vide" aria-hidden="true">💧</div>
+      <div><div class="t">Irrigation enrouleur</div><div class="d">Vitesse d'avancement et dose. Bientôt.</div></div>
+    </div>
+  </div>
+</section>
+
+<footer>Applis de la ferme — Ferme de Bretonvilliers.</footer>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let moi = null;
+
+async function appel(methode, chemin, corps){
+  let r;
+  try{
+    r = await fetch(chemin, {method:methode, credentials:"same-origin",
+      headers: corps ? {"content-type":"application/json"} : {},
+      body: corps ? JSON.stringify(corps) : undefined});
+  }catch(e){ throw {status:0, message:"Pas de réseau."}; }
+  const data = await r.json().catch(()=>({}));
+  if(!r.ok) throw {status:r.status, message:data.erreur||"Erreur.", data};
+  return data;
+}
+function message(id, txt, cls){ const m=$(id); m.textContent=txt; m.className="msg "+(cls||""); m.hidden=!txt; }
+function ident(nom){
+  return nom.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim().split(/\s+/)[0]
+    .replace(/[^a-z0-9.-]+/g,"").slice(0,40);
+}
+// Proposer un identifiant à partir du prénom, tant qu'on ne l'a pas tapé soi-même
+function lierIdentifiant(source, cible){
+  $(source).addEventListener("input",()=>{ if(!$(cible).dataset.touche) $(cible).value = ident($(source).value); });
+  $(cible).addEventListener("input",()=>{ $(cible).dataset.touche="1"; });
+}
+function codes(boite, titre, lignes){
+  const d=document.createElement("div"); d.className="codes";
+  const t=document.createElement("b"); t.textContent=titre; d.appendChild(t);
+  lignes.forEach(([k,v])=>{ d.appendChild(document.createElement("br")); d.append(k+" : "); const c=document.createElement("code"); c.textContent=v; d.appendChild(c); });
+  const n=document.createElement("small"); n.textContent="Notez-les maintenant : ils ne seront plus affichés. Le mot de passe sera à changer à la première connexion.";
+  d.appendChild(document.createElement("br")); d.appendChild(n);
+  $(boite).innerHTML=""; $(boite).appendChild(d);
+}
+
+function dessiner(){
+  $("blocConnexion").hidden = !!moi;
+  $("blocCompte").hidden = !moi;
+  if(!moi) return;
+  $("quiNom").textContent = moi.compte.nom;
+  $("quiExpl").textContent = moi.exploitation.nom+" · "+(moi.compte.role==="chef" ? "chef d'exploitation" : "salarié");
+  $("ouvrirComptes").hidden = moi.compte.role!=="chef";
+  $("ouvrirExpl").hidden = !moi.superAdmin;
+  $("mdpIdentifiant").value = moi.compte.identifiant;
+  // Mot de passe provisoire : on demande d'en choisir un tout de suite
+  $("blocCompte").classList.toggle("alerte", moi.doitChanger);
+  $("mdpObligatoire").hidden = !moi.doitChanger;
+  if(moi.doitChanger){ ["panneauComptes","panneauExpl"].forEach(x=>$(x).hidden=true); $("formMdp").hidden=false; }
+  try{ localStorage.setItem("applis.moi", JSON.stringify(moi)); }catch(e){}
+}
+function basculer(id){ const avant=$(id).hidden; ["formMdp","panneauComptes","panneauExpl"].forEach(x=>$(x).hidden=true); $(id).hidden=!avant; return !$(id).hidden; }
+
+// ----- connexion -----
+$("formConnexion").addEventListener("submit", async e=>{
+  e.preventDefault(); message("cxErreur","");
+  try{
+    moi = await appel("POST","/api/connexion",{identifiant:$("cxId").value, motDePasse:$("cxMdp").value});
+    $("cxMdp").value=""; dessiner();
+  }catch(err){ message("cxErreur", err.message, "erreur"); }
+});
+$("deconnexion").addEventListener("click", async ()=>{
+  await appel("POST","/api/deconnexion",{}).catch(()=>{});
+  moi=null;
+  // On efface aussi les copies des données de l'exploitation gardées dans l'appareil
+  try{
+    localStorage.removeItem("applis.moi");
+    Object.keys(localStorage).filter(k=>k.startsWith("dose-de-semis.semences@")).forEach(k=>localStorage.removeItem(k));
+  }catch(e){}
+  dessiner();
+});
+
+// ----- mon mot de passe -----
+$("ouvrirMdp").addEventListener("click",()=>basculer("formMdp"));
+$("formMdp").addEventListener("submit", async e=>{
+  e.preventDefault(); message("mdpMsg","");
+  try{
+    await appel("PATCH","/api/moi/mot-de-passe",{actuel:$("mdpActuel").value, nouveau:$("mdpNouveau").value});
+    $("mdpActuel").value=""; $("mdpNouveau").value="";
+    moi.doitChanger=false; dessiner(); $("formMdp").hidden=false;
+    message("mdpMsg","Mot de passe changé.","ok");
+  }catch(err){ message("mdpMsg", err.message, "erreur"); }
+});
+
+// ----- comptes de l'exploitation (chef) -----
+async function dessinerComptes(){
+  const corps=$("comptesLignes"); corps.innerHTML="";
+  let liste=[];
+  try{ liste=await appel("GET","/api/comptes"); }catch(e){ corps.textContent=e.message; return; }
+  liste.forEach(c=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML="<td><span></span><small></small></td><td class=\"act\"></td>";
+    tr.querySelector("span").textContent = c.nom + (c.actif ? "" : " (désactivé)");
+    tr.querySelector("small").textContent = c.identifiant+" · "+(c.role==="chef" ? "chef d'exploitation" : "salarié")+(c.doit_changer && c.actif ? " · mot de passe provisoire" : "");
+    const act=tr.lastChild;
+    if(c.id!==moi.compte.id){
+      const r=document.createElement("button"); r.type="button"; r.className="lien"; r.textContent="Nouveau mot de passe";
+      r.addEventListener("click", async ()=>{
+        if(!confirm("Donner un nouveau mot de passe provisoire à "+c.nom+" ?")) return;
+        try{ const n=await appel("POST","/api/comptes/"+c.id+"/reinitialiser",{}); codes("comptesCodes", n.nom, [["Identifiant",n.identifiant],["Mot de passe provisoire",n.motDePasse]]); dessinerComptes(); }
+        catch(e){ alert(e.message); }
+      });
+      const d=document.createElement("button"); d.type="button"; d.className="lien"; d.textContent=c.actif ? "Désactiver" : "Réactiver";
+      d.addEventListener("click", async ()=>{
+        if(c.actif && !confirm("Désactiver le compte de "+c.nom+" ? Il ne pourra plus se connecter ; rien n'est effacé.")) return;
+        try{ await appel("PATCH","/api/comptes/"+c.id,{actif:!c.actif}); dessinerComptes(); }catch(e){ alert(e.message); }
+      });
+      if(c.actif) act.appendChild(r);
+      act.appendChild(d);
+    } else act.textContent="vous";
+    corps.appendChild(tr);
+  });
+}
+$("ouvrirComptes").addEventListener("click",()=>{ if(basculer("panneauComptes")){ $("comptesCodes").innerHTML=""; dessinerComptes(); } });
+lierIdentifiant("ncNom","ncId");
+$("formCompte").addEventListener("submit", async e=>{
+  e.preventDefault(); message("ncErreur","");
+  try{
+    const n=await appel("POST","/api/comptes",{nom:$("ncNom").value, identifiant:$("ncId").value, role:$("ncRole").value});
+    $("ncNom").value=""; $("ncId").value=""; delete $("ncId").dataset.touche; $("ncRole").value="salarie";
+    codes("comptesCodes", n.nom, [["Identifiant",n.identifiant],["Mot de passe provisoire",n.motDePasse]]);
+    dessinerComptes();
+  }catch(err){ message("ncErreur", err.message, "erreur"); }
+});
+
+// ----- exploitations (administrateur du site) -----
+async function dessinerExploitations(){
+  const corps=$("explLignes"); corps.innerHTML="";
+  let liste=[];
+  try{ liste=await appel("GET","/api/exploitations"); }catch(e){ corps.textContent=e.message; return; }
+  liste.forEach(x=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML="<td><span></span><small></small></td><td class=\"act\"></td>";
+    tr.querySelector("span").textContent = x.nom+(x.actif ? "" : " (suspendue)");
+    tr.querySelector("small").textContent = x.comptes+" compte(s) · "+x.semences+" semence(s)";
+    if(x.id!==moi.exploitation.id){
+      const s=document.createElement("button"); s.type="button"; s.className="lien"; s.textContent=x.actif ? "Suspendre" : "Rouvrir";
+      s.addEventListener("click", async ()=>{
+        if(x.actif && !confirm("Suspendre « "+x.nom+" » ? Plus personne ne pourra s'y connecter ; rien n'est effacé.")) return;
+        try{ await appel("PATCH","/api/exploitations/"+x.id,{actif:!x.actif}); dessinerExploitations(); }catch(e){ alert(e.message); }
+      });
+      tr.lastChild.appendChild(s);
+    }
+    corps.appendChild(tr);
+  });
+}
+$("ouvrirExpl").addEventListener("click",()=>{ if(basculer("panneauExpl")){ $("explCodes").innerHTML=""; dessinerExploitations(); } });
+lierIdentifiant("neChef","neId");
+$("formExpl").addEventListener("submit", async e=>{
+  e.preventDefault(); message("neErreur","");
+  try{
+    const n=await appel("POST","/api/exploitations",{nom:$("neNom").value, chef:{nom:$("neChef").value, identifiant:$("neId").value}});
+    ["neNom","neChef","neId"].forEach(id=>$(id).value=""); delete $("neId").dataset.touche;
+    codes("explCodes", n.exploitation.nom+" — "+n.chef.nom+" (chef d'exploitation)", [["Identifiant",n.chef.identifiant],["Mot de passe provisoire",n.chef.motDePasse]]);
+    dessinerExploitations();
+  }catch(err){ message("neErreur", err.message, "erreur"); }
+});
+
+// ----- démarrage -----
+(async function(){
+  try{ moi = JSON.parse(localStorage.getItem("applis.moi")); }catch(e){}
+  dessiner();
+  try{ moi = await appel("GET","/api/moi"); }
+  catch(e){ if(e.status===401){ moi=null; try{ localStorage.removeItem("applis.moi"); }catch(_){} } }
+  dessiner();
+})();
+</script>
+</body>
+</html>

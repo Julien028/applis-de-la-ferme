@@ -1,0 +1,15 @@
+# Applis de la ferme : les petits outils de la ferme (dose de semis, irrigation
+# enrouleur…) sur un seul site, avec un espace par exploitation.
+# Compte Cloudflare bretonvilliers28@gmail.com, comme les autres sites.
+
+name = "applis-de-la-ferme"
+pages_build_output_dir = "public"
+compatibility_date = "2026-10-01"
+
+# Base à part : comptes des personnes, exploitations, données des applis.
+# À créer par : npx wrangler d1 create applis-de-la-ferme --location weur
+# puis remplacer A_REMPLIR par l'identifiant donné. Tables : db/schema.sql
+[[d1_databases]]
+binding = "DB"
+database_name = "applis-de-la-ferme"
+database_id = "A_REMPLIR"
