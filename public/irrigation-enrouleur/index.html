@@ -52,8 +52,8 @@
   .enr{border-top:1px solid var(--line);padding:12px 0}
   .enr:first-child{border-top:0;padding-top:0}
   .enr-tete{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-  .enr-tete .nm{font-weight:700;font-size:1rem;flex:1}
-  .enr-tete small{color:var(--muted)}
+  .enr-tete .nm{font-weight:700;font-size:1rem;flex:1 1 100%}
+  .enr-tete small{color:var(--muted);flex:1}
   .mini{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:6px}
   .mini th{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;text-align:right;padding:4px 4px;border-bottom:1px solid var(--line)}
   .mini td{text-align:right;padding:5px 4px;border-bottom:1px solid #EEF2F4}
@@ -146,10 +146,18 @@
       </div>
       <label for="fNom">Nom / type d'enrouleur</label>
       <input type="text" id="fNom" maxlength="60" placeholder="ex. Beinlich Ø135 — le gris">
-      <label for="fTuyau">Longueur du tuyau</label>
-      <div class="row"><input type="number" id="fTuyau" inputmode="decimal" step="any" placeholder="ex. 650"><span class="unit">m</span></div>
+      <div class="deux">
+        <div>
+          <label for="fDiam">Diamètre du tuyau</label>
+          <div class="row"><input type="number" id="fDiam" inputmode="decimal" step="any" placeholder="ex. 135"><span class="unit">mm</span></div>
+        </div>
+        <div>
+          <label for="fTuyau">Longueur du tuyau</label>
+          <div class="row"><input type="number" id="fTuyau" inputmode="decimal" step="any" placeholder="ex. 650"><span class="unit">m</span></div>
+        </div>
+      </div>
 
-      <label style="margin-top:16px">Buses</label>
+      <label style="margin-top:16px">Buses — une ligne par buse, avec le débit qu'elle donne sur cet enrouleur</label>
       <div id="fBuses"></div>
       <button class="lien" id="ajoutBuse" type="button">+ Ajouter une buse</button>
       <p class="msg" id="formMsg" hidden></p>
@@ -170,13 +178,13 @@ function heures(h){ if(!isFinite(h)||h<=0) return "—"; const hh=Math.floor(h),
 
 /* ============ MODÈLES (valeurs relevées à 8 bars) ============ */
 const MODELES = {
-  nb135:{nom:"Beinlich Ø135", tuyau:650, buses:[["22",47,68],["25",57,69],["27",64,71]]},
-  vb125:{nom:"Beinlich Ø125", tuyau:650, buses:[["22",43,72],["25",51,73],["27",55,67]]},
-  perrot:{nom:"Perrot Ø110", tuyau:500, buses:[["22",40,74],["25",47,75],["27",50,69]]}
+  nb135:{nom:"Beinlich Ø135", diametre:135, tuyau:650, buses:[["22",47,68],["25",57,69],["27",64,71]]},
+  vb125:{nom:"Beinlich Ø125", diametre:125, tuyau:650, buses:[["22",43,72],["25",51,73],["27",55,67]]},
+  perrot:{nom:"Perrot Ø110", diametre:110, tuyau:500, buses:[["22",40,74],["25",47,75],["27",50,69]]}
 };
 
 /* ============ LES ENROULEURS ============ */
-/* Un enrouleur : {id, nom, tuyau (m), buses:[{buse, pression (bars), debit (m³/h), largeur (m)}]} */
+/* Un enrouleur : {id, nom, diametre (mm), tuyau (m), buses:[{buse, pression (bars), debit (m³/h), largeur (m)}]} */
 let enrouleurs = [];
 const nouvelId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
@@ -186,6 +194,10 @@ function mettreAuFormat(liste){
   return liste.map(x => x && Array.isArray(x.buses) ? x
     : {id:nouvelId(), nom:String(x&&x.n||"Configuration"), tuyau:null,
        buses:[{buse:"", pression:null, debit:nombre(x&&x.d), largeur:nombre(x&&x.l)}]});
+}
+function libelleTuyau(e){
+  const t=[]; if(e.diametre) t.push("Ø"+fmt(e.diametre,0)); if(e.tuyau) t.push(fmt(e.tuyau,0)+" m");
+  return t.length ? "tuyau "+t.join(" · ") : "";
 }
 function libelleBuse(b){
   const parts=[];
@@ -253,7 +265,7 @@ function majInfo(appliquer){
   if(b.pression) t.push("à <b>"+fmt(b.pression,0)+" bars</b>");
   t.push("débit <b>"+(b.debit ? fmt(b.debit,0)+" m³/h" : "?")+"</b>");
   t.push("largeur <b>"+(b.largeur ? fmt(b.largeur,0)+" m" : "?")+"</b>");
-  if(e.tuyau) t.push("tuyau "+fmt(e.tuyau,0)+" m");
+  if(libelleTuyau(e)) t.push(libelleTuyau(e));
   info.innerHTML = t.join(" · "); info.hidden=false;
   if(appliquer){
     if(b.debit) $("debit").value=b.debit;
@@ -282,7 +294,7 @@ function dessinerListe(){
     const d=document.createElement("div"); d.className="enr";
     const tete=document.createElement("div"); tete.className="enr-tete";
     const nm=document.createElement("span"); nm.className="nm"; nm.textContent=e.nom; tete.appendChild(nm);
-    if(e.tuyau){ const t=document.createElement("small"); t.textContent="tuyau "+fmt(e.tuyau,0)+" m"; tete.appendChild(t); }
+    if(libelleTuyau(e)){ const t=document.createElement("small"); t.textContent=libelleTuyau(e); tete.appendChild(t); }
     if(!lectureSeule()){
       const m=document.createElement("button"); m.className="lien"; m.textContent="Modifier"; m.addEventListener("click",()=>ouvrirForm(e)); tete.appendChild(m);
       const s=document.createElement("button"); s.className="lien danger"; s.textContent="Supprimer";
@@ -324,7 +336,7 @@ function ouvrirForm(e){
   enEdition=e||null;
   $("formTitre").textContent = e ? "Modifier « "+e.nom+" »" : "Nouvel enrouleur";
   $("blocModele").hidden = !!e; $("modele").value="";
-  $("fNom").value = e ? e.nom : ""; $("fTuyau").value = e&&e.tuyau ? e.tuyau : "";
+  $("fNom").value = e ? e.nom : ""; $("fTuyau").value = e&&e.tuyau ? e.tuyau : ""; $("fDiam").value = e&&e.diametre ? e.diametre : "";
   const box=$("fBuses"); box.innerHTML="";
   (e ? e.buses : [{buse:"",pression:8,debit:null,largeur:null}]).forEach(b=>box.appendChild(ligneBuse(b)));
   $("formMsg").hidden=true; $("formEnr").hidden=false; $("ajoutEnr").hidden=true;
@@ -339,7 +351,7 @@ $("ajoutBuse").addEventListener("click",()=>{
 });
 $("modele").addEventListener("change",()=>{
   const m=MODELES[$("modele").value]; if(!m) return;
-  $("fNom").value=m.nom; $("fTuyau").value=m.tuyau;
+  $("fNom").value=m.nom; $("fTuyau").value=m.tuyau; $("fDiam").value=m.diametre;
   const box=$("fBuses"); box.innerHTML="";
   m.buses.forEach(([buse,debit,largeur])=>box.appendChild(ligneBuse({buse,pression:8,debit,largeur})));
 });
@@ -352,7 +364,7 @@ $("enregistrer").addEventListener("click",()=>{
   const msg=$("formMsg");
   if(!nom){ msg.textContent="Donnez un nom à l'enrouleur."; msg.hidden=false; return; }
   if(!buses.length){ msg.textContent="Ajoutez au moins une buse avec son débit."; msg.hidden=false; return; }
-  const e = {id: enEdition ? enEdition.id : nouvelId(), nom:nom.slice(0,60), tuyau:nombre($("fTuyau").value), buses};
+  const e = {id: enEdition ? enEdition.id : nouvelId(), nom:nom.slice(0,60), diametre:nombre($("fDiam").value), tuyau:nombre($("fTuyau").value), buses};
   if(enEdition) enrouleurs = enrouleurs.map(x=>x===enEdition ? e : x); else enrouleurs.push(e);
   fermerForm(); enregistrer();
   $("choixEnr").value=e.id; remplirChoixBuse(true);
