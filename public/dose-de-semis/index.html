@@ -82,6 +82,11 @@ input:disabled{background:var(--paper);color:var(--muted);border-color:var(--lin
 .recap td small.manque{color:var(--seed)}
 .recap td small.reste{color:var(--ok)}
 .recap tbody tr{cursor:pointer}
+.recap tbody tr.reglage{cursor:default;background:#F2F4EC}
+.recap tbody tr.reglage td{text-align:left;padding:8px 6px 10px}
+.recap tbody tr.reglage td>div{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.mini-champ{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap}
+.mini-champ input{font-size:18px;max-width:84px;padding:4px 6px}
 .recap tbody tr.actif td:first-child{font-weight:600;box-shadow:inset 3px 0 0 var(--seed);padding-left:8px}
 .recap td.ha{font-family:var(--display);font-size:20px;font-weight:600;white-space:nowrap}
 .recap tfoot td{border-bottom:0;border-top:2px solid var(--ink);font-weight:600}
@@ -283,7 +288,7 @@ footer code{font-family:var(--display);font-size:14px;letter-spacing:.03em;color
     <tbody id="recapLignes"></tbody>
     <tfoot id="recapPied"></tfoot>
   </table>
-  <p class="hint">Touche une ligne pour ouvrir la semence. « Possible » : surface faisable avec la semence disponible. « À semer » : surface de tes parcelles, avec ce qui manque ou ce qui reste.</p>
+  <p class="hint">Touche une ligne pour régler son PMG et sa dose. « Possible » : surface faisable avec la semence disponible. « À semer » : surface de tes parcelles, avec ce qui manque ou ce qui reste.</p>
 </section>
 
 <div class="grid">
@@ -639,6 +644,48 @@ function chiffres(s){
   return {dose, kg, grains, ha, aFaire, besoin: aFaire*dose, aFaireAuto: !(saisie>0) && ha>0};
 }
 
+// Réglage depuis le récapitulatif : PMG et dose d'une semence, sans remonter au calcul.
+// Changer la dose recalcule l'objectif (grains/m²) ; changer le PMG garde l'objectif.
+let recapOuvert = -1;
+function ligneReglage(i, dose){
+  const s = semences[i], ro = lectureSeule();
+  const tr=document.createElement("tr"); tr.className="reglage";
+  const td=document.createElement("td"); td.colSpan=4; tr.appendChild(td);
+  const box=document.createElement("div"); td.appendChild(box);
+  const champ = (lib, val, unite) => {
+    const w=document.createElement("label"); w.className="mini-champ";
+    w.append(lib+" ");
+    const inp=document.createElement("input"); inp.type="number"; inp.inputMode="decimal"; inp.step="any"; inp.min="0";
+    inp.value=val; inp.disabled=ro; w.appendChild(inp); w.append(" "+unite);
+    box.appendChild(w); return inp;
+  };
+  const pmg = champ("PMG", s.pmg ?? "", "g");
+  const dz = champ("Dose", dose>0 ? Math.round(dose*10)/10 : "", "kg/ha");
+  const voir=document.createElement("button"); voir.type="button"; voir.className="lien"; voir.textContent="Ouvrir dans le calcul";
+  voir.addEventListener("click",()=>{ recapOuvert=-1; choisirSemence(i); document.querySelector(".grid").scrollIntoView({behavior:"smooth"}); });
+  box.appendChild(voir);
+  const appliquer = maj => {
+    maj(s);
+    if(i===actuelle){ pret=false; appliquerSemence(s); pret=true; calcul(); }
+    else { enregistrerLocal(); if(espace && espace.compte.role==="chef") planifierEnvoi(); dessinerRecap(); }
+    dessinerChips();
+  };
+  pmg.addEventListener("change",()=>{
+    const v=parseFloat(String(pmg.value).replace(",","."));
+    if(v>0) appliquer(x=>{ x.pmg=String(v); });
+  });
+  dz.addEventListener("change",()=>{
+    const d=parseFloat(String(dz.value).replace(",",".")), p=parseFloat(String(s.pmg).replace(",","."));
+    if(!(d>0) || !(p>0)) return;
+    appliquer(x=>{
+      const semes = d*100/p;   // grains semés au m² pour cette dose
+      const fg=Math.min(Math.max(parseFloat(x.fgN)||100,1),100)/100, pertes=Math.min(Math.max(parseFloat(x.perteN)||0,0),95)/100;
+      x.dens = String(Math.round((x.cible==="leves" ? semes*fg*(1-pertes) : semes)*10)/10);
+    });
+  });
+  return tr;
+}
+
 function dessinerRecap(){
   const c = campagneDe(semences[actuelle]);
   $("recapTitre").textContent = "Récapitulatif — "+libelleCampagne(c);
@@ -677,11 +724,16 @@ function dessinerRecap(){
       ajouter(sg, r); ajouter(tot, r);
       const tr=document.createElement("tr");
       if(i===actuelle) tr.className="actif";
-      tr.innerHTML = "<td><span></span>"+(r.dose>0 ? "<small>"+fmt(r.dose, r.dose<20?1:0)+" kg/ha</small>" : "")+"</td>"
+      const pmg = parseFloat(String(semences[i].pmg).replace(",","."));
+      tr.innerHTML = "<td><span></span><small>"
+          + (pmg>0 ? "PMG "+fmt(pmg, pmg<10?1:0)+" g" : "PMG ?")
+          + (r.dose>0 ? " · "+fmt(r.dose, r.dose<20?1:0)+" kg/ha" : "")+"</small></td>"
         + cellules({...r, kgCompte: r.aFaire>0 ? r.kg : 0});
       tr.querySelector("span").textContent = nomDe(semences[i],i);
-      tr.addEventListener("click",()=>{ choisirSemence(i); window.scrollTo({top:0,behavior:"smooth"}); });
+      // Toucher une ligne ouvre, juste en dessous, le PMG et la dose à modifier
+      tr.addEventListener("click",()=>{ recapOuvert = recapOuvert===i ? -1 : i; dessinerRecap(); });
       corps.appendChild(tr);
+      if(recapOuvert===i) corps.appendChild(ligneReglage(i, r.dose));
     });
     if(g.lignes.length>1) ligneTotal(corps, "st", "Sous-total", sg);
   });

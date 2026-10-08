@@ -32,7 +32,7 @@ mots simples, et évite le jargon quand un mot courant suffit.
 | Élément | Contenu |
 |---|---|
 | `public/index.html` | Accueil : connexion, mon compte (nom, identifiant, mot de passe), comptes et nom de l'exploitation (chef), exploitations : créer, renommer, suspendre (administrateur), cases des applis. |
-| `public/irrigation-enrouleur/` | Irrigation enrouleur (reprise de `../calcul-irrigation-enrouleur`) : enrouleurs et largeurs rangés dans l'espace (`/api/reglages/enrouleurs`, `largVille`), modifiables par le chef seulement. |
+| `public/irrigation-enrouleur/` | Irrigation enrouleur, une seule page (onglet Villechèvre retiré le 08/10/2026) : calcul dose ↔ vitesse avec menus enrouleur puis buse (remplissent débit et largeur, temps pour tout le tuyau) ; « Mes enrouleurs » = {nom, tuyau, buses:[{buse, pression, debit, largeur}]}, modèles Beinlich Ø135/Ø125 et Perrot Ø110 à 8 bars, rangés dans l'espace (`/api/reglages/enrouleurs`), modifiables par le chef seulement. |
 | `public/dose-de-semis/` | La dose de semis (reprise de `../dose-de-semis`). La connexion se fait à l'accueil ; la page lit `applis.moi` dans l'appareil et vérifie `/api/moi`. |
 | `functions/api/[[chemin]].js` | Toutes les adresses `/api/…`, qui appellent `src/api.js`. |
 | `src/api.js`, `src/session.js` | Règles du serveur (code standard, sans dépendance à l'hébergeur). |
@@ -50,6 +50,7 @@ puis `npx wrangler pages dev --port 8796`. Codes de test dans `.essai-local.txt`
 - Pratique sur téléphone avant tout.
 - Une exploitation ne voit jamais les données d'une autre (tout est filtré par `exploitation_id`).
 - Chaque modification de semence est signée (`modifie_par`) et datée.
+- Récapitulatif des semences : PMG et dose sur chaque ligne ; toucher une ligne permet de les modifier (changer la dose recalcule l'objectif en grains/m²).
 - Clés de l'appareil : `applis.moi` (qui est connecté), `dose-de-semis.semences` (semences sans
   compte), `dose-de-semis.semences@<id exploitation>` (copie hors ligne, effacée à la déconnexion).
 

@@ -12,378 +12,435 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Irrigation">
 <style>
-  :root{--bg:#EEF3F5;--ink:#132430;--muted:#5B7080;--card:#FFFFFF;--line:#D6E0E6;--eau:#1E86BE;--eau-fonce:#155F87;--eau-clair:#E4F1F8;--vert-clair:#E5F3E9;}
+  :root{--bg:#EEF3F5;--ink:#132430;--muted:#5B7080;--card:#FFFFFF;--line:#D6E0E6;--eau:#1E86BE;--eau-fonce:#155F87;--eau-clair:#E4F1F8;--vert-clair:#E5F3E9;--rouge:#B4472B;}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0}
+  [hidden]{display:none!important}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45;padding:18px;max-width:720px;margin:0 auto}
   h1{font-size:1.35rem;margin:.2rem 0 .1rem;letter-spacing:-.01em}
+  h2{font-size:1.05rem;margin:0 0 8px}
   .sub{color:var(--muted);font-size:.9rem;margin:0 0 14px}
   .applis{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:.85rem;color:var(--muted);margin-bottom:10px}
   .applis a{color:var(--eau-fonce);font-weight:600;text-decoration:none}
   .applis b{color:var(--ink)}
   .applis .etat{font-size:.78rem}
-  .applis .etat.attente{color:#B4472B}
-  .pagenav{display:flex;gap:8px;margin-bottom:16px}
-  .pagenav button{flex:1;padding:12px 8px;border:1px solid var(--line);background:#fff;border-radius:12px;font-size:.95rem;font-weight:700;color:var(--muted);cursor:pointer}
-  .pagenav button.on{background:var(--ink);border-color:var(--ink);color:#fff}
-  .page{display:none}.page.on{display:block}
+  .applis .etat.attente{color:var(--rouge)}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(19,36,48,.04)}
-  .tabs{display:flex;gap:8px;margin-bottom:14px}
+  .tabs{display:flex;gap:8px;margin:16px 0 4px}
   .tab{flex:1;padding:11px 8px;border:1px solid var(--line);background:#fff;border-radius:12px;font-size:.92rem;font-weight:600;color:var(--muted);cursor:pointer;text-align:center}
   .tab.on{background:var(--eau);border-color:var(--eau);color:#fff}
   label{display:block;font-size:.82rem;font-weight:600;color:var(--muted);margin:12px 0 5px}
   .row{display:flex;gap:10px;align-items:center}
-  input[type=number],select{width:100%;padding:12px 14px;font-size:1.1rem;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);-moz-appearance:textfield}
+  .deux{display:flex;gap:10px}.deux>div{flex:1;min-width:0}
+  input[type=number],input[type=text],select{width:100%;padding:12px 14px;font-size:1.1rem;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);-moz-appearance:textfield;font-family:inherit}
   select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M3 5l4 4 4-4' fill='none' stroke='%235B7080' stroke-width='2'/></svg>");background-repeat:no-repeat;background-position:right 14px center;padding-right:38px}
   input:focus,select:focus{outline:2px solid var(--eau);border-color:var(--eau)}
-  .unit{color:var(--muted);font-size:.9rem;min-width:52px}
+  input:read-only{background:#F4F7F9;color:var(--muted)}
+  .unit{color:var(--muted);font-size:.9rem;min-width:44px}
+  .infoline{font-size:.86rem;color:var(--muted);margin-top:8px;background:var(--vert-clair);border-radius:10px;padding:8px 10px}
+  .infoline b{color:var(--eau-fonce)}
   .result{background:var(--eau-clair);border:1px solid #BEE0F1;border-radius:14px;padding:16px;margin-top:16px;text-align:center}
   .result .big{font-size:2.6rem;font-weight:800;color:var(--eau-fonce);letter-spacing:-.02em;line-height:1}
   .result .lbl{font-size:.85rem;color:var(--eau-fonce);font-weight:600;margin-top:4px}
   .extra{display:flex;gap:10px;margin-top:14px}
-  .extra div{flex:1;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center}
-  .extra .v{font-size:1.15rem;font-weight:700}
+  .extra div{flex:1;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center}
+  .extra .v{font-size:1.1rem;font-weight:700}
   .extra .k{font-size:.72rem;color:var(--muted);margin-top:2px}
-  .reels-head h2{font-size:1rem;margin:0 0 6px}
-  .reel{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line)}
-  .reel .nm{flex:1;font-weight:600;font-size:.95rem}
-  .reel .db{color:var(--eau-fonce);font-weight:700;font-size:.95rem}
-  .reel button{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 6px}
-  .reel .use{color:var(--eau);font-weight:700;font-size:.8rem;border:1px solid var(--eau);border-radius:8px;padding:5px 9px;background:#fff}
-  .addbtn{width:100%;padding:11px;border:1px dashed var(--eau);background:var(--eau-clair);color:var(--eau-fonce);border-radius:12px;font-weight:600;cursor:pointer;margin-top:8px}
-  .addform{display:none;flex-direction:column;gap:8px;margin-top:10px}
-  .addform.on{display:flex}
-  .addform input{padding:11px;width:100%}
-  .addform .two{display:flex;gap:8px}.addform .two input{flex:1}
-  .addform button{background:var(--eau);color:#fff;border:none;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer}
   .hint{font-size:.78rem;color:var(--muted);margin-top:10px}
-  .empty{color:var(--muted);font-size:.88rem;padding:10px 0}
-  .infoline{font-size:.82rem;color:var(--muted);margin-top:8px}
-  .infoline b{color:var(--eau-fonce)}
-  .reftable{margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-  .reftable table{width:100%;border-collapse:collapse;font-size:.9rem}
-  .reftable th,.reftable td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line)}
-  .reftable tr:last-child td{border-bottom:none}
-  .reftable th{background:var(--vert-clair);color:var(--eau-fonce);font-size:.75rem}
-  .reftitle{font-size:.78rem;color:var(--muted);margin:14px 0 0}
-  .badge{display:inline-block;background:var(--vert-clair);color:var(--eau-fonce);border-radius:8px;padding:2px 8px;font-size:.75rem;font-weight:700;margin-left:6px}
+  .empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+
+  .enr{border-top:1px solid var(--line);padding:12px 0}
+  .enr:first-child{border-top:0;padding-top:0}
+  .enr-tete{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .enr-tete .nm{font-weight:700;font-size:1rem;flex:1}
+  .enr-tete small{color:var(--muted)}
+  .mini{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:6px}
+  .mini th{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;text-align:right;padding:4px 4px;border-bottom:1px solid var(--line)}
+  .mini td{text-align:right;padding:5px 4px;border-bottom:1px solid #EEF2F4}
+  .mini th:first-child,.mini td:first-child{text-align:left}
+  .lien{background:none;border:0;color:var(--eau-fonce);font-weight:600;font-size:.85rem;cursor:pointer;padding:4px 6px;text-decoration:underline}
+  .lien.danger{color:var(--rouge)}
+  .addbtn{width:100%;padding:11px;border:1px dashed var(--eau);background:var(--eau-clair);color:var(--eau-fonce);border-radius:12px;font-weight:600;cursor:pointer;margin-top:12px;font-size:.95rem}
+
+  .form{border:1px solid #BEE0F1;background:#F7FBFD;border-radius:14px;padding:14px;margin-top:12px}
+  .form h3{margin:0 0 4px;font-size:1rem}
+  .buse{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:6px;align-items:end;margin-top:8px}
+  .buse label{margin:0 0 3px;font-size:.7rem}
+  .buse input{padding:10px 8px;font-size:1rem}
+  .buse button{background:none;border:0;color:var(--muted);font-size:1.2rem;padding:8px 4px;cursor:pointer}
+  .boutons{display:flex;gap:10px;margin-top:14px}
+  .principal{flex:1;background:var(--eau);color:#fff;border:none;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;font-size:1rem}
+  .secondaire{background:#fff;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-weight:600;cursor:pointer}
+  .msg{font-size:.85rem;color:var(--rouge);margin-top:8px}
 </style>
 </head>
 <body>
   <div class="applis"><a href="../">← Applis de la ferme</a><span id="qui">Réglages gardés sur cet appareil.</span><span class="etat" id="etatEsp"></span></div>
   <h1>Calcul irrigation — enrouleur</h1>
-  <p class="sub">Dose d'eau apportée selon débit, largeur et vitesse.</p>
+  <p class="sub">Dose d'eau apportée, ou vitesse à régler, selon l'enrouleur et la buse.</p>
 
-  <div class="pagenav">
-    <button id="navGen" class="on" onclick="setPage('gen')">Général</button>
-    <button id="navVille" onclick="setPage('ville')">Villechèvre</button>
-  </div>
-
-  <div id="pageGen" class="page on">
-    <div class="card">
-      <div class="tabs">
-        <div class="tab on" id="tabDose" onclick="setMode('dose')">Calculer la dose</div>
-        <div class="tab" id="tabVit" onclick="setMode('vit')">Trouver la vitesse</div>
+  <!-- ============ LE CALCUL ============ -->
+  <div class="card">
+    <div class="deux">
+      <div>
+        <label for="choixEnr">Enrouleur</label>
+        <select id="choixEnr"></select>
       </div>
-      <label>Débit de la station</label>
-      <div class="row"><input type="number" id="debit" inputmode="decimal" step="any" placeholder="ex. 40" oninput="calc()"><span class="unit">m³/h</span></div>
-      <label>Largeur d'irrigation <span style="font-weight:400">(écartement des passages)</span></label>
-      <div class="row"><input type="number" id="largeur" inputmode="decimal" step="any" placeholder="ex. 60" oninput="calc()"><span class="unit">m</span></div>
-      <div id="fieldVitesse">
-        <label>Vitesse d'avancement</label>
-        <div class="row"><input type="number" id="vitesse" inputmode="decimal" step="any" placeholder="ex. 30" oninput="calc()"><span class="unit">m/h</span></div>
-      </div>
-      <div id="fieldDoseCible" style="display:none">
-        <label>Dose souhaitée</label>
-        <div class="row"><input type="number" id="dosecible" inputmode="decimal" step="any" placeholder="ex. 25" oninput="calc()"><span class="unit">mm</span></div>
-      </div>
-      <div class="result"><div class="big" id="out">—</div><div class="lbl" id="outlbl">Dose apportée (mm)</div></div>
-      <div class="extra">
-        <div><div class="v" id="ex1">—</div><div class="k" id="ex1k">Temps / 100 m</div></div>
-        <div><div class="v" id="ex2">—</div><div class="k">Volume / ha</div></div>
-      </div>
-      <p class="hint">1 mm = 1 L/m² = 10 m³/ha. Dose = 1000 × débit / (largeur × vitesse).</p>
-    </div>
-    <div class="card">
-      <div class="reels-head"><h2>Mes configurations</h2></div>
-      <div id="reelsList"></div>
-      <button class="addbtn" onclick="toggleAdd()">+ Enregistrer une configuration</button>
-      <div class="addform" id="addForm">
-        <input id="newName" placeholder="Nom (ex. Gris + rampe, buses 40)">
-        <div class="two">
-          <input id="newDebit" type="number" inputmode="decimal" step="any" placeholder="Débit m³/h">
-          <input id="newLargeur" type="number" inputmode="decimal" step="any" placeholder="Largeur m">
-        </div>
-        <button onclick="addReel()">Enregistrer</button>
+      <div>
+        <label for="choixBuse">Buse</label>
+        <select id="choixBuse"></select>
       </div>
     </div>
+    <div class="infoline" id="infoConf" hidden></div>
+
+    <div class="deux">
+      <div>
+        <label for="debit">Débit</label>
+        <div class="row"><input type="number" id="debit" inputmode="decimal" step="any" placeholder="ex. 40"><span class="unit">m³/h</span></div>
+      </div>
+      <div>
+        <label for="largeur">Largeur arrosée</label>
+        <div class="row"><input type="number" id="largeur" inputmode="decimal" step="any" placeholder="ex. 60"><span class="unit">m</span></div>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:6px">Remplis tout seuls par l'enrouleur et la buse ; on peut les changer (demi-position, pression différente…).</p>
+
+    <div class="tabs">
+      <div class="tab on" id="tabDose">Calculer la dose</div>
+      <div class="tab" id="tabVit">Trouver la vitesse</div>
+    </div>
+    <div id="fieldVitesse">
+      <label for="vitesse">Vitesse d'avancement</label>
+      <div class="row"><input type="number" id="vitesse" inputmode="decimal" step="any" placeholder="ex. 30"><span class="unit">m/h</span></div>
+    </div>
+    <div id="fieldDoseCible" hidden>
+      <label for="dosecible">Dose souhaitée</label>
+      <div class="row"><input type="number" id="dosecible" inputmode="decimal" step="any" placeholder="ex. 25"><span class="unit">mm</span></div>
+    </div>
+
+    <div class="result"><div class="big" id="out">—</div><div class="lbl" id="outlbl">Dose apportée (mm)</div></div>
+    <div class="extra">
+      <div><div class="v" id="ex1">—</div><div class="k">Temps / 100 m</div></div>
+      <div><div class="v" id="ex2">—</div><div class="k">Volume / ha</div></div>
+      <div id="boiteTuyau" hidden><div class="v" id="ex3">—</div><div class="k" id="ex3k">Tout le tuyau</div></div>
+    </div>
+    <p class="hint">1 mm = 1 L/m² = 10 m³/ha. Dose = 1000 × débit / (largeur × vitesse).</p>
   </div>
 
-  <div id="pageVille" class="page">
-    <div class="card">
-      <h2 style="margin:0 0 2px">Villechèvre — Thibaut</h2>
-      <p class="sub" style="margin-bottom:10px">Valeurs à <b>8 bars</b>. Choisis l'enrouleur et la buse.</p>
+  <!-- ============ MES ENROULEURS ============ -->
+  <div class="card">
+    <h2>Mes enrouleurs</h2>
+    <div id="listeEnr"></div>
+    <button class="addbtn" id="ajoutEnr">+ Ajouter un enrouleur</button>
 
-      <label>Enrouleur</label>
-      <select id="vEnr" onchange="onCombo()">
-        <option value="">— choisir —</option>
-        <option value="nb135">Nouveau Beinlich Ø135</option>
-        <option value="vb125">Vieux Beinlich Ø125</option>
-        <option value="perrot">Perrot Ø110</option>
-      </select>
-      <label>Buse</label>
-      <select id="vBuse" onchange="onCombo()">
-        <option value="">— choisir —</option>
-        <option value="22">Buse 22</option>
-        <option value="25">Buse 25</option>
-        <option value="27">Buse 27</option>
-      </select>
-
-      <div id="vInfo" class="infoline"></div>
-      <div id="vRef"></div>
-
-      <label>Largeur d'irrigation</label>
-      <div class="row"><input type="number" id="vLarg" inputmode="decimal" step="any" placeholder="ex. 70" oninput="onLargEdit()"><span class="unit">m</span></div>
-
-      <div class="tabs" style="margin-top:16px">
-        <div class="tab on" id="vTabV" onclick="setModeV('v')">Dose → vitesse</div>
-        <div class="tab" id="vTabD" onclick="setModeV('d')">Vitesse → dose</div>
+    <div class="form" id="formEnr" hidden>
+      <h3 id="formTitre">Nouvel enrouleur</h3>
+      <div id="blocModele">
+        <label for="modele">Partir d'un modèle</label>
+        <select id="modele">
+          <option value="">— enrouleur vide —</option>
+          <option value="nb135">Beinlich Ø135 (3 buses, 8 bars)</option>
+          <option value="vb125">Beinlich Ø125 (3 buses, 8 bars)</option>
+          <option value="perrot">Perrot Ø110 (3 buses, 8 bars)</option>
+        </select>
       </div>
+      <label for="fNom">Nom / type d'enrouleur</label>
+      <input type="text" id="fNom" maxlength="60" placeholder="ex. Beinlich Ø135 — le gris">
+      <label for="fTuyau">Longueur du tuyau</label>
+      <div class="row"><input type="number" id="fTuyau" inputmode="decimal" step="any" placeholder="ex. 650"><span class="unit">m</span></div>
 
-      <div id="vFieldDose">
-        <label>Dose souhaitée</label>
-        <div class="row"><input type="number" id="vDose" inputmode="decimal" step="any" placeholder="ex. 30" oninput="calcV()"><span class="unit">mm</span></div>
+      <label style="margin-top:16px">Buses</label>
+      <div id="fBuses"></div>
+      <button class="lien" id="ajoutBuse" type="button">+ Ajouter une buse</button>
+      <p class="msg" id="formMsg" hidden></p>
+      <div class="boutons">
+        <button class="principal" id="enregistrer" type="button">Enregistrer</button>
+        <button class="secondaire" id="annuler" type="button">Annuler</button>
       </div>
-      <div id="vFieldVit" style="display:none">
-        <label>Vitesse de l'enrouleur</label>
-        <div class="row"><input type="number" id="vVit" inputmode="decimal" step="any" placeholder="ex. 25" oninput="calcV()"><span class="unit">m/h</span></div>
-      </div>
-
-      <div class="result"><div class="big" id="vOut">—</div><div class="lbl" id="vOutlbl">Vitesse à régler (m/h)</div></div>
-      <div class="extra">
-        <div><div class="v" id="vEx1">—</div><div class="k" id="vEx1k">Temps / 100 m</div></div>
-        <div><div class="v" id="vEx2">—</div><div class="k">Volume / ha</div></div>
-      </div>
-      <p class="hint">Calcul : dose = 1000 × débit / (largeur × vitesse). Change la largeur selon ce que tu arroses (position pleine, demi-position…). Le tableau ci-dessus reste la référence terrain de Thibaut.</p>
     </div>
   </div>
 
 <script>
-  function setPage(p){
-    document.getElementById('pageGen').classList.toggle('on', p==='gen');
-    document.getElementById('pageVille').classList.toggle('on', p==='ville');
-    document.getElementById('navGen').classList.toggle('on', p==='gen');
-    document.getElementById('navVille').classList.toggle('on', p==='ville');
-    window.scrollTo({top:0});
-  }
-  function num(id){var v=parseFloat(document.getElementById(id).value);return isFinite(v)?v:NaN;}
-  function fmt(x,d){if(!isFinite(x))return '—';return x.toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d});}
+"use strict";
+const $ = id => document.getElementById(id);
+function num(id){ const v=parseFloat(String($(id).value).replace(",",".")); return isFinite(v)?v:NaN; }
+function fmt(x,d){ if(!isFinite(x)) return "—"; return x.toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function nombre(v){ const n=parseFloat(String(v??"").replace(",",".")); return isFinite(n)&&n>0 ? n : null; }
+function heures(h){ if(!isFinite(h)||h<=0) return "—"; const hh=Math.floor(h), mm=Math.round((h-hh)*60); return mm===60 ? (hh+1)+" h" : hh+" h "+String(mm).padStart(2,"0"); }
 
-  /* ============ PAGE GÉNÉRALE ============ */
-  var mode='dose';
-  function setMode(m){
-    mode=m;
-    document.getElementById('tabDose').classList.toggle('on', m==='dose');
-    document.getElementById('tabVit').classList.toggle('on', m==='vit');
-    document.getElementById('fieldVitesse').style.display=m==='dose'?'block':'none';
-    document.getElementById('fieldDoseCible').style.display=m==='vit'?'block':'none';
-    document.getElementById('outlbl').textContent=m==='dose'?'Dose apportée (mm)':'Vitesse à régler (m/h)';
-    calc();
-  }
-  function calc(){
-    var Q=num('debit'),L=num('largeur');
-    var out=document.getElementById('out'),ex1=document.getElementById('ex1'),ex2=document.getElementById('ex2'),ex1k=document.getElementById('ex1k');
-    var dose,vit;
-    if(mode==='dose'){var V=num('vitesse');if(!(Q>0&&L>0&&V>0)){out.textContent='—';ex1.textContent='—';ex2.textContent='—';return;}dose=1000*Q/(L*V);vit=V;out.textContent=fmt(dose,1);ex1k.textContent='Temps / 100 m';ex1.textContent=fmt(100/V*60,0)+' min';}
-    else{var D=num('dosecible');if(!(Q>0&&L>0&&D>0)){out.textContent='—';ex1.textContent='—';ex2.textContent='—';return;}vit=1000*Q/(L*D);dose=D;out.textContent=fmt(vit,1);ex1k.textContent='Temps / 100 m';ex1.textContent=fmt(100/vit*60,0)+' min';}
-    ex2.textContent=fmt(dose*10,0)+' m³';
-  }
-  var reels=[];
-  function loadReels(){reels=[];try{var s=localStorage.getItem(cle('enrouleurs'));if(s)reels=JSON.parse(s);}catch(e){}renderReels();}
-  function saveReels(){try{localStorage.setItem(cle('enrouleurs'),JSON.stringify(reels));}catch(e){}envoyer('enrouleurs',reels);}
-  function toggleAdd(){document.getElementById('addForm').classList.toggle('on');}
-  function addReel(){
-    var n=document.getElementById('newName').value.trim();
-    var d=parseFloat(document.getElementById('newDebit').value);
-    var l=parseFloat(document.getElementById('newLargeur').value);
-    if(!n||!(d>0))return;
-    reels.push({n:n,d:d,l:(l>0?l:null)});saveReels();renderReels();
-    document.getElementById('newName').value='';document.getElementById('newDebit').value='';document.getElementById('newLargeur').value='';
-    document.getElementById('addForm').classList.remove('on');
-  }
-  function delReel(i){reels.splice(i,1);saveReels();renderReels();}
-  function useReel(i){document.getElementById('debit').value=reels[i].d;if(reels[i].l)document.getElementById('largeur').value=reels[i].l;calc();window.scrollTo({top:0,behavior:'smooth'});}
-  function renderReels(){
-    var el=document.getElementById('reelsList');
-    if(reels.length===0){el.innerHTML='<div class="empty">Aucune configuration enregistrée.</div>';return;}
-    el.innerHTML=reels.map(function(r,i){var specs=r.d.toLocaleString('fr-FR')+' m³/h'+(r.l?' · '+r.l.toLocaleString('fr-FR')+' m':'');return '<div class="reel"><span class="nm">'+echapper(r.n)+'</span><span class="db">'+specs+'</span><button class="use" onclick="useReel('+i+')">Utiliser</button>'+(lectureSeule()?'':'<button onclick="delReel('+i+')" title="Supprimer">✕</button>')+'</div>';}).join('');
-  }
+/* ============ MODÈLES (valeurs relevées à 8 bars) ============ */
+const MODELES = {
+  nb135:{nom:"Beinlich Ø135", tuyau:650, buses:[["22",47,68],["25",57,69],["27",64,71]]},
+  vb125:{nom:"Beinlich Ø125", tuyau:650, buses:[["22",43,72],["25",51,73],["27",55,67]]},
+  perrot:{nom:"Perrot Ø110", tuyau:500, buses:[["22",40,74],["25",47,75],["27",50,69]]}
+};
 
-  /* ============ PAGE VILLECHÈVRE (données Thibaut, 8 bars) ============ */
-  /* Chaque combinaison : liste de points [dose_mm, vitesse_m/h] */
-  var ENR = {
-    nb135:{nom:'Nouveau Beinlich Ø135', deb:{22:47,25:57,27:64}, larg:{22:68,25:69,27:71}, long:650, buses:{
-      22:[[35,20],[30,23],[25,28]],
-      25:[[35,23],[30,28],[25,33]],
-      27:[[35,26],[30,30],[25,36]]
-    }},
-    vb125:{nom:'Vieux Beinlich Ø125', deb:{22:43,25:51,27:55}, larg:{22:72,25:73,27:67}, long:650, buses:{
-      22:[[35,18],[30,20],[25,23]],
-      25:[[35,20],[30,23],[25,28]],
-      27:[[35,23],[30,28],[25,33]]
-    }},
-    perrot:{nom:'Perrot Ø110', deb:{22:40,25:47,27:50}, larg:{22:74,25:75,27:69}, long:500, buses:{
-      22:[[35,16],[30,18],[25,21]],
-      25:[[35,18],[30,21],[25,25]],
-      27:[[35,21],[30,25],[25,28]]
-    }}
+/* ============ LES ENROULEURS ============ */
+/* Un enrouleur : {id, nom, tuyau (m), buses:[{buse, pression (bars), debit (m³/h), largeur (m)}]} */
+let enrouleurs = [];
+const nouvelId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+// Anciennes configurations (nom, débit, largeur) : une buse chacune
+function mettreAuFormat(liste){
+  if(!Array.isArray(liste)) return [];
+  return liste.map(x => x && Array.isArray(x.buses) ? x
+    : {id:nouvelId(), nom:String(x&&x.n||"Configuration"), tuyau:null,
+       buses:[{buse:"", pression:null, debit:nombre(x&&x.d), largeur:nombre(x&&x.l)}]});
+}
+function libelleBuse(b){
+  const parts=[];
+  parts.push(b.buse ? "Buse "+b.buse : "Buse");
+  if(b.pression) parts.push(fmt(b.pression,0)+" bars");
+  return parts.join(" · ");
+}
+
+/* ============ LE CALCUL ============ */
+let mode="dose";
+function setMode(m){
+  mode=m;
+  $("tabDose").classList.toggle("on", m==="dose");
+  $("tabVit").classList.toggle("on", m==="vit");
+  $("fieldVitesse").hidden = m!=="dose";
+  $("fieldDoseCible").hidden = m!=="vit";
+  $("outlbl").textContent = m==="dose" ? "Dose apportée (mm)" : "Vitesse à régler (m/h)";
+  calc();
+}
+$("tabDose").addEventListener("click",()=>setMode("dose"));
+$("tabVit").addEventListener("click",()=>setMode("vit"));
+["debit","largeur","vitesse","dosecible"].forEach(id=>$(id).addEventListener("input",calc));
+
+function enrChoisi(){ return enrouleurs.find(e=>e.id===$("choixEnr").value) || null; }
+function buseChoisie(){ const e=enrChoisi(); const i=parseInt($("choixBuse").value,10); return e && e.buses[i] ? e.buses[i] : null; }
+
+function calc(){
+  const Q=num("debit"), L=num("largeur");
+  let dose, vit;
+  if(mode==="dose"){ vit=num("vitesse"); dose = Q>0&&L>0&&vit>0 ? 1000*Q/(L*vit) : NaN; $("out").textContent=fmt(dose,1); }
+  else { dose=num("dosecible"); vit = Q>0&&L>0&&dose>0 ? 1000*Q/(L*dose) : NaN; $("out").textContent=fmt(vit,1); }
+  const ok = isFinite(dose) && isFinite(vit);
+  $("ex1").textContent = ok ? fmt(100/vit*60,0)+" min" : "—";
+  $("ex2").textContent = ok ? fmt(dose*10,0)+" m³" : "—";
+  const e=enrChoisi();
+  $("boiteTuyau").hidden = !(e && e.tuyau);
+  if(e && e.tuyau){ $("ex3k").textContent = "Les "+fmt(e.tuyau,0)+" m"; $("ex3").textContent = ok ? heures(e.tuyau/vit) : "—"; }
+  garderChoix();
+}
+
+function remplirChoixEnr(){
+  const s=$("choixEnr"), avant=s.value;
+  s.innerHTML="";
+  const libre=document.createElement("option"); libre.value=""; libre.textContent= enrouleurs.length ? "— saisie libre —" : "— aucun enrouleur —"; s.appendChild(libre);
+  enrouleurs.forEach(e=>{ const o=document.createElement("option"); o.value=e.id; o.textContent=e.nom; s.appendChild(o); });
+  if(enrouleurs.some(e=>e.id===avant)) s.value=avant;
+  remplirChoixBuse(false);
+}
+function remplirChoixBuse(appliquer){
+  const s=$("choixBuse"), e=enrChoisi(), avant=s.value;
+  s.innerHTML="";
+  if(!e){ const o=document.createElement("option"); o.value=""; o.textContent="—"; s.appendChild(o); s.disabled=true; }
+  else {
+    s.disabled=false;
+    e.buses.forEach((b,i)=>{ const o=document.createElement("option"); o.value=String(i); o.textContent=libelleBuse(b); s.appendChild(o); });
+    if(e.buses[parseInt(avant,10)]) s.value=avant;
+  }
+  majInfo(appliquer);
+}
+// Remplit débit et largeur avec la buse choisie
+function majInfo(appliquer){
+  const e=enrChoisi(), b=buseChoisie(), info=$("infoConf");
+  if(!e||!b){ info.hidden=true; calc(); return; }
+  const t=[];
+  if(b.pression) t.push("à <b>"+fmt(b.pression,0)+" bars</b>");
+  t.push("débit <b>"+(b.debit ? fmt(b.debit,0)+" m³/h" : "?")+"</b>");
+  t.push("largeur <b>"+(b.largeur ? fmt(b.largeur,0)+" m" : "?")+"</b>");
+  if(e.tuyau) t.push("tuyau "+fmt(e.tuyau,0)+" m");
+  info.innerHTML = t.join(" · "); info.hidden=false;
+  if(appliquer){
+    if(b.debit) $("debit").value=b.debit;
+    if(b.largeur) $("largeur").value=b.largeur;
+  }
+  calc();
+}
+$("choixEnr").addEventListener("change",()=>remplirChoixBuse(true));
+$("choixBuse").addEventListener("change",()=>majInfo(true));
+
+// Le dernier enrouleur et la dernière buse choisis restent sur l'appareil
+function garderChoix(){ try{ localStorage.setItem("irrigation.choix", JSON.stringify({enr:$("choixEnr").value, buse:$("choixBuse").value, mode})); }catch(e){} }
+function reprendreChoix(){
+  try{
+    const c=JSON.parse(localStorage.getItem("irrigation.choix"))||{};
+    if(enrouleurs.some(e=>e.id===c.enr)){ $("choixEnr").value=c.enr; remplirChoixBuse(false); if(c.buse) $("choixBuse").value=c.buse; majInfo(!$("debit").value); }
+    if(c.mode==="vit") setMode("vit");
+  }catch(e){}
+}
+
+/* ============ LISTE ET FORMULAIRE ============ */
+function dessinerListe(){
+  const box=$("listeEnr"); box.innerHTML="";
+  if(!enrouleurs.length){ const p=document.createElement("div"); p.className="empty"; p.textContent = lectureSeule() ? "Aucun enrouleur enregistré par le chef d'exploitation." : "Aucun enrouleur enregistré. Ajoutez le vôtre : type, buses, débit et largeur."; box.appendChild(p); }
+  enrouleurs.forEach(e=>{
+    const d=document.createElement("div"); d.className="enr";
+    const tete=document.createElement("div"); tete.className="enr-tete";
+    const nm=document.createElement("span"); nm.className="nm"; nm.textContent=e.nom; tete.appendChild(nm);
+    if(e.tuyau){ const t=document.createElement("small"); t.textContent="tuyau "+fmt(e.tuyau,0)+" m"; tete.appendChild(t); }
+    if(!lectureSeule()){
+      const m=document.createElement("button"); m.className="lien"; m.textContent="Modifier"; m.addEventListener("click",()=>ouvrirForm(e)); tete.appendChild(m);
+      const s=document.createElement("button"); s.className="lien danger"; s.textContent="Supprimer";
+      s.addEventListener("click",()=>{ if(!confirm("Supprimer l'enrouleur « "+e.nom+" » et ses buses ?")) return; enrouleurs=enrouleurs.filter(x=>x!==e); enregistrer(); });
+      tete.appendChild(s);
+    }
+    d.appendChild(tete);
+    const tab=document.createElement("table"); tab.className="mini";
+    tab.innerHTML="<tr><th>Buse</th><th>Pression</th><th>Débit</th><th>Largeur</th></tr>";
+    e.buses.forEach((b,i)=>{
+      const tr=document.createElement("tr");
+      [b.buse||"—", b.pression ? fmt(b.pression,0)+" bars" : "—", b.debit ? fmt(b.debit,0)+" m³/h" : "—", b.largeur ? fmt(b.largeur,0)+" m" : "—"].forEach(v=>{ const td=document.createElement("td"); td.textContent=v; tr.appendChild(td); });
+      tr.style.cursor="pointer"; tr.title="Utiliser pour le calcul";
+      tr.addEventListener("click",()=>{ $("choixEnr").value=e.id; remplirChoixBuse(false); $("choixBuse").value=String(i); majInfo(true); window.scrollTo({top:0,behavior:"smooth"}); });
+      tab.appendChild(tr);
+    });
+    d.appendChild(tab);
+    box.appendChild(d);
+  });
+  $("ajoutEnr").hidden = lectureSeule();
+  if(lectureSeule()) $("formEnr").hidden=true;
+}
+
+let enEdition=null;
+function ligneBuse(b){
+  const r=document.createElement("div"); r.className="buse";
+  const champ=(lib, cle, val, place, mode)=>{
+    const w=document.createElement("div");
+    const l=document.createElement("label"); l.textContent=lib; w.appendChild(l);
+    const i=document.createElement("input"); i.type=mode==="texte"?"text":"number"; if(mode!=="texte"){ i.inputMode="decimal"; i.step="any"; }
+    i.dataset.cle=cle; i.placeholder=place; i.value = val==null ? "" : val; w.appendChild(i);
+    return w;
   };
-  var modeV='v'; // 'v' = dose->vitesse, 'd' = vitesse->dose
-  function comboKey(){var e=document.getElementById('vEnr').value,b=document.getElementById('vBuse').value;return (e&&b)?e+'_'+b:null;}
-  var largVille={};
-  function loadLarg(){largVille={};try{var s=localStorage.getItem(cle('largVille'));if(s)largVille=JSON.parse(s);}catch(e){}}
-  function saveLarg(){try{localStorage.setItem(cle('largVille'),JSON.stringify(largVille));}catch(e){}envoyer('largVille',largVille);}
-  function onLargEdit(){if(lectureSeule())return;var k=comboKey();var v=parseFloat(document.getElementById('vLarg').value);if(k&&v>0){largVille[k]=v;saveLarg();}}
+  r.append(champ("Buse","buse",b.buse,"25","texte"), champ("Bars","pression",b.pression,"8"), champ("m³/h","debit",b.debit,"57"), champ("Larg. m","largeur",b.largeur,"69"));
+  const x=document.createElement("button"); x.type="button"; x.textContent="✕"; x.title="Retirer cette buse"; x.addEventListener("click",()=>r.remove()); r.appendChild(x);
+  return r;
+}
+function ouvrirForm(e){
+  enEdition=e||null;
+  $("formTitre").textContent = e ? "Modifier « "+e.nom+" »" : "Nouvel enrouleur";
+  $("blocModele").hidden = !!e; $("modele").value="";
+  $("fNom").value = e ? e.nom : ""; $("fTuyau").value = e&&e.tuyau ? e.tuyau : "";
+  const box=$("fBuses"); box.innerHTML="";
+  (e ? e.buses : [{buse:"",pression:8,debit:null,largeur:null}]).forEach(b=>box.appendChild(ligneBuse(b)));
+  $("formMsg").hidden=true; $("formEnr").hidden=false; $("ajoutEnr").hidden=true;
+  $("formEnr").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function fermerForm(){ $("formEnr").hidden=true; $("ajoutEnr").hidden=lectureSeule(); enEdition=null; }
+$("ajoutEnr").addEventListener("click",()=>ouvrirForm(null));
+$("annuler").addEventListener("click",fermerForm);
+$("ajoutBuse").addEventListener("click",()=>{
+  const dernier=[...$("fBuses").querySelectorAll('input[data-cle="pression"]')].pop();
+  $("fBuses").appendChild(ligneBuse({buse:"",pression:dernier&&dernier.value?dernier.value:8,debit:null,largeur:null}));
+});
+$("modele").addEventListener("change",()=>{
+  const m=MODELES[$("modele").value]; if(!m) return;
+  $("fNom").value=m.nom; $("fTuyau").value=m.tuyau;
+  const box=$("fBuses"); box.innerHTML="";
+  m.buses.forEach(([buse,debit,largeur])=>box.appendChild(ligneBuse({buse,pression:8,debit,largeur})));
+});
+$("enregistrer").addEventListener("click",()=>{
+  const nom=$("fNom").value.trim();
+  const buses=[...$("fBuses").children].map(r=>{
+    const v=c=>r.querySelector('input[data-cle="'+c+'"]').value;
+    return {buse:String(v("buse")).trim().slice(0,20), pression:nombre(v("pression")), debit:nombre(v("debit")), largeur:nombre(v("largeur"))};
+  }).filter(b=>b.buse||b.debit||b.largeur);
+  const msg=$("formMsg");
+  if(!nom){ msg.textContent="Donnez un nom à l'enrouleur."; msg.hidden=false; return; }
+  if(!buses.length){ msg.textContent="Ajoutez au moins une buse avec son débit."; msg.hidden=false; return; }
+  const e = {id: enEdition ? enEdition.id : nouvelId(), nom:nom.slice(0,60), tuyau:nombre($("fTuyau").value), buses};
+  if(enEdition) enrouleurs = enrouleurs.map(x=>x===enEdition ? e : x); else enrouleurs.push(e);
+  fermerForm(); enregistrer();
+  $("choixEnr").value=e.id; remplirChoixBuse(true);
+});
 
-  function currentPoints(){
-    var e=document.getElementById('vEnr').value, b=document.getElementById('vBuse').value;
-    if(e&&b&&ENR[e]&&ENR[e].buses[b]) return ENR[e].buses[b];
-    return null;
-  }
-  /* interpolation linéaire par morceaux + extrapolation ; xi = axe connu (0=dose,1=vitesse) */
-  function interp(pts, xi, xval){
-    var yi=1-xi;
-    var a=pts.slice().sort(function(p,q){return p[xi]-q[xi];});
-    if(a.length===1) return a[0][yi];
-    var i;
-    if(xval<=a[0][xi]) i=0;
-    else if(xval>=a[a.length-1][xi]) i=a.length-2;
-    else { for(i=0;i<a.length-1;i++){ if(xval>=a[i][xi]&&xval<=a[i+1][xi]) break; } }
-    var x0=a[i][xi],x1=a[i+1][xi],y0=a[i][yi],y1=a[i+1][yi];
-    if(x1===x0) return y0;
-    return y0+(xval-x0)*(y1-y0)/(x1-x0);
-  }
-  function onCombo(){
-    var e=document.getElementById('vEnr').value, b=document.getElementById('vBuse').value;
-    var info=document.getElementById('vInfo'), ref=document.getElementById('vRef');
-    if(e&&ENR[e]&&b&&ENR[e].deb[b]!=null){ info.innerHTML='Débit estimé : <b>'+ENR[e].deb[b]+' m³/h</b> <span class="badge">buse '+b+'</span><br><span style="font-size:.75rem">tuyau '+ENR[e].long+' m · 8 bars à l\'enrouleur</span>'; }
-    else if(e&&ENR[e]){ info.innerHTML='Tuyau : <b>'+ENR[e].long+' m</b> · choisis la buse pour le débit.'; }
-    else { info.innerHTML=''; }
-    var pts=currentPoints();
-    if(pts){
-      var srt=pts.slice().sort(function(p,q){return p[0]-q[0];});
-      var doses='',vits='';
-      srt.forEach(function(p){ doses+='<td>'+p[0]+'</td>'; vits+='<td><b>'+p[1]+'</b></td>'; });
-      ref.innerHTML='<p class="reftitle">Tableau de référence</p>'
-        +'<div class="reftable"><table><tr><th>Dose (mm)</th>'+doses+'</tr>'
-        +'<tr><th>Vitesse (m/h)</th>'+vits+'</tr></table></div>';
-    } else { ref.innerHTML=''; }
-    var k=comboKey();
-    if(k){
-      var lv=(largVille[k]!=null)?largVille[k]:((ENR[e]&&ENR[e].larg&&ENR[e].larg[b]!=null)?ENR[e].larg[b]:null);
-      document.getElementById('vLarg').value=(lv!=null)?lv:'';
-    } else { document.getElementById('vLarg').value=''; }
-    calcV();
-  }
-  function setModeV(m){
-    modeV=m;
-    document.getElementById('vTabV').classList.toggle('on', m==='v');
-    document.getElementById('vTabD').classList.toggle('on', m==='d');
-    document.getElementById('vFieldDose').style.display=m==='v'?'block':'none';
-    document.getElementById('vFieldVit').style.display=m==='d'?'block':'none';
-    document.getElementById('vOutlbl').textContent=m==='v'?'Vitesse à régler (m/h)':'Dose apportée (mm)';
-    calcV();
-  }
-  function calcV(){
-    var e=document.getElementById('vEnr').value,b=document.getElementById('vBuse').value;
-    var out=document.getElementById('vOut'),ex1=document.getElementById('vEx1'),ex2=document.getElementById('vEx2'),ex1k=document.getElementById('vEx1k');
-    var Q=(e&&b&&ENR[e]&&ENR[e].deb[b]!=null)?ENR[e].deb[b]:NaN;
-    var L=num('vLarg');
-    if(!(Q>0&&L>0)){out.textContent='—';ex1.textContent='—';ex2.textContent='—';return;}
-    var dose,vit;
-    if(modeV==='v'){
-      dose=num('vDose'); if(!(dose>0)){out.textContent='—';ex1.textContent='—';ex2.textContent='—';return;}
-      vit=1000*Q/(L*dose); out.textContent=fmt(vit,1);
-    } else {
-      vit=num('vVit'); if(!(vit>0)){out.textContent='—';ex1.textContent='—';ex2.textContent='—';return;}
-      dose=1000*Q/(L*vit); out.textContent=fmt(dose,1);
-    }
-    ex1k.textContent='Temps / 100 m'; ex1.textContent=(vit>0)?fmt(100/vit*60,0)+' min':'—';
-    ex2.textContent=fmt(dose*10,0)+' m³';
-  }
+function afficher(){ remplirChoixEnr(); dessinerListe(); }
+function enregistrer(){
+  try{ localStorage.setItem(cle("enrouleurs"), JSON.stringify(enrouleurs)); }catch(e){}
+  afficher();
+  envoyer("enrouleurs", enrouleurs);
+}
+function charger(){
+  enrouleurs=[];
+  try{ enrouleurs=mettreAuFormat(JSON.parse(localStorage.getItem(cle("enrouleurs")))); }catch(e){}
+  afficher();
+}
 
-  /* ============ ESPACE DE L'EXPLOITATION (Applis de la ferme) ============ */
-  /* Sans connexion : réglages dans l'appareil (comme avant).
-     Connecté : enrouleurs et largeurs de l'exploitation, enregistrés en ligne par le
-     chef d'exploitation, avec une copie dans l'appareil pour marcher sans réseau. */
-  var espace=null, versions={}, enAttente={};
-  try{espace=JSON.parse(localStorage.getItem('applis.moi'));if(!espace||!espace.compte)espace=null;}catch(e){}
-  function cle(k){return espace?k+'@'+espace.exploitation.id:k;}
-  function lectureSeule(){return !!espace&&espace.compte.role!=='chef';}
-  function echapper(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-  function etatEsp(t,attente){var e=document.getElementById('etatEsp');e.textContent=t||'';e.className='etat'+(attente?' attente':'');}
-  function lireVersions(){try{versions=JSON.parse(localStorage.getItem(cle('versions')))||{};}catch(e){versions={};}}
-  function garderVersions(){try{localStorage.setItem(cle('versions'),JSON.stringify(versions));}catch(e){}}
-  function dessinerEspace(){
-    var q=document.getElementById('qui');
-    if(!espace){q.textContent='Réglages gardés sur cet appareil.';etatEsp('');}
-    else{q.innerHTML='<b></b> · <span></span>';q.firstChild.textContent=espace.exploitation.nom;q.lastChild.textContent=espace.compte.nom+(lectureSeule()?' (salarié : consultation)':' (chef d\'exploitation)');}
-    document.querySelector('.addbtn').style.display=lectureSeule()?'none':'';
-    document.getElementById('vLarg').readOnly=lectureSeule();
+/* ============ ESPACE DE L'EXPLOITATION (Applis de la ferme) ============ */
+/* Sans connexion : enrouleurs dans l'appareil. Connecté : enrouleurs de l'exploitation,
+   enregistrés en ligne par le chef d'exploitation, avec une copie dans l'appareil
+   pour marcher sans réseau. Les salariés les consultent. */
+let espace=null, versions={}, enAttente={};
+try{ espace=JSON.parse(localStorage.getItem("applis.moi")); if(!espace||!espace.compte) espace=null; }catch(e){}
+function cle(k){ return espace ? k+"@"+espace.exploitation.id : k; }
+function lectureSeule(){ return !!espace && espace.compte.role!=="chef"; }
+function etatEsp(t,attente){ const e=$("etatEsp"); e.textContent=t||""; e.className="etat"+(attente?" attente":""); }
+function lireVersions(){ try{ versions=JSON.parse(localStorage.getItem(cle("versions")))||{}; }catch(e){ versions={}; } }
+function garderVersions(){ try{ localStorage.setItem(cle("versions"), JSON.stringify(versions)); }catch(e){} }
+function dessinerEspace(){
+  const q=$("qui");
+  if(!espace){ q.textContent="Enrouleurs gardés sur cet appareil."; etatEsp(""); }
+  else { q.innerHTML="<b></b> · <span></span>"; q.firstChild.textContent=espace.exploitation.nom; q.lastChild.textContent=espace.compte.nom+(lectureSeule()?" (salarié : consultation)":" (chef d'exploitation)"); }
+}
+async function appel(methode,chemin,corps){
+  let r;
+  try{ r=await fetch(chemin,{method:methode,credentials:"same-origin",headers:corps?{"content-type":"application/json"}:{},body:corps?JSON.stringify(corps):undefined}); }
+  catch(e){ throw {status:0,message:"Pas de réseau."}; }
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok) throw {status:r.status,message:data.erreur||"Erreur.",data};
+  return data;
+}
+async function envoyer(k,valeur){
+  if(!espace||lectureSeule()) return;
+  enAttente[k]=true; etatEsp("Enregistrement…");
+  try{
+    const n=await appel("PUT","/api/reglages/"+k,{valeur,version:versions[k]||0});
+    versions[k]=n.version; garderVersions(); delete enAttente[k]; etatEsp("Enregistré");
+  }catch(e){
+    if(e.status===409&&e.data){ // modifié sur un autre appareil : on reprend la version en ligne
+      versions[k]=e.data.version; garderVersions(); delete enAttente[k];
+      enrouleurs=mettreAuFormat(e.data.valeur); try{ localStorage.setItem(cle(k),JSON.stringify(enrouleurs)); }catch(_){}
+      afficher();
+      alert("Les enrouleurs avaient été modifiés sur un autre appareil : la version à jour est affichée. Refaites votre changement si besoin.");
+    } else if(e.status===401) quitterEspace();
+    else etatEsp("Pas de réseau : enregistrement en attente",true);
   }
-  async function appel(methode,chemin,corps){
-    var r;
-    try{r=await fetch(chemin,{method:methode,credentials:'same-origin',headers:corps?{'content-type':'application/json'}:{},body:corps?JSON.stringify(corps):undefined});}
-    catch(e){throw {status:0,message:'Pas de réseau.'};}
-    var data=await r.json().catch(function(){return {};});
-    if(!r.ok)throw {status:r.status,message:data.erreur||'Erreur.',data:data};
-    return data;
+}
+function quitterEspace(){ espace=null; versions={}; charger(); dessinerEspace(); }
+async function synchroniser(){
+  let moi;
+  try{ moi=await appel("GET","/api/moi"); }
+  catch(e){
+    if(e.status===401&&espace){ try{ localStorage.removeItem("applis.moi"); }catch(_){} quitterEspace(); }
+    else if(espace) etatEsp("Hors ligne : derniers enrouleurs connus",true);
+    return;
   }
-  async function envoyer(k,valeur){
-    if(!espace||lectureSeule())return;
-    enAttente[k]=true;
-    try{
-      var n=await appel('PUT','/api/reglages/'+k,{valeur:valeur,version:versions[k]||0});
-      versions[k]=n.version;garderVersions();delete enAttente[k];etatEsp('Enregistré');
-    }catch(e){
-      if(e.status===409&&e.data){ /* modifié sur un autre appareil : on reprend la version en ligne */
-        versions[k]=e.data.version;garderVersions();delete enAttente[k];
-        appliquerValeur(k,e.data.valeur);
-        alert('Ces réglages avaient été modifiés sur un autre appareil : la version à jour est affichée.');
-      }else if(e.status===401){quitterEspace();}
-      else etatEsp('Pas de réseau : enregistrement en attente',true);
+  const change=!espace||espace.exploitation.id!==moi.exploitation.id||espace.compte.role!==moi.compte.role;
+  espace=moi; try{ localStorage.setItem("applis.moi",JSON.stringify(moi)); }catch(e){}
+  if(change){ lireVersions(); charger(); }
+  dessinerEspace();
+  try{
+    const r=await appel("GET","/api/reglages/enrouleurs");
+    if(enAttente.enrouleurs || (r.valeur===null && enrouleurs.length && !lectureSeule())){ versions.enrouleurs=r.version; garderVersions(); await envoyer("enrouleurs",enrouleurs); }
+    else if(r.valeur!==null){
+      versions.enrouleurs=r.version; garderVersions();
+      const avant=JSON.stringify(enrouleurs);
+      enrouleurs=mettreAuFormat(r.valeur);
+      try{ localStorage.setItem(cle("enrouleurs"),JSON.stringify(enrouleurs)); }catch(e){}
+      if(JSON.stringify(enrouleurs)!==avant){ afficher(); reprendreChoix(); }
+      // anciennes configurations converties : on enregistre le nouveau format
+      if(!lectureSeule() && JSON.stringify(r.valeur)!==JSON.stringify(enrouleurs)) await envoyer("enrouleurs",enrouleurs);
     }
-  }
-  function appliquerValeur(k,v){
-    if(k==='enrouleurs'){reels=Array.isArray(v)?v:[];try{localStorage.setItem(cle(k),JSON.stringify(reels));}catch(e){}renderReels();}
-    else{largVille=(v&&typeof v==='object')?v:{};try{localStorage.setItem(cle(k),JSON.stringify(largVille));}catch(e){}onCombo();}
-  }
-  function quitterEspace(){espace=null;versions={};loadReels();loadLarg();onCombo();dessinerEspace();}
-  async function synchroniser(){
-    var moi;
-    try{moi=await appel('GET','/api/moi');}
-    catch(e){ if(e.status===401&&espace){try{localStorage.removeItem('applis.moi');}catch(_){}quitterEspace();}
-              else if(espace)etatEsp('Hors ligne : derniers réglages connus',true);
-              return; }
-    var change=!espace||espace.exploitation.id!==moi.exploitation.id;
-    espace=moi;try{localStorage.setItem('applis.moi',JSON.stringify(moi));}catch(e){}
-    if(change){lireVersions();loadReels();loadLarg();onCombo();}
-    dessinerEspace();
-    for(var k of ['enrouleurs','largVille']){
-      try{
-        var r=await appel('GET','/api/reglages/'+k);
-        var local=k==='enrouleurs'?reels:largVille;
-        var localPlein=k==='enrouleurs'?local.length>0:Object.keys(local).length>0;
-        if(enAttente[k]||(r.valeur===null&&localPlein&&!lectureSeule())){versions[k]=r.version;garderVersions();await envoyer(k,local);}
-        else if(r.valeur!==null){versions[k]=r.version;garderVersions();appliquerValeur(k,r.valeur);}
-      }catch(e){etatEsp('Hors ligne : derniers réglages connus',true);return;}
-    }
-    if(!Object.keys(enAttente).length)etatEsp(lectureSeule()?'À jour':'Enregistré');
-  }
-  window.addEventListener('online',function(){if(espace)synchroniser();});
+    if(!Object.keys(enAttente).length) etatEsp(lectureSeule()?"À jour":"Enregistré");
+  }catch(e){ etatEsp("Hors ligne : derniers enrouleurs connus",true); }
+}
+window.addEventListener("online",()=>{ if(espace) synchroniser(); });
 
-  lireVersions(); loadReels(); loadLarg(); dessinerEspace(); synchroniser();
+lireVersions(); charger(); dessinerEspace(); reprendreChoix(); calc(); synchroniser();
 </script>
 </body>
 </html>
-<!-- Mise à jour automatique vérifiée le 07/10/2026 -->
