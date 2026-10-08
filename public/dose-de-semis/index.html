@@ -271,8 +271,8 @@ footer code{font-family:var(--display);font-size:14px;letter-spacing:.03em;color
   </div>
   <div class="field">
     <label for="aFaire">Surface à semer — <b>mes parcelles</b></label>
-    <div class="entry"><input type="number" id="aFaire" inputmode="decimal" step="0.5" min="0" value="0"><span class="unit">ha</span></div>
-    <p class="hint">Pour savoir s’il manque ou s’il reste de la semence.</p>
+    <div class="entry"><input type="number" id="aFaire" inputmode="decimal" step="0.5" min="0" value=""><span class="unit">ha</span></div>
+    <p class="hint" id="aFaireHint">Pour savoir s’il manque ou s’il reste de la semence. Laissée vide, c’est la surface possible avec la semence disponible.</p>
   </div>
 </section>
 
@@ -513,7 +513,9 @@ function calcul(){
   if(stockMode==="kg"){ stockKg=val("stockKg"); stockGrains = pmg>0 ? stockKg*1e6/pmg : 0; }
   else { stockGrains=val("stockGr")*1e6; stockKg=stockGrains*pmg/1e6; }
   const haStock = dose>0 ? stockKg/dose : 0;
+  // Surface à semer laissée vide (ou à 0) : on prend la surface possible
   const aFaire = val("aFaire");
+  $("aFaire").placeholder = haStock>0 ? fmt(haStock,2).replace(/\s/g,"") : "";
   let txt = "";
   if(haStock>0) txt += "Avec ma semence ("+fmt(stockKg,0)+" kg, "+grainsFmt(stockGrains)+" grains) je sème <b>"+fmt(haStock,2)+" ha</b>";
   if(aFaire>0 && dose>0){
@@ -585,6 +587,7 @@ function lireSemence(){
 function appliquerSemence(s){
   CHAMPS.forEach(id=>{ if(s[id]!==undefined) $(id).value=s[id]; });
   $("fgR").value=$("fgN").value; $("perteR").value=$("perteN").value;
+  if(!(parseFloat($("aFaire").value)>0)) $("aFaire").value = "";
   setCible(s.cible||"semes"); setInv(s.invMode==="grains" ? "grains" : "kg"); setStock(s.stockMode||"kg");
   fraction = FRACTIONS[s.fraction] || FRACTIONS[2];
   setFractionBox("fraction", FRACTIONS.indexOf(fraction));
@@ -627,8 +630,11 @@ function chiffres(s){
   const dose = semes*pmg/100;
   const kg = s.stockMode==="grains" ? n("stockGr")*pmg : n("stockKg");
   const grains = pmg>0 ? kg*1e6/pmg : 0;
-  const aFaire = n("aFaire");
-  return {dose, kg, grains, ha: dose>0 ? kg/dose : 0, aFaire, besoin: aFaire*dose};
+  const ha = dose>0 ? kg/dose : 0;
+  // Surface à semer laissée vide (ou à 0) : on prend la surface possible
+  const saisie = n("aFaire");
+  const aFaire = saisie>0 ? saisie : ha;
+  return {dose, kg, grains, ha, aFaire, besoin: aFaire*dose, aFaireAuto: !(saisie>0) && ha>0};
 }
 
 function dessinerRecap(){
@@ -641,7 +647,8 @@ function dessinerRecap(){
   const celluleAFaire = t => {
     if(!(t.aFaire>0)) return "—";
     let bilan = "";
-    if(t.besoin>0 && t.kgCompte>0){
+    if(t.aFaireAuto) bilan = "<small>= possible</small>";
+    else if(t.besoin>0 && t.kgCompte>0){
       const d = t.kgCompte - t.besoin;
       bilan = d<0 ? "<small class=\"manque\">manque "+fmt(-d,0)+" kg</small>" : "<small class=\"reste\">reste "+fmt(d,0)+" kg</small>";
     } else if(t.besoin>0) bilan = "<small>besoin "+fmt(t.besoin,0)+" kg</small>";
