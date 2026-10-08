@@ -615,9 +615,11 @@ function groupes(c){
     if(!g.has(cle)) g.set(cle, {nom: e || "Sans espèce", lignes: []});
     g.get(cle).lignes.push(i);
   });
+  // Variétés par ordre alphabétique dans chaque espèce (« LG 2 » avant « LG 10 »)
+  const alpha = (i,j) => nomDe(semences[i],i).localeCompare(nomDe(semences[j],j), "fr", {sensitivity:"base", numeric:true});
   return [...g.entries()]
     .sort(([a],[b]) => (a==="")-(b==="") || a.localeCompare(b,"fr"))
-    .map(([,v])=>v);
+    .map(([,v])=>{ v.lignes.sort(alpha); return v; });
 }
 
 // Les chiffres d'une semence enregistrée, calculés comme dans « Le calcul ».
