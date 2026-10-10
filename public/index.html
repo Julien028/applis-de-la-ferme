@@ -46,6 +46,7 @@ input:focus-visible,button:focus-visible,a:focus-visible,select:focus-visible{ou
 .actions{display:flex;flex-wrap:wrap;gap:0 8px;margin-top:6px}
 .panneau{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
 .alerte{border-left:4px solid var(--seed)}
+.admin{border-left:4px solid #2F5D3A}
 
 .tuiles{display:grid;grid-template-columns:1fr;gap:14px}
 @media(min-width:620px){.tuiles{grid-template-columns:1fr 1fr}}
@@ -94,7 +95,6 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
   <div class="actions">
     <button type="button" class="lien" id="ouvrirMdp">Mon compte</button>
     <button type="button" class="lien" id="ouvrirComptes">Comptes de l'exploitation</button>
-    <button type="button" class="lien" id="ouvrirExpl">Exploitations</button>
     <button type="button" class="lien" id="deconnexion">Se déconnecter</button>
   </div>
 
@@ -142,16 +142,25 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
     <div id="comptesCodes"></div>
   </div>
 
-  <div class="panneau" id="panneauExpl" hidden>
+</section>
+
+<!-- ======== exploitations extérieures (administrateur du site) ======== -->
+<section class="block admin" id="blocAdmin" hidden>
+  <h2>Exploitations extérieures</h2>
+  <p class="hint" style="margin-top:-4px">Réservé à l'administrateur du site. Chaque exploitation est un espace à part : vous créez la ferme et son chef d'exploitation, il gère ensuite lui-même ses salariés. Vous ne voyez pas leurs données.</p>
+  <button type="button" class="bouton" id="ouvrirNouvelle" style="margin-top:10px">+ Créer une exploitation</button>
+  <form class="panneau" id="formExpl" hidden>
+    <div class="field"><label for="neNom">Nom de l'exploitation</label><input type="text" id="neNom" maxlength="80" placeholder="EARL Dupont" required></div>
+    <div class="field"><label for="neChef">Son chef d'exploitation — prénom et nom</label><input type="text" id="neChef" maxlength="80" placeholder="Paul Dupont" required></div>
+    <div class="field"><label for="neId">Identifiant de connexion du chef</label><input type="text" id="neId" maxlength="40" autocapitalize="none" spellcheck="false" required></div>
+    <button type="submit" class="bouton">Créer l'exploitation</button>
+    <button type="button" class="lien" id="annulerNouvelle">Annuler</button>
+    <p class="msg erreur" id="neErreur" hidden></p>
+  </form>
+  <div id="explCodes"></div>
+  <div class="panneau">
+    <b style="font-size:14px">Exploitations créées</b>
     <table><tbody id="explLignes"></tbody></table>
-    <form id="formExpl" style="margin-top:12px">
-      <div class="field"><label for="neNom">Nouvelle exploitation — nom</label><input type="text" id="neNom" maxlength="80" placeholder="Dimancheville" required></div>
-      <div class="field"><label for="neChef">Son chef d'exploitation — prénom et nom</label><input type="text" id="neChef" maxlength="80" required></div>
-      <div class="field"><label for="neId">Identifiant de connexion du chef</label><input type="text" id="neId" maxlength="40" autocapitalize="none" spellcheck="false" required></div>
-      <button type="submit" class="bouton">Créer l'exploitation</button>
-      <p class="msg erreur" id="neErreur" hidden></p>
-    </form>
-    <div id="explCodes"></div>
   </div>
 </section>
 
@@ -215,19 +224,21 @@ function codes(boite, titre, lignes){
 function dessiner(){
   $("blocConnexion").hidden = !!moi;
   $("blocCompte").hidden = !moi;
-  if(!moi) return;
+  if(!moi){ $("blocAdmin").hidden=true; delete $("blocAdmin").dataset.vu; return; }
   $("quiNom").textContent = moi.compte.nom;
   $("quiExpl").textContent = moi.exploitation.nom+" · "+(moi.compte.role==="chef" ? "chef d'exploitation" : "salarié");
   $("ouvrirComptes").hidden = moi.compte.role!=="chef";
-  $("ouvrirExpl").hidden = !moi.superAdmin;
+  const admin = !!moi.superAdmin && !$("blocAdmin").dataset.vu;
+  $("blocAdmin").hidden = !moi.superAdmin;
+  if(admin){ $("blocAdmin").dataset.vu="1"; dessinerExploitations(); }
   $("mdpIdentifiant").value = moi.compte.identifiant;
   // Mot de passe provisoire : on demande d'en choisir un tout de suite
   $("blocCompte").classList.toggle("alerte", moi.doitChanger);
   $("mdpObligatoire").hidden = !moi.doitChanger;
-  if(moi.doitChanger){ ["panneauComptes","panneauExpl"].forEach(x=>$(x).hidden=true); $("panneauMoi").hidden=false; }
+  if(moi.doitChanger){ $("panneauComptes").hidden=true; $("panneauMoi").hidden=false; }
   try{ localStorage.setItem("applis.moi", JSON.stringify(moi)); }catch(e){}
 }
-function basculer(id){ const avant=$(id).hidden; ["panneauMoi","panneauComptes","panneauExpl"].forEach(x=>$(x).hidden=true); $(id).hidden=!avant; return !$(id).hidden; }
+function basculer(id){ const avant=$(id).hidden; ["panneauMoi","panneauComptes"].forEach(x=>$(x).hidden=true); $(id).hidden=!avant; return !$(id).hidden; }
 
 // ----- connexion -----
 $("formConnexion").addEventListener("submit", async e=>{
@@ -334,6 +345,8 @@ async function dessinerExploitations(){
   const corps=$("explLignes"); corps.innerHTML="";
   let liste=[];
   try{ liste=await appel("GET","/api/exploitations"); }catch(e){ corps.textContent=e.message; return; }
+  liste = liste.filter(x=>x.id!==moi.exploitation.id);
+  if(!liste.length){ corps.innerHTML="<tr><td style=\"color:var(--muted)\">Aucune exploitation extérieure pour l'instant.</td></tr>"; return; }
   liste.forEach(x=>{
     const tr=document.createElement("tr");
     tr.innerHTML="<td><span></span><small></small></td><td class=\"act\"></td>";
@@ -361,13 +374,15 @@ async function dessinerExploitations(){
     corps.appendChild(tr);
   });
 }
-$("ouvrirExpl").addEventListener("click",()=>{ if(basculer("panneauExpl")){ $("explCodes").innerHTML=""; dessinerExploitations(); } });
+$("ouvrirNouvelle").addEventListener("click",()=>{ $("formExpl").hidden=false; $("ouvrirNouvelle").hidden=true; $("explCodes").innerHTML=""; $("neNom").focus(); });
+$("annulerNouvelle").addEventListener("click",()=>{ $("formExpl").hidden=true; $("ouvrirNouvelle").hidden=false; message("neErreur",""); });
 lierIdentifiant("neChef","neId");
 $("formExpl").addEventListener("submit", async e=>{
   e.preventDefault(); message("neErreur","");
   try{
     const n=await appel("POST","/api/exploitations",{nom:$("neNom").value, chef:{nom:$("neChef").value, identifiant:$("neId").value}});
     ["neNom","neChef","neId"].forEach(id=>$(id).value=""); delete $("neId").dataset.touche;
+    $("formExpl").hidden=true; $("ouvrirNouvelle").hidden=false;
     codes("explCodes", n.exploitation.nom+" — "+n.chef.nom+" (chef d'exploitation)", [["Identifiant",n.chef.identifiant],["Mot de passe provisoire",n.chef.motDePasse]]);
     dessinerExploitations();
   }catch(err){ message("neErreur", err.message, "erreur"); }

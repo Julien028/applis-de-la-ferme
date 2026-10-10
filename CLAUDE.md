@@ -33,7 +33,7 @@ mots simples, et évite le jargon quand un mot courant suffit.
 
 | Élément | Contenu |
 |---|---|
-| `public/index.html` | Accueil : connexion, mon compte (nom, identifiant, mot de passe), comptes et nom de l'exploitation (chef), exploitations : créer, renommer, suspendre (administrateur), cases des applis. |
+| `public/index.html` | Accueil : connexion, mon compte (nom, identifiant, mot de passe), comptes et nom de l'exploitation (chef), cadre à part « Exploitations extérieures » pour l'administrateur du site (créer une ferme + son chef, renommer, suspendre ; sa propre ferme n'y figure pas, 10/10/2026), cases des applis. |
 | `public/irrigation-enrouleur/` | Irrigation enrouleur, une seule page (onglet Villechèvre retiré le 08/10/2026) : calcul dose ↔ vitesse avec menus enrouleur puis buse (remplissent débit et largeur, temps pour tout le tuyau) ; « Mes enrouleurs » = {nom, diametre, tuyau, buses:[{buse, pression, debit, largeur}]}, modèles Beinlich Ø135/Ø125 et Perrot Ø110 à 8 bars, rangés dans l'espace (`/api/reglages/enrouleurs`), modifiables par le chef seulement. |
 | `public/dose-de-semis/` | La dose de semis (reprise de `../dose-de-semis`). La connexion se fait à l'accueil ; la page lit `applis.moi` dans l'appareil et vérifie `/api/moi`. |
 | `public/pluviometrie/` | Pluviométrie (08/10/2026) : pluviomètres créés par le chef, saisie rapide du jour, tableau jours × mois (décades, jours de pluie, total, cumul), historique (histogramme par mois + moyenne des autres années, totaux par année), export tableur. Connexion obligatoire. |
