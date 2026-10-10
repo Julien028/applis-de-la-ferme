@@ -1,10 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Applis de la ferme : une pousse (semis) et une goutte (eau, pluie) sur fond sombre -->
-  <rect width="512" height="512" rx="104" fill="#1E241B"/>
-  <path d="M96 404h320" stroke="#6E7A63" stroke-width="16" stroke-linecap="round"/>
-  <path d="M206 404V226" stroke="#8DBE76" stroke-width="24" stroke-linecap="round"/>
-  <path d="M206 338c-66 0-98-36-98-86 62 0 98 30 98 86z" fill="#8DBE76"/>
-  <path d="M206 276c62 0 92-30 92-80-54 0-92 36-92 80z" fill="#8DBE76"/>
-  <path d="M352 150c0 0-62 76-62 120a62 62 0 0 0 124 0c0-44-62-120-62-120z" fill="#4BA8DE"/>
-  <path d="M330 278a26 26 0 0 0 22 26" stroke="#DFF1FB" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <!-- Applis de la ferme : grange et silo sur fond vert (choisie par Julien le 10/10/2026) -->
+  <rect width="512" height="512" rx="104" fill="#2F5D3A"/>
+  <path d="M84 404h344" stroke="#F4EFE6" stroke-width="16" stroke-linecap="round"/>
+  <rect x="318" y="196" width="72" height="208" fill="#DCE3E6"/>
+  <path d="M318 196a36 36 0 0 1 72 0z" fill="#B9C6CE"/>
+  <path d="M318 250h72M318 304h72M318 358h72" stroke="#B9C6CE" stroke-width="8"/>
+  <path d="M110 404V262l104-80 104 80v142z" fill="#C2392B"/>
+  <path d="M96 268L214 176l118 92" fill="none" stroke="#F4EFE6" stroke-width="18" stroke-linejoin="round" stroke-linecap="round"/>
+  <rect x="176" y="310" width="76" height="94" fill="#F4EFE6"/>
+  <rect x="186" y="320" width="56" height="84" fill="#8E2A1F"/>
+  <path d="M186 320l56 84M242 320l-56 84" stroke="#F4EFE6" stroke-width="8"/>
 </svg>

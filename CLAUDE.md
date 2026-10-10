@@ -40,7 +40,7 @@ mots simples, et évite le jargon quand un mot courant suffit.
 | `functions/api/[[chemin]].js` | Toutes les adresses `/api/…`, qui appellent `src/api.js`. |
 | `src/api.js`, `src/session.js` | Règles du serveur (code standard, sans dépendance à l'hébergeur). |
 | `db/schema.sql` | Tables : exploitations, comptes (avec `droits`), sessions, echecs, semences, reglages (enrouleurs), pluviometres, releves_pluie. Migrations à passer une fois en ligne : `db/migrations/`. |
-| `public/icone.svg`, `favicon.ico`, `icone-*.png`, `apple-touch-icon.png`, `manifest.webmanifest` | Icône du site (pousse + goutte, 10/10/2026), pour les favoris et l'écran d'accueil ; PNG et ICO fabriqués depuis le SVG avec sharp. |
+| `public/icone.svg`, `favicon.ico`, `icone-*.png`, `apple-touch-icon.png`, `manifest.webmanifest` | Icône du site (grange et silo sur fond vert, choisie le 10/10/2026), pour les favoris et l'écran d'accueil ; PNG et ICO fabriqués depuis le SVG avec sharp. |
 | `scripts/premiere-exploitation.mjs` | Crée la 1re exploitation et son chef administrateur du site (une fois). |
 
 ## Essai sur l'ordinateur
