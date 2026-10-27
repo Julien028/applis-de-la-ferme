@@ -68,7 +68,7 @@ puis `npx wrangler pages dev --port 8796`. Codes de test dans `.essai-local.txt`
 
 ## Idées pour la suite
 
-- Pluie 2026 reprise du site des heures le 08/10/2026 (49 relevés, pluviomètre « Bretonvilliers »). Supprimer un pluviomètre : le chef retape son nom (vérifié aussi par le serveur).
+- Pluie 2026 reprise du site des heures le 08/10/2026 (49 relevés, pluviomètre « Bretonvilliers ») ; pluie 2025 saisie le 27/10/2026 depuis la feuille papier (78 relevés, 629 mm, totaux mensuels identiques ; 23 avril lu 10 mm, confirmé par le total). Scan gardé dans `sauvegardes/pluviometrie/` (ordinateur et OneDrive, pas GitHub). Supprimer un pluviomètre : le chef retape son nom (vérifié aussi par le serveur).
 
 - Une troisième appli, selon les idées de Julien.
 - Mentions légales si le site est proposé à d'autres agriculteurs.
