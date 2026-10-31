@@ -65,7 +65,7 @@ function gererEngins(ul, engins, recharger){
   });
 }
 
-// Carte « Fiche PDF » : période (raccourcis), tracteur, pour qui → ouvre /fiche/
+// Carte « Export PDF / Excel » : période (raccourcis), tracteur, pour qui → ouvre /fiche/ (Excel : le tableur se télécharge aussitôt)
 function preparerFiche(type){
   const an=new Date().getFullYear(), m=new Date().getMonth();
   const jour=(a,mo,j)=>a+"-"+deux(mo+1)+"-"+deux(j), fin=(a,mo)=>new Date(a,mo+1,0).getDate();
@@ -83,13 +83,15 @@ function preparerFiche(type){
     boite.appendChild(b);
   });
   if(!$("fDu").value){ $("fDu").value=periodes["Cette année"][0]; $("fAu").value=periodes["Cette année"][1]; boite.children[2].classList.add("choisi"); }
-  $("fOk").onclick=()=>{
+  const ouvrir=format=>{
     if($("fDu").value>$("fAu").value){ alert("La date de début est après la date de fin."); return; }
     const q=new URLSearchParams({type, du:$("fDu").value, au:$("fAu").value});
     if($("fEngin").value) q.set("engin", $("fEngin").value);
     if($("fQui") && $("fQui").value) q.set("qui", $("fQui").value);
+    if(format) q.set("format", format);
     location.href="/fiche/?"+q;
   };
+  $("fOk").onclick=()=>ouvrir(""); $("fExcel").onclick=()=>ouvrir("excel");
 }
 // Menu « tous / un engin » de la carte Fiche PDF (tous les engins, même mis de côté)
 function remplirFiltreEngins(select, engins, tous){

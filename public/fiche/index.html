@@ -43,6 +43,10 @@ tr.livraison td{background:#FBF4EA}
 .ecart{font-weight:700;color:#B4472B}
 .barre{width:30%}.barre div{height:8px;background:var(--accent);border-radius:2px;opacity:.75}
 .vide{color:#9A968C;font-style:italic}
+table.mois th,table.mois td{padding:2px 3px;font-size:9.5px}
+table.mois th{text-transform:none}
+table.mois td:first-child{font-weight:600}
+table.mois .tot{background:var(--fond);font-weight:700}
 .signatures{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
 .signatures div{border:1px solid var(--ligne);border-radius:6px;height:56px;padding:4px 8px;font-size:10px;color:var(--doux)}
 .pied{margin-top:10px;font-size:9px;color:var(--doux);display:flex;justify-content:space-between}
@@ -64,6 +68,7 @@ body.photo .feuille{width:190mm;max-width:none;margin:0;padding:0;box-shadow:non
 <body>
   <div class="outils">
     <button class="btn" id="pdf" type="button">📄 Enregistrer en PDF</button>
+    <button class="btn" id="excel" type="button">📊 Exporter Excel</button>
     <button class="btn doux" id="imprimer" type="button">Imprimer</button>
     <a class="btn doux" id="retour" href="../">Retour</a>
     <p id="aide">Sur téléphone, le PDF arrive dans les téléchargements.</p>
@@ -89,7 +94,36 @@ $("retour").href = TYPE==="gnr" ? "/gnr/" : "/tracteurs/";
 const dateLongue = j => j.split("-").reverse().join("/");
 const esc = s => String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const h1 = x => fmt(x, x%1 ? 1 : 0);
-let nomFiche = "";
+let nomFiche = "", excel = null;   // excel : {nom, lignes} pour le tableur
+
+// Les mois de la période (AAAA-MM)
+function moisPeriode(){
+  const l=[]; let a=Number(DU.slice(0,4)), m=Number(DU.slice(5,7));
+  while(a*100+m <= Number(AU.slice(0,4))*100+Number(AU.slice(5,7))){ l.push(a+"-"+deux(m)); if(++m>12){ m=1; a++; } }
+  return l;
+}
+const MOIS_COURTS = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+const libMois = k => MOIS_COURTS[Number(k.slice(5))-1]+" "+k.slice(2,4);
+// Tableau engins × mois : valeur(x) pour chaque ligne de données, en plus d'éventuelles lignes ajoutées
+// (ex. livraisons). Rend {html, csv} : html pour la fiche, csv (lignes) pour le tableur.
+function tableauMois(items, valeur, nom, unite, dec, extra){
+  const mois=moisPeriode(), ids=[...new Set(items.map(x=>x.engin_id))];
+  const v=(id,k)=>items.filter(x=>x.engin_id===id && (!k || x.jour.slice(0,7)===k)).reduce((s,x)=>s+valeur(x),0);
+  const rangs=ids.map(id=>({nom:nom(id), id, tot:v(id)})).sort((a,b)=>b.tot-a.tot||a.nom.localeCompare(b.nom,"fr",{numeric:true}));
+  const f=x=>x?fmt(x,dec):"";
+  let h='<table class="mois"><tr><th>'+(TYPE==="gnr"?"Engin":"Tracteur")+'</th>'+mois.map(k=>'<th class="n">'+libMois(k)+'</th>').join("")+'<th class="n">Total</th></tr>';
+  const csv=[[TYPE==="gnr"?"Engin":"Tracteur", ...mois.map(k=>MOIS[Number(k.slice(5))-1]+" "+k.slice(0,4)), "Total ("+unite+")"].map(cel).join(";")];
+  rangs.forEach(r=>{ h+='<tr><td>'+esc(r.nom)+'</td>'+mois.map(k=>'<td class="n">'+f(v(r.id,k))+'</td>').join("")+'<td class="n tot">'+f(r.tot)+'</td></tr>';
+    csv.push([r.nom, ...mois.map(k=>{ const x=v(r.id,k); return x?num(Math.round(x*100)/100):""; }), num(Math.round(r.tot*100)/100)].map(cel).join(";")); });
+  const totM=k=>items.filter(x=>x.jour.slice(0,7)===k).reduce((s,x)=>s+valeur(x),0), tot=items.reduce((s,x)=>s+valeur(x),0);
+  h+='<tr class="total"><td>Total</td>'+mois.map(k=>'<td class="n">'+f(totM(k))+'</td>').join("")+'<td class="n">'+f(tot)+'</td></tr>';
+  csv.push(["Total", ...mois.map(k=>totM(k)?num(Math.round(totM(k)*100)/100):""), num(Math.round(tot*100)/100)].map(cel).join(";"));
+  if(extra){ const e=extra(mois); h+='<tr class="livraison"><td>'+e.lib+'</td>'+e.val.map(x=>'<td class="n">'+f(x)+'</td>').join("")+'<td class="n">'+f(e.val.reduce((a,b)=>a+b,0))+'</td></tr>';
+    csv.push([e.lib, ...e.val.map(x=>x?num(x):""), num(e.val.reduce((a,b)=>a+b,0))].map(cel).join(";")); }
+  return {html: rangs.length ? h+'</table>' : '<p class="vide">Rien sur la période.</p>', csv};
+}
+const cel = v => csv(v);
+const titreCsv = t => [csv(t), csv(moi.exploitation.nom), csv("du "+dateLongue(DU)+" au "+dateLongue(AU))].join(";");
 
 // Toutes les années de la période, réunies
 async function lire(){
@@ -138,15 +172,15 @@ function ficheGnr(d){
   lignes.forEach(x=>{ t+='<tr><td>'+esc(x.nom)+'</td><td class="n"><b>'+fmt(x.l,0)+' L</b></td><td class="n">'+(totP?fmt(x.l/totP*100,0)+' %':'')+'</td><td class="barre"><div style="width:'+(x.l/max*100).toFixed(1)+'%"></div></td><td class="n">'+x.n+'</td><td class="n">'+(x.lh?fmt(x.lh,1):"—")+'</td></tr>'; });
   t+='<tr class="total"><td>Total</td><td class="n">'+fmt(totP,0)+' L</td><td></td><td></td><td class="n">'+d.pleins.length+'</td><td></td></tr></table>';
   if(!ENGIN) h+='<h2>Par engin</h2>'+(lignes.length?t:'<p class="vide">Aucun plein sur la période.</p>');
-  // par mois
-  const mois={}; d.pleins.forEach(x=>{ const k=x.jour.slice(0,7); (mois[k]=mois[k]||{p:0,l:0}).p+=x.litres; });
-  d.livraisons.forEach(x=>{ const k=x.jour.slice(0,7); (mois[k]=mois[k]||{p:0,l:0}).l+=x.litres; });
-  const km=Object.keys(mois).sort(), mm=Math.max(1,...km.map(k=>mois[k].p));
-  if(km.length){
-    let m='<table><tr><th>Mois</th><th class="n">Pleins</th><th></th>'+(ENGIN?'':'<th class="n">Livré</th>')+'</tr>';
-    km.forEach(k=>{ m+='<tr><td>'+MOIS[Number(k.slice(5))-1]+' '+k.slice(0,4)+'</td><td class="n">'+(mois[k].p?fmt(mois[k].p,0)+' L':'')+'</td><td class="barre"><div style="width:'+(mois[k].p/mm*100).toFixed(1)+'%"></div></td>'+(ENGIN?'':'<td class="n">'+(mois[k].l?fmt(mois[k].l,0)+' L':'')+'</td>')+'</tr>'; });
-    h+='<h2>Par mois</h2>'+m+'</table>';
-  }
+  // engins × mois (avec les livraisons en dernière ligne)
+  const tm=tableauMois(d.pleins, x=>x.litres, nom, "L", 0, ENGIN ? null : mois=>({lib:"Livré à la cuve", val:mois.map(k=>d.livraisons.filter(x=>x.jour.slice(0,7)===k).reduce((s,x)=>s+x.litres,0))}));
+  h+='<h2>Litres par engin et par mois</h2>'+tm.html;
+  const ex=[titreCsv("Suivi du GNR — litres par engin et par mois"), "", ...tm.csv, "", "Détail des pleins",
+    ["Jour","Engin","Litres","Type de travail","Compteur (h)","Index pompe","Noté par"].join(";"),
+    ...d.pleins.map(x=>[dateLongue(x.jour), nom(x.engin_id), num(x.litres), x.travail||"", x.compteur!=null?num(x.compteur):"", x.index_pompe!=null?num(x.index_pompe):"", x.saisi_par||""].map(csv).join(";"))];
+  if(d.livraisons.length) ex.push("", "Livraisons à la cuve", ["Jour","Litres","Prix HT (€/L)","Fournisseur","Index pompe"].join(";"),
+    ...d.livraisons.map(x=>[dateLongue(x.jour), num(x.litres), x.prix_litre?num(x.prix_litre):"", x.fournisseur||"", x.index_pompe!=null?num(x.index_pompe):""].map(csv).join(";")));
+  excel={nom:"gnr", lignes:ex};
   // livraisons et pompe
   if(d.livraisons.length){
     let l='<table><tr><th>Jour</th><th class="n">Litres</th><th class="n">Prix HT</th><th class="n">Montant HT</th><th>Fournisseur</th><th class="n">Index pompe</th></tr>';
@@ -184,6 +218,11 @@ function ficheTracteurs(d){
     t+='<tr class="total"><td>Total</td>'+ids.map(id=>'<td class="n">'+h1(somme(x=>x.engin_id===id))+'</td>').join("")+'<td class="n">'+h1(tot)+' h</td></tr></table>';
     h+='<h2>Heures par tracteur et pour qui</h2>'+t;
   }
+  const tm=tableauMois(S, x=>x.heures, nom, "h", 1);
+  h+='<h2>Heures par tracteur et par mois</h2>'+tm.html;
+  excel={nom:"heures-tracteurs", lignes:[titreCsv("Heures des tracteurs"+(QUI?" pour "+QUI:"")+" — par tracteur et par mois"), "", ...tm.csv, "", "Détail des sorties",
+    ["Jour","Tracteur","Compteur début","Compteur fin","Heures","Pour qui","Travail","Noté par"].join(";"),
+    ...S.map(x=>[dateLongue(x.jour), nom(x.engin_id), x.debut!=null?num(x.debut):"", x.fin!=null?num(x.fin):"", num(x.heures), x.pour_qui, x.travail||"", x.saisi_par||""].map(csv).join(";"))]};
   let j='<table><tr><th>Jour</th>'+(ENGIN?'':'<th>Tracteur</th>')+'<th class="n">Début</th><th class="n">Fin</th><th class="n">Heures</th>'+(QUI?'':'<th>Pour qui</th>')+'<th>Travail</th><th>Noté par</th></tr>';
   S.forEach(x=>{ j+='<tr><td class="jour">'+dateLongue(x.jour)+'</td>'+(ENGIN?'':'<td>'+esc(nom(x.engin_id))+'</td>')+'<td class="n">'+(x.debut!=null?fmt(x.debut,1):'')+'</td><td class="n">'+(x.fin!=null?fmt(x.fin,1):'')+'</td><td class="n"><b>'+fmt(x.heures,x.heures%1?2:0)+'</b></td>'+(QUI?'':'<td>'+esc(x.pour_qui)+'</td>')+'<td>'+esc(x.travail||"")+'</td><td>'+esc(x.saisi_par||"")+'</td></tr>'; });
   if(S.length) j+='<tr class="total"><td colspan="'+(ENGIN?3:4)+'">Total</td><td class="n">'+h1(tot)+' h</td><td colspan="'+(QUI?2:3)+'"></td></tr>';
@@ -201,12 +240,15 @@ $("pdf").addEventListener("click", async ()=>{
   finally{ b.disabled=false; b.textContent="📄 Enregistrer en PDF"; }
 });
 $("imprimer").addEventListener("click", ()=>window.print());
+function exporterExcel(){ if(excel) telecharger(nomFiche.replace(/.pdf$/,".csv"), excel.lignes); }
+$("excel").addEventListener("click", exporterExcel);
 
 demarrer(TYPE, async ()=>{
   try{
     const d=await lire();
     $("feuille").innerHTML = TYPE==="gnr" ? ficheGnr(d) : ficheTracteurs(d);
     document.title = (TYPE==="gnr"?"GNR":"Heures des tracteurs")+" du "+dateLongue(DU)+" au "+dateLongue(AU);
+    if(P.get("format")==="excel") exporterExcel();
   }catch(e){ if(e.status===401) return deconnecte(); if(e.status===403) return sansAcces(); $("feuille").innerHTML='<p class="vide">'+esc(e.message)+'</p>'; }
 });
 </script>
