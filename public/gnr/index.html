@@ -33,6 +33,12 @@
         </div>
         <label for="pCompteur">Compteur d'heures du tracteur <span class="leger">(facultatif, pour la consommation à l'heure)</span></label>
         <div class="row"><input type="number" id="pCompteur" inputmode="decimal" step="any" min="0"><span class="unit">h</span></div>
+        <label for="pTravail">Type de travail <span class="leger">(facultatif)</span></label>
+        <input type="text" id="pTravail" maxlength="120" list="travaux" placeholder="ex. labour, semis blé, benne…" autocomplete="off">
+        <datalist id="travaux"></datalist>
+        <label for="pIndex">Index de la pompe après le plein <span class="leger">(facultatif)</span></label>
+        <input type="number" id="pIndex" inputmode="decimal" step="any" min="0">
+        <p class="hint" id="pIndexAide"></p>
         <button class="principal large" id="pOk" type="button">Noter le plein</button>
         <p class="msg" id="pMsg" hidden></p>
       </div>
@@ -55,6 +61,8 @@
             <div><label for="lFour">Fournisseur</label><input type="text" id="lFour" maxlength="60" list="fournisseurs"></div>
           </div>
           <datalist id="fournisseurs"></datalist>
+          <label for="lIndex">Index de la pompe ce jour-là <span class="leger">(celui noté sur la porte)</span></label>
+          <input type="number" id="lIndex" inputmode="decimal" step="any" min="0" placeholder="ex. 399619">
           <button class="principal large" id="lOk" type="button">Enregistrer la livraison</button>
           <p class="msg" id="lMsg" hidden></p>
         </div>
@@ -68,6 +76,14 @@
           <p class="msg" id="jMsg" hidden></p>
         </div>
       </div>
+    </div>
+
+    <!-- ============ POMPE ============ -->
+    <div class="card" id="cartePompe" hidden>
+      <h2>Compteur de la pompe</h2>
+      <p class="hint" style="margin-top:-4px">Entre deux index relevés : les litres sortis de la pompe, et ceux notés dans les pleins. Un gros écart, c'est un plein oublié ou mal noté.</p>
+      <p id="pompeDernier"></p>
+      <div class="defile"><table class="tab" id="pompe"></table></div>
     </div>
 
     <!-- ============ ANNÉE ============ -->
@@ -97,7 +113,8 @@
       <h2>Les tracteurs</h2>
       <p class="hint" style="margin-top:-4px">La même liste sert au GNR et aux heures des tracteurs.</p>
       <ul class="liste" id="listeEngins"></ul>
-      <div class="row" style="margin-top:8px"><input type="text" id="nouvelEngin" maxlength="60" placeholder="ex. Fendt 724, John Deere 6155R…"><button class="principal" id="ajoutEngin" type="button">Ajouter</button></div>
+      <div class="grille2" style="margin-top:8px"><div><label for="nouvelEngin">Nom</label><input type="text" id="nouvelEngin" maxlength="60" placeholder="ex. 720 n°1"></div><div><label for="nouvellePlaque">Immatriculation <span class="leger">(facultatif)</span></label><input type="text" id="nouvellePlaque" maxlength="20" placeholder="ex. AB-123-CD" autocapitalize="characters"></div></div>
+      <button class="principal" id="ajoutEngin" type="button" style="margin-top:8px">Ajouter</button>
       <p class="msg" id="eMsg" hidden></p>
     </div>
   </div>
@@ -140,8 +157,35 @@ function dessiner(){
   $("tLivre").textContent = d.livraisons.length ? fmt(totLivre,0)+" L" : "—";
   $("tEuros").textContent = avecPrix.length ? fmt(euros,0)+" €" : "—";
   $("tEurosK").textContent = avecPrix.length && avecPrix.length<d.livraisons.length ? "dépensé (HT, livraisons avec prix)" : "dépensé (HT)";
-  dessinerParEngin(nomEngin); dessinerParMois(); dessinerJournal(nomEngin); dessinerEngins();
+  const trav=[...new Set(d.pleins.map(x=>x.travail).filter(Boolean))]; $("travaux").innerHTML=""; trav.forEach(f=>{ const o=document.createElement("option"); o.value=f; $("travaux").appendChild(o); });
+  majIndexAttendu();
+  dessinerParEngin(nomEngin); dessinerParMois(); dessinerPompe(); dessinerJournal(nomEngin); dessinerEngins();
 }
+
+// Pompe : litres sortis entre deux index relevés, comparés aux pleins notés
+function dessinerPompe(){
+  const d=donnees, t=$("pompe"), lignes=d.pompe||[];
+  $("cartePompe").hidden = !d.index;
+  if(!d.index) return;
+  $("pompeDernier").textContent = "Dernier index relevé : "+fmt(d.index.index,0)+" le "+dateCourte(d.index.jour)
+    +(d.index.depuis ? ", et "+fmt(d.index.depuis,0)+" L de pleins notés depuis : la pompe devrait afficher environ "+fmt(d.index.index+d.index.depuis,0)+"." : ".");
+  t.innerHTML="";
+  if(!lignes.length){ t.innerHTML="<tr><td class=\"vide\">Il faut au moins deux index relevés pour comparer.</td></tr>"; return; }
+  t.innerHTML="<tr><th>Période</th><th>Pompe</th><th>Notés</th><th>Écart</th></tr>";
+  lignes.slice().reverse().forEach(x=>{
+    const tr=document.createElement("tr"), gros=Math.abs(x.ecart)>Math.max(30, x.pompe*0.03);
+    tr.innerHTML="<td>"+dateCourte(x.du)+" → "+dateCourte(x.au)+"</td><td>"+fmt(x.pompe,0)+" L</td><td>"+fmt(x.note,0)+" L</td><td class=\""+(gros?"fort":"")+"\">"+(x.ecart>0?"+":"")+fmt(x.ecart,0)+" L</td>";
+    t.appendChild(tr);
+  });
+}
+function majIndexAttendu(){
+  const d=donnees, l=parseFloat($("pLitres").value);
+  if(!d || !d.index){ $("pIndexAide").textContent=""; $("pIndex").placeholder="ex. 401982"; return; }
+  const attendu=d.index.index+d.index.depuis+(isFinite(l)?l:0);
+  $("pIndex").placeholder="environ "+Math.round(attendu);
+  $("pIndexAide").textContent="Le chiffre « TOTAL » sur la pompe. Si vous le notez de temps en temps, le site vérifie que tous les pleins sont bien notés.";
+}
+$("pLitres").addEventListener("input", majIndexAttendu);
 
 // Consommation par tracteur : litres entre deux pleins ÷ heures du compteur
 function dessinerParEngin(nomEngin){
@@ -189,8 +233,8 @@ function dessinerJournal(nomEngin){
     tr.innerHTML="<td>"+dateCourte(x.jour)+"</td><td><span></span><small></small></td><td class=\"fort\">"+(x.type==="livraison"?"+ ":"")+fmt(x.litres,0)+" L</td><td></td>";
     tr.querySelector("span").textContent = x.type==="livraison" ? "Livraison cuve" : nomEngin(x.engin_id);
     tr.querySelector("small").textContent = x.type==="livraison"
-      ? [x.fournisseur, x.prix_litre ? fmt(x.prix_litre,3)+" €/L" : "", x.saisi_par].filter(Boolean).join(" · ")
-      : [x.compteur!=null ? fmt(x.compteur,1)+" h au compteur" : "", x.saisi_par].filter(Boolean).join(" · ");
+      ? [x.fournisseur, x.prix_litre ? fmt(x.prix_litre,3)+" €/L" : "", x.index_pompe!=null ? "pompe "+fmt(x.index_pompe,0) : "", x.saisi_par].filter(Boolean).join(" · ")
+      : [x.travail, x.compteur!=null ? fmt(x.compteur,1)+" h au compteur" : "", x.index_pompe!=null ? "pompe "+fmt(x.index_pompe,0) : "", x.saisi_par].filter(Boolean).join(" · ");
     const peutEffacer = chef() || (x.type==="plein" && x.saisi_par_id===moi.compte.id);
     if(peutEffacer){
       const b=document.createElement("button"); b.className="croix"; b.type="button"; b.title="Effacer"; b.textContent="✕";
@@ -216,9 +260,9 @@ $("pOk").addEventListener("click", async ()=>{
   if(!$("pLitres").value){ message("pMsg","Tapez les litres mis dans le tracteur.","erreur"); return; }
   if($("pJour").value>aujourdhui()){ message("pMsg","Ce jour n'est pas encore arrivé.","erreur"); return; }
   try{
-    await appel("POST","/api/gnr/pleins",{engin:$("pEngin").value, jour:$("pJour").value, litres:$("pLitres").value, compteur:$("pCompteur").value});
+    await appel("POST","/api/gnr/pleins",{engin:$("pEngin").value, jour:$("pJour").value, litres:$("pLitres").value, compteur:$("pCompteur").value, travail:$("pTravail").value, index_pompe:$("pIndex").value});
     const nom=$("pEngin").selectedOptions[0].textContent, l=$("pLitres").value;
-    $("pLitres").value=""; $("pCompteur").value="";
+    ["pLitres","pCompteur","pTravail","pIndex"].forEach(i=>$(i).value="");
     annee=Number($("pJour").value.slice(0,4)); await charger();
     message("pMsg","Noté : "+l+" L dans "+nom+".","ok");
   }catch(e){ message("pMsg", e.message, "erreur"); }
@@ -228,8 +272,8 @@ $("ouvrirJauge").addEventListener("click",()=>{ $("formJauge").hidden=!$("formJa
 $("lOk").addEventListener("click", async ()=>{
   message("lMsg","");
   try{
-    await appel("POST","/api/gnr/livraisons",{jour:$("lJour").value, litres:$("lLitres").value, prix:$("lPrix").value, fournisseur:$("lFour").value});
-    ["lLitres","lPrix"].forEach(i=>$(i).value=""); $("formLivraison").hidden=true;
+    await appel("POST","/api/gnr/livraisons",{jour:$("lJour").value, litres:$("lLitres").value, prix:$("lPrix").value, fournisseur:$("lFour").value, index_pompe:$("lIndex").value});
+    ["lLitres","lPrix","lIndex"].forEach(i=>$(i).value=""); $("formLivraison").hidden=true;
     annee=Number($("lJour").value.slice(0,4)); await charger();
   }catch(e){ message("lMsg", e.message, "erreur"); }
 });
@@ -248,7 +292,7 @@ function dessinerEngins(){
 }
 $("ajoutEngin").addEventListener("click", async ()=>{
   message("eMsg","");
-  try{ await appel("POST","/api/gnr/engins",{nom:$("nouvelEngin").value}); $("nouvelEngin").value=""; await charger(); }
+  try{ await appel("POST","/api/gnr/engins",{nom:$("nouvelEngin").value, plaque:$("nouvellePlaque").value}); $("nouvelEngin").value=""; $("nouvellePlaque").value=""; await charger(); }
   catch(e){ message("eMsg", e.message, "erreur"); }
 });
 
@@ -257,9 +301,9 @@ $("anPrec").addEventListener("click", async ()=>{ annee--; await charger(); });
 $("anSuiv").addEventListener("click", async ()=>{ annee++; await charger(); });
 $("exporter").addEventListener("click",()=>{
   const d=donnees, nom=id=>(d.engins.find(x=>x.id===id)||{}).nom||"";
-  const l=[["Type","Jour","Tracteur","Litres","Compteur (h)","Prix HT (€/L)","Fournisseur","Noté par"].join(";")];
+  const l=[["Type","Jour","Tracteur","Litres","Type de travail","Compteur (h)","Index pompe","Prix HT (€/L)","Fournisseur","Noté par"].join(";")];
   [...d.pleins.map(x=>({...x,t:"Plein"})), ...d.livraisons.map(x=>({...x,t:"Livraison"}))].sort((a,b)=>a.jour.localeCompare(b.jour)).forEach(x=>{
-    l.push([x.t, x.jour.split("-").reverse().join("/"), x.t==="Plein"?nom(x.engin_id):"", num(x.litres), x.compteur!=null?num(x.compteur):"", x.prix_litre?num(x.prix_litre):"", x.fournisseur||"", x.saisi_par||""].map(csv).join(";"));
+    l.push([x.t, x.jour.split("-").reverse().join("/"), x.t==="Plein"?nom(x.engin_id):"", num(x.litres), x.travail||"", x.compteur!=null?num(x.compteur):"", x.index_pompe!=null?num(x.index_pompe):"", x.prix_litre?num(x.prix_litre):"", x.fournisseur||"", x.saisi_par||""].map(csv).join(";"));
   });
   telecharger("gnr-"+annee+".csv", l);
 });

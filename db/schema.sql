@@ -104,7 +104,9 @@ CREATE TABLE IF NOT EXISTS releves_pluie (
 CREATE TABLE IF NOT EXISTS engins (
   id INTEGER PRIMARY KEY,
   exploitation_id INTEGER NOT NULL REFERENCES exploitations(id),
-  nom TEXT NOT NULL,
+  nom TEXT NOT NULL,                  -- ex. « 720 n°1 »
+  plaque TEXT,                        -- immatriculation, pour reconnaître deux engins pareils
+  serie TEXT,                         -- numéro de série, facultatif
   actif INTEGER NOT NULL DEFAULT 1,
   cree_le TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -117,6 +119,8 @@ CREATE TABLE IF NOT EXISTS gnr_pleins (
   jour TEXT NOT NULL,                 -- AAAA-MM-JJ
   litres REAL NOT NULL CHECK (litres > 0),
   compteur REAL,                      -- compteur d'heures de l'engin au moment du plein
+  travail TEXT,                       -- type de travail, comme dans le cahier
+  index_pompe REAL,                   -- index du compteur de la pompe après le plein, facultatif
   saisi_par INTEGER REFERENCES comptes(id),
   saisi_le TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -129,6 +133,7 @@ CREATE TABLE IF NOT EXISTS gnr_livraisons (
   litres REAL NOT NULL CHECK (litres > 0),
   prix_litre REAL,                    -- € HT par litre, facultatif
   fournisseur TEXT,
+  index_pompe REAL,                   -- index de la pompe le jour de la livraison (noté sur la porte)
   saisi_par INTEGER REFERENCES comptes(id),
   saisi_le TEXT NOT NULL DEFAULT (datetime('now'))
 );

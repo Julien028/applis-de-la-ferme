@@ -412,18 +412,22 @@ export async function api(request, env, url) {
     const jourValide = j => /^\d{4}-\d{2}-\d{2}$/.test(j || '') && !isNaN(Date.parse(j + 'T00:00:00Z'));
     const nombre = (v, max) => { const n = Math.round(Number(String(v ?? '').replace(',', '.')) * 100) / 100; return n > 0 && n <= max ? n : null; };
     const E = moi.exploitation_id;
+    // Index du compteur de la pompe : vide → null, invalide → false
+    const lireIndex = v => String(v ?? '').trim() === '' ? null : (nombre(v, 99999999) || false);
+    // Plaque et numéro de série d'un engin (facultatifs)
+    const plaqueDe = v => texte(v, 20).toUpperCase() || null;
 
     // Tout ce qu'il faut pour la page, pour une année
     if (p.length === 1 && methode === 'GET') {
       const annee = /^\d{4}$/.test(url.searchParams.get('annee') || '') ? url.searchParams.get('annee') : String(new Date().getUTCFullYear());
       const du = annee + '-01-01', au = annee + '-12-31';
-      const engins = (await env.DB.prepare('SELECT id, nom, actif FROM engins WHERE exploitation_id = ? ORDER BY actif DESC, nom').bind(E).all()).results;
+      const engins = (await env.DB.prepare('SELECT id, nom, plaque, serie, actif FROM engins WHERE exploitation_id = ? ORDER BY actif DESC, nom').bind(E).all()).results;
       const pleins = (await env.DB.prepare(
-        `SELECT g.id, g.engin_id, g.jour, g.litres, g.compteur, g.saisi_par AS saisi_par_id, c.nom AS saisi_par
+        `SELECT g.id, g.engin_id, g.jour, g.litres, g.compteur, g.travail, g.index_pompe, g.saisi_par AS saisi_par_id, c.nom AS saisi_par
            FROM gnr_pleins g LEFT JOIN comptes c ON c.id = g.saisi_par
           WHERE g.exploitation_id = ? AND g.jour BETWEEN ? AND ? ORDER BY g.jour DESC, g.id DESC`).bind(E, du, au).all()).results;
       const livraisons = (await env.DB.prepare(
-        `SELECT l.id, l.jour, l.litres, l.prix_litre, l.fournisseur, c.nom AS saisi_par
+        `SELECT l.id, l.jour, l.litres, l.prix_litre, l.fournisseur, l.index_pompe, c.nom AS saisi_par
            FROM gnr_livraisons l LEFT JOIN comptes c ON c.id = l.saisi_par
           WHERE l.exploitation_id = ? AND l.jour BETWEEN ? AND ? ORDER BY l.jour DESC, l.id DESC`).bind(E, du, au).all()).results;
       // Dernier compteur connu de chaque engin AVANT l'année (pour les heures de l'année)
@@ -439,7 +443,26 @@ export async function api(request, env, url) {
         const { pl } = await env.DB.prepare('SELECT COALESCE(SUM(litres),0) AS pl FROM gnr_pleins WHERE exploitation_id = ? AND jour > ?').bind(E, depart.jour).first();
         cuve = { depart, livre: liv, pris: pl, estime: Math.round((depart.litres + liv - pl) * 10) / 10 };
       }
-      return json({ annee, engins, pleins, livraisons, compteursAvant: avant, cuve });
+      // Compteur de la pompe ↔ pleins notés : entre deux index relevés, les litres sortis de la
+      // pompe et ceux notés. Un index de livraison compte comme relevé le matin, avant les pleins
+      // du jour ; un index de plein est lu juste après ce plein.
+      const tous = (await env.DB.prepare('SELECT id, jour, litres, index_pompe FROM gnr_pleins WHERE exploitation_id = ? ORDER BY jour, id').bind(E).all()).results;
+      const relevesLiv = (await env.DB.prepare('SELECT jour, index_pompe FROM gnr_livraisons WHERE exploitation_id = ? AND index_pompe IS NOT NULL ORDER BY jour, id').bind(E).all()).results;
+      const evts = [...relevesLiv.map(l => ({ jour: l.jour, rang: 0, index: l.index_pompe, quoi: 'livraison' })),
+        ...tous.map((x, i) => ({ jour: x.jour, rang: 1 + i, litres: x.litres, index: x.index_pompe, quoi: 'plein' }))]
+        .sort((a, b) => a.jour.localeCompare(b.jour) || a.rang - b.rang);
+      const pompe = []; let dernier = null, note = 0;
+      for (const ev of evts) {
+        if (ev.quoi === 'plein') note += ev.litres;
+        if (ev.index == null) continue;
+        if (dernier) {
+          const sorti = Math.round((ev.index - dernier.index) * 10) / 10;
+          pompe.push({ du: dernier.jour, au: ev.jour, index_du: dernier.index, index_au: ev.index, pompe: sorti, note: Math.round(note * 10) / 10, ecart: Math.round((sorti - note) * 10) / 10 });
+        }
+        dernier = ev; note = 0;
+      }
+      const index = dernier ? { jour: dernier.jour, index: dernier.index, depuis: Math.round(note * 10) / 10 } : null;
+      return json({ annee, engins, pleins, livraisons, compteursAvant: avant, cuve, pompe: pompe.slice(-24), index });
     }
 
     // Un plein : tous ceux qui ont la case « GNR » (le chef toujours)
@@ -455,8 +478,10 @@ export async function api(request, env, url) {
         compteur = nombre(corps.compteur, 200000);
         if (!compteur) return erreur(400, 'Compteur d\'heures invalide.');
       }
-      const l = await env.DB.prepare('INSERT INTO gnr_pleins (exploitation_id, engin_id, jour, litres, compteur, saisi_par) VALUES (?, ?, ?, ?, ?, ?) RETURNING id')
-        .bind(E, engin.id, corps.jour, litres, compteur, moi.id).first();
+      const indexPompe = lireIndex(corps.index_pompe);
+      if (indexPompe === false) return erreur(400, 'Index de la pompe invalide.');
+      const l = await env.DB.prepare('INSERT INTO gnr_pleins (exploitation_id, engin_id, jour, litres, compteur, travail, index_pompe, saisi_par) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .bind(E, engin.id, corps.jour, litres, compteur, texte(corps.travail, 120) || null, indexPompe, moi.id).first();
       return json({ id: l.id, litres, compteur }, 201);
     }
     // Effacer un plein : le chef, ou celui qui l'a noté
@@ -476,8 +501,10 @@ export async function api(request, env, url) {
       if (!litres) return erreur(400, 'Litres invalides.');
       let prix = null;
       if (corps.prix !== undefined && String(corps.prix ?? '').trim() !== '') { prix = nombre(corps.prix, 10); if (!prix) return erreur(400, 'Prix au litre invalide (en €, ex. 1,05).'); }
-      const l = await env.DB.prepare('INSERT INTO gnr_livraisons (exploitation_id, jour, litres, prix_litre, fournisseur, saisi_par) VALUES (?, ?, ?, ?, ?, ?) RETURNING id')
-        .bind(E, corps.jour, litres, prix, texte(corps.fournisseur, 60) || null, moi.id).first();
+      const indexPompe = lireIndex(corps.index_pompe);
+      if (indexPompe === false) return erreur(400, 'Index de la pompe invalide.');
+      const l = await env.DB.prepare('INSERT INTO gnr_livraisons (exploitation_id, jour, litres, prix_litre, fournisseur, index_pompe, saisi_par) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .bind(E, corps.jour, litres, prix, texte(corps.fournisseur, 60) || null, indexPompe, moi.id).first();
       return json({ id: l.id }, 201);
     }
     if (p[1] === 'livraisons' && p.length === 3 && methode === 'DELETE') {
@@ -487,7 +514,8 @@ export async function api(request, env, url) {
     if (p[1] === 'engins' && p.length === 2 && methode === 'POST') {
       const nom = texte(corps.nom, TAILLE_MAX_NOM);
       if (!nom) return erreur(400, 'Donnez un nom à l\'engin.');
-      return json(await env.DB.prepare('INSERT INTO engins (exploitation_id, nom) VALUES (?, ?) RETURNING id, nom, actif').bind(E, nom).first(), 201);
+      return json(await env.DB.prepare('INSERT INTO engins (exploitation_id, nom, plaque, serie) VALUES (?, ?, ?, ?) RETURNING id, nom, plaque, serie, actif')
+        .bind(E, nom, plaqueDe(corps.plaque), plaqueDe(corps.serie)).first(), 201);
     }
     if (p[1] === 'engins' && p.length === 3 && methode === 'PATCH') {
       const en = await env.DB.prepare('SELECT * FROM engins WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).first();
@@ -495,7 +523,9 @@ export async function api(request, env, url) {
       const nom = corps.nom === undefined ? en.nom : texte(corps.nom, TAILLE_MAX_NOM);
       if (!nom) return erreur(400, 'Donnez un nom à l\'engin.');
       const actif = corps.actif === undefined ? en.actif : (corps.actif ? 1 : 0);
-      await env.DB.prepare('UPDATE engins SET nom = ?, actif = ? WHERE id = ?').bind(nom, actif, en.id).run();
+      const plaque = corps.plaque === undefined ? en.plaque : plaqueDe(corps.plaque);
+      const serie = corps.serie === undefined ? en.serie : plaqueDe(corps.serie);
+      await env.DB.prepare('UPDATE engins SET nom = ?, plaque = ?, serie = ?, actif = ? WHERE id = ?').bind(nom, plaque, serie, actif, en.id).run();
       return json({ ok: true });
     }
     // Niveau de la cuve relevé à la jauge : nouveau point de départ
@@ -521,7 +551,7 @@ export async function api(request, env, url) {
     const nb = v => { const t = String(v ?? '').trim(); if (t === '') return null; const n = Math.round(Number(t.replace(',', '.')) * 100) / 100; return isFinite(n) ? n : NaN; };
     if (p.length === 1 && methode === 'GET') {
       const annee = /^\d{4}$/.test(url.searchParams.get('annee') || '') ? url.searchParams.get('annee') : String(new Date().getUTCFullYear());
-      const engins = (await env.DB.prepare('SELECT id, nom, actif FROM engins WHERE exploitation_id = ? ORDER BY actif DESC, nom').bind(E).all()).results;
+      const engins = (await env.DB.prepare('SELECT id, nom, plaque, serie, actif FROM engins WHERE exploitation_id = ? ORDER BY actif DESC, nom').bind(E).all()).results;
       const sorties = (await env.DB.prepare(
         `SELECT h.id, h.engin_id, h.jour, h.debut, h.fin, h.heures, h.pour_qui, h.travail, h.saisi_par AS saisi_par_id, c.nom AS saisi_par
            FROM heures_engins h LEFT JOIN comptes c ON c.id = h.saisi_par

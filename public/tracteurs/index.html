@@ -70,7 +70,8 @@
       <h2>Les tracteurs</h2>
       <p class="hint" style="margin-top:-4px">La même liste sert au GNR et aux heures des tracteurs.</p>
       <ul class="liste" id="listeEngins"></ul>
-      <div class="row" style="margin-top:8px"><input type="text" id="nouvelEngin" maxlength="60" placeholder="ex. Fendt 724, John Deere 6155R…"><button class="principal" id="ajoutEngin" type="button">Ajouter</button></div>
+      <div class="grille2" style="margin-top:8px"><div><label for="nouvelEngin">Nom</label><input type="text" id="nouvelEngin" maxlength="60" placeholder="ex. 720 n°1"></div><div><label for="nouvellePlaque">Immatriculation <span class="leger">(facultatif)</span></label><input type="text" id="nouvellePlaque" maxlength="20" placeholder="ex. AB-123-CD" autocapitalize="characters"></div></div>
+      <button class="principal" id="ajoutEngin" type="button" style="margin-top:8px">Ajouter</button>
       <p class="msg" id="eMsg" hidden></p>
     </div>
   </div>
@@ -168,7 +169,7 @@ $("sOk").addEventListener("click", async ()=>{
 });
 $("ajoutEngin").addEventListener("click", async ()=>{
   message("eMsg","");
-  try{ await appel("POST","/api/gnr/engins",{nom:$("nouvelEngin").value}); $("nouvelEngin").value=""; await charger(); }
+  try{ await appel("POST","/api/gnr/engins",{nom:$("nouvelEngin").value, plaque:$("nouvellePlaque").value}); $("nouvelEngin").value=""; $("nouvellePlaque").value=""; await charger(); }
   catch(e){ message("eMsg", e.message, "erreur"); }
 });
 $("anPrec").addEventListener("click", async ()=>{ annee--; await charger(); });
