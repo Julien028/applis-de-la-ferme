@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS comptes (
   actif INTEGER NOT NULL DEFAULT 1,
   super_admin INTEGER NOT NULL DEFAULT 0,
   -- Ce qu'un salarié peut modifier (cases cochées par le chef), en JSON :
-  -- {"pluie":true,"pmg":false,"semences":false,"enrouleurs":false}. Le chef peut tout.
+  -- {"pluie":true,"gnr":true,"heures":true,"pmg":false,"semences":false,"enrouleurs":false,
+  --  "acces":{"dose":true,"irrigation":true,"pluie":true,"gnr":true,"tracteurs":true}}.
+  -- Sans « acces » : toutes les applis. Le chef peut tout.
   droits TEXT NOT NULL DEFAULT '{"pluie":true}',
   cree_le TEXT NOT NULL DEFAULT (datetime('now')),
   cree_par INTEGER REFERENCES comptes(id)
@@ -95,3 +97,57 @@ CREATE TABLE IF NOT EXISTS releves_pluie (
   saisi_le TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (pluviometre_id, jour)
 );
+
+-- Suivi du GNR (ajouté le 31/10/2026) : engins de l'exploitation, pleins (notés aussi par
+-- les salariés qui ont la case « GNR »), livraisons à la cuve (chef). Le niveau de départ
+-- de la cuve est dans reglages (clé « gnr_stock » : {jour, litres}).
+CREATE TABLE IF NOT EXISTS engins (
+  id INTEGER PRIMARY KEY,
+  exploitation_id INTEGER NOT NULL REFERENCES exploitations(id),
+  nom TEXT NOT NULL,
+  actif INTEGER NOT NULL DEFAULT 1,
+  cree_le TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS engins_exploitation ON engins (exploitation_id);
+
+CREATE TABLE IF NOT EXISTS gnr_pleins (
+  id INTEGER PRIMARY KEY,
+  exploitation_id INTEGER NOT NULL REFERENCES exploitations(id),
+  engin_id INTEGER NOT NULL REFERENCES engins(id),
+  jour TEXT NOT NULL,                 -- AAAA-MM-JJ
+  litres REAL NOT NULL CHECK (litres > 0),
+  compteur REAL,                      -- compteur d'heures de l'engin au moment du plein
+  saisi_par INTEGER REFERENCES comptes(id),
+  saisi_le TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS gnr_pleins_exploitation ON gnr_pleins (exploitation_id, jour);
+
+CREATE TABLE IF NOT EXISTS gnr_livraisons (
+  id INTEGER PRIMARY KEY,
+  exploitation_id INTEGER NOT NULL REFERENCES exploitations(id),
+  jour TEXT NOT NULL,
+  litres REAL NOT NULL CHECK (litres > 0),
+  prix_litre REAL,                    -- € HT par litre, facultatif
+  fournisseur TEXT,
+  saisi_par INTEGER REFERENCES comptes(id),
+  saisi_le TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS gnr_livraisons_exploitation ON gnr_livraisons (exploitation_id, jour);
+
+-- Heures des tracteurs (ajouté le 31/10/2026) : sorties des engins (mêmes engins que le GNR),
+-- notées par ceux qui ont la case « Heures tracteurs ». heures = fin − début si les deux
+-- compteurs sont donnés, sinon le nombre d'heures tapé.
+CREATE TABLE IF NOT EXISTS heures_engins (
+  id INTEGER PRIMARY KEY,
+  exploitation_id INTEGER NOT NULL REFERENCES exploitations(id),
+  engin_id INTEGER NOT NULL REFERENCES engins(id),
+  jour TEXT NOT NULL,
+  debut REAL,
+  fin REAL,
+  heures REAL NOT NULL CHECK (heures > 0),
+  pour_qui TEXT NOT NULL,             -- Bretonvilliers, Guillaume, ETA…
+  travail TEXT,
+  saisi_par INTEGER REFERENCES comptes(id),
+  saisi_le TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS heures_engins_exploitation ON heures_engins (exploitation_id, jour);

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heures des tracteurs</title>
+<meta name="theme-color" content="#2F5D3A">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/commun/outil.css">
+</head>
+<body class="theme-tracteurs">
+  <div class="applis"><a href="../">← Applis de la ferme</a><span id="qui"></span><span class="etat" id="etat"></span></div>
+  <h1>Heures des tracteurs</h1>
+  <p class="sub">Chaque sortie d'un tracteur : ses heures, pour qui ou où, et le travail fait.</p>
+
+  <div class="card" id="pasConnecte" hidden><p class="vide" style="margin:0">Les heures des tracteurs sont enregistrées dans l'espace de l'exploitation : <a href="../">connectez-vous depuis l'accueil</a>.</p></div>
+  <div class="card" id="pasAcces" hidden><p class="vide" style="margin:0">Votre compte n'a pas accès aux heures des tracteurs. Demandez-le au chef d'exploitation.</p></div>
+
+  <div id="contenu" hidden>
+    <!-- ============ SORTIE ============ -->
+    <div class="card" id="carteSortie">
+      <h2>Noter une sortie</h2>
+      <p class="vide" id="pasDEngin" hidden></p>
+      <div id="formSortie">
+        <label for="sEngin">Tracteur</label><select id="sEngin"></select>
+        <label for="sJour">Jour</label><input type="date" id="sJour">
+        <div class="grille2">
+          <div><label for="sDebut">Compteur au départ</label><div class="row"><input type="number" id="sDebut" inputmode="decimal" step="any" min="0"><span class="unit">h</span></div></div>
+          <div><label for="sFin">Compteur au retour</label><div class="row"><input type="number" id="sFin" inputmode="decimal" step="any" min="0"><span class="unit">h</span></div></div>
+        </div>
+        <label for="sHeures">ou nombre d'heures <span class="leger">(si pas de compteur)</span></label>
+        <div class="row"><input type="number" id="sHeures" inputmode="decimal" step="0.25" min="0"><span class="unit">h</span></div>
+        <p class="hint" id="sCalcul"></p>
+        <p class="hint" id="sDernier"></p>
+        <label for="sPourQui">Pour qui / où</label>
+        <input type="text" id="sPourQui" list="lieux" maxlength="60" placeholder="Bretonvilliers, Guillaume, ETA…" autocomplete="off">
+        <datalist id="lieux"></datalist>
+        <label for="sTravail">Travail <span class="leger">(facultatif)</span></label>
+        <input type="text" id="sTravail" maxlength="120" placeholder="ex. labour, semis, transport…">
+        <button class="principal large" id="sOk" type="button">Noter la sortie</button>
+        <p class="msg" id="sMsg" hidden></p>
+      </div>
+    </div>
+
+    <!-- ============ ANNÉE ============ -->
+    <div class="card">
+      <div class="annee"><button id="anPrec" type="button" aria-label="Année précédente">◀</button><b id="anTitre"></b><button id="anSuiv" type="button" aria-label="Année suivante">▶</button></div>
+      <div class="tuiles deux">
+        <div><div class="v" id="tHeures">—</div><div class="k">heures de tracteur</div></div>
+        <div><div class="v" id="tSorties">—</div><div class="k">sorties notées</div></div>
+      </div>
+      <h3>Pour qui / où</h3>
+      <div class="defile"><table class="tab" id="parQui"></table></div>
+      <h3>Par tracteur</h3>
+      <div class="defile"><table class="tab" id="parEngin"></table></div>
+      <button class="lien" id="exporter" type="button">Exporter l'année (tableur)</button>
+    </div>
+
+    <!-- ============ JOURNAL ============ -->
+    <div class="card">
+      <h2>Les sorties</h2>
+      <div class="defile"><table class="tab journal" id="journal"></table></div>
+    </div>
+
+    <!-- ============ TRACTEURS (chef) ============ -->
+    <div class="card" id="carteEngins" hidden>
+      <h2>Les tracteurs</h2>
+      <p class="hint" style="margin-top:-4px">La même liste sert au GNR et aux heures des tracteurs.</p>
+      <ul class="liste" id="listeEngins"></ul>
+      <div class="row" style="margin-top:8px"><input type="text" id="nouvelEngin" maxlength="60" placeholder="ex. Fendt 724, John Deere 6155R…"><button class="principal" id="ajoutEngin" type="button">Ajouter</button></div>
+      <p class="msg" id="eMsg" hidden></p>
+    </div>
+  </div>
+
+<script src="/commun/outil.js"></script>
+<script>
+"use strict";
+let donnees = null, annee = new Date().getFullYear();
+
+async function charger(){
+  const cle="tracteurs:"+annee;
+  donnees = relire(cle) || donnees;
+  if(donnees) dessiner();
+  try{ donnees = await appel("GET","/api/tracteurs?annee="+annee); garder(cle, donnees); etat("À jour"); dessiner(); }
+  catch(e){ if(e.status===401) return deconnecte(); if(e.status===403) return sansAcces(); etat("Hors ligne : derniers chiffres connus", true); }
+}
+
+function dessiner(){
+  const d=donnees, actifs=d.engins.filter(x=>x.actif), nomEngin=id=>(d.engins.find(x=>x.id===id)||{}).nom||"?";
+  $("carteSortie").hidden = !peut("heures");
+  remplirEngins($("sEngin"), actifs);
+  $("pasDEngin").hidden = !!actifs.length; $("formSortie").hidden = !actifs.length;
+  $("pasDEngin").textContent = chef() ? "Ajoutez d'abord vos tracteurs, en bas de la page." : "Le chef d'exploitation n'a pas encore créé la liste des tracteurs.";
+  if(!$("sJour").value) $("sJour").value=aujourdhui();
+  const dl=$("lieux"); dl.innerHTML=""; [...new Set([...d.lieux, "Bretonvilliers"])].forEach(l=>{ const o=document.createElement("option"); o.value=l; dl.appendChild(o); });
+  majDebutSuggere(); majCalcul();
+  // année
+  $("anTitre").textContent=annee; $("anSuiv").disabled = annee>=new Date().getFullYear();
+  const tot=d.sorties.reduce((s,x)=>s+x.heures,0);
+  $("tHeures").textContent = d.sorties.length ? fmt(tot,1)+" h" : "—";
+  $("tSorties").textContent = d.sorties.length || "—";
+  // pour qui × tracteur
+  const qui=[...new Set(d.sorties.map(x=>x.pour_qui))].sort((a,b)=>a.localeCompare(b,"fr"));
+  const engins=[...new Set(d.sorties.map(x=>x.engin_id))].sort((a,b)=>nomEngin(a).localeCompare(nomEngin(b),"fr",{numeric:true}));
+  const somme=(f)=>d.sorties.filter(f).reduce((s,x)=>s+x.heures,0);
+  const t1=$("parQui");
+  if(!d.sorties.length){ t1.innerHTML="<tr><td class=\"vide\">Aucune sortie notée cette année.</td></tr>"; $("parEngin").innerHTML=""; }
+  else {
+    t1.innerHTML=""; const tete=document.createElement("tr"); tete.innerHTML="<th>Pour qui / où</th>"; engins.forEach(id=>{ const th=document.createElement("th"); th.textContent=nomEngin(id); tete.appendChild(th); }); tete.insertAdjacentHTML("beforeend","<th>Total</th>"); t1.appendChild(tete);
+    qui.forEach(q=>{ const tr=document.createElement("tr"); const td=document.createElement("td"); td.textContent=q; tr.appendChild(td);
+      engins.forEach(id=>{ const h=somme(x=>x.pour_qui===q&&x.engin_id===id); tr.insertAdjacentHTML("beforeend","<td>"+(h?fmt(h,1):"")+"</td>"); });
+      tr.insertAdjacentHTML("beforeend","<td class=\"fort\">"+fmt(somme(x=>x.pour_qui===q),1)+" h</td>"); t1.appendChild(tr); });
+    const tt=document.createElement("tr"); tt.className="total"; tt.innerHTML="<td>Total</td>"; engins.forEach(id=>tt.insertAdjacentHTML("beforeend","<td>"+fmt(somme(x=>x.engin_id===id),1)+"</td>")); tt.insertAdjacentHTML("beforeend","<td>"+fmt(tot,1)+" h</td>"); t1.appendChild(tt);
+    // par tracteur et par mois
+    const t2=$("parEngin"); t2.innerHTML="<tr><th>Tracteur</th><th>Heures</th><th>Sorties</th><th>Dernier compteur</th></tr>";
+    engins.forEach(id=>{ const s=d.sorties.filter(x=>x.engin_id===id), c=(d.compteurs.find(x=>x.engin_id===id)||{}).compteur;
+      const tr=document.createElement("tr"); tr.innerHTML="<td></td><td class=\"fort\">"+fmt(s.reduce((a,x)=>a+x.heures,0),1)+" h</td><td>"+s.length+"</td><td>"+(c!=null?fmt(c,1)+" h":"—")+"</td>";
+      tr.firstChild.textContent=nomEngin(id); t2.appendChild(tr); });
+  }
+  // journal
+  const j=$("journal"); j.innerHTML="";
+  if(!d.sorties.length){ j.innerHTML="<tr><td class=\"vide\">Rien de noté cette année.</td></tr>"; }
+  d.sorties.forEach(x=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML="<td>"+dateCourte(x.jour)+"</td><td><span></span><small></small></td><td class=\"fort\">"+fmt(x.heures,x.heures%1?2:0)+" h</td><td></td>";
+    tr.querySelector("span").textContent = nomEngin(x.engin_id)+" — "+x.pour_qui;
+    tr.querySelector("small").textContent = [x.travail, x.debut!=null&&x.fin!=null ? fmt(x.debut,1)+" → "+fmt(x.fin,1)+" h" : "", x.saisi_par].filter(Boolean).join(" · ");
+    if(chef() || x.saisi_par_id===moi.compte.id){
+      const b=document.createElement("button"); b.className="croix"; b.type="button"; b.title="Effacer"; b.textContent="✕";
+      b.addEventListener("click", async ()=>{
+        if(!confirm("Effacer la sortie du "+dateCourte(x.jour)+" ("+nomEngin(x.engin_id)+", "+fmt(x.heures,2)+" h) ?")) return;
+        try{ await appel("DELETE","/api/tracteurs/"+x.id); await charger(); }catch(e){ alert(e.message); }
+      });
+      tr.lastChild.appendChild(b);
+    }
+    j.appendChild(tr);
+  });
+  $("carteEngins").hidden = !chef();
+  if(chef()) gererEngins($("listeEngins"), d.engins, charger);
+}
+
+function majDebutSuggere(){
+  const c=donnees && (donnees.compteurs.find(x=>x.engin_id===Number($("sEngin").value))||{}).compteur;
+  $("sDebut").placeholder = c!=null ? String(c).replace(".",",") : "ex. 4520";
+  $("sDernier").textContent = c!=null ? "Dernier compteur noté pour ce tracteur : "+fmt(c,1)+" h." : "";
+}
+function majCalcul(){
+  const d=parseFloat($("sDebut").value), f=parseFloat($("sFin").value);
+  $("sCalcul").textContent = isFinite(d)&&isFinite(f) ? (f>=d ? "Soit "+fmt(f-d,2)+" h." : "Le compteur au retour est plus petit qu'au départ.") : "";
+  $("sHeures").disabled = isFinite(d)&&isFinite(f);
+}
+["sDebut","sFin"].forEach(i=>$(i).addEventListener("input",majCalcul));
+$("sEngin").addEventListener("change",()=>{ garderChoix("tracteurs.engin",$("sEngin").value); majDebutSuggere(); });
+$("sOk").addEventListener("click", async ()=>{
+  message("sMsg","");
+  if($("sJour").value>aujourdhui()){ message("sMsg","Ce jour n'est pas encore arrivé.","erreur"); return; }
+  try{
+    const r=await appel("POST","/api/tracteurs",{engin:$("sEngin").value, jour:$("sJour").value, debut:$("sDebut").value, fin:$("sFin").value, heures:$("sHeures").value, pour_qui:$("sPourQui").value, travail:$("sTravail").value});
+    const nom=$("sEngin").selectedOptions[0].textContent, q=$("sPourQui").value;
+    ["sDebut","sFin","sHeures","sTravail"].forEach(i=>$(i).value=""); garderChoix("tracteurs.qui", q);
+    annee=Number($("sJour").value.slice(0,4)); await charger();
+    message("sMsg","Noté : "+fmt(r.heures,2)+" h de "+nom+" pour "+q+".","ok");
+  }catch(e){ message("sMsg", e.message, "erreur"); }
+});
+$("ajoutEngin").addEventListener("click", async ()=>{
+  message("eMsg","");
+  try{ await appel("POST","/api/gnr/engins",{nom:$("nouvelEngin").value}); $("nouvelEngin").value=""; await charger(); }
+  catch(e){ message("eMsg", e.message, "erreur"); }
+});
+$("anPrec").addEventListener("click", async ()=>{ annee--; await charger(); });
+$("anSuiv").addEventListener("click", async ()=>{ annee++; await charger(); });
+$("exporter").addEventListener("click",()=>{
+  const d=donnees, nom=id=>(d.engins.find(x=>x.id===id)||{}).nom||"";
+  const l=[["Jour","Tracteur","Pour qui / où","Travail","Compteur départ","Compteur retour","Heures","Noté par"].join(";")];
+  d.sorties.slice().sort((a,b)=>a.jour.localeCompare(b.jour)).forEach(x=>l.push([x.jour.split("-").reverse().join("/"), nom(x.engin_id), x.pour_qui, x.travail||"", x.debut!=null?num(x.debut):"", x.fin!=null?num(x.fin):"", num(x.heures), x.saisi_par||""].map(csv).join(";")));
+  telecharger("heures-tracteurs-"+annee+".csv", l);
+});
+
+demarrer("tracteurs", ()=>{
+  const q=lireChoix("tracteurs.qui"); if(q) $("sPourQui").value=q;
+  const c=lireChoix("tracteurs.engin");
+  charger().then(()=>{ if(c && [...$("sEngin").options].some(o=>o.value===c)){ $("sEngin").value=c; majDebutSuggere(); } });
+});
+</script>
+</body>
+</html>

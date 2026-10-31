@@ -458,5 +458,13 @@ function deconnecte(){ moi=null; $("pasConnecte").hidden=false; $("contenu").hid
   try{ await chargerPluvios(); await chargerAnnee(); }catch(e){ if(e.status===401) deconnecte(); }
 })();
 </script>
+<script>
+// Compte sans accès à cette appli (case décochée par le chef) : on le dit, au lieu de la page
+(function(){ try{
+  const m=JSON.parse(localStorage.getItem("applis.moi"));
+  if(m && m.compte && m.compte.role!=="chef" && m.droits && m.droits.acces && m.droits.acces["pluie"]===false)
+    document.body.innerHTML='<div style="max-width:600px;margin:40px auto;padding:16px;font-family:system-ui,sans-serif;line-height:1.5"><p><a href="../">← Applis de la ferme</a></p><p>Votre compte n\x27a pas accès à cette appli. Demandez-le au chef d\x27exploitation.</p></div>';
+}catch(e){} })();
+</script>
 </body>
 </html>

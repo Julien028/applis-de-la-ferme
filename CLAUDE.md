@@ -20,14 +20,15 @@ mots simples, et évite le jargon quand un mot courant suffit.
   - **chef d'exploitation** (`chef`) : administrateur de son exploitation ; crée les comptes
     des salariés (mot de passe provisoire, à changer à la 1re connexion), les désactive,
     leur redonne un mot de passe ; modifie les données des applis (semences…).
-  - **salarié** (`salarie`) : consulte et fait les calculs ; ce qu'il peut modifier est coché par le chef
-    (colonne `droits`, décidé le 08/10/2026) : saisir la pluie (coché par défaut), PMG des semences
-    seulement, semences (tout le reste), enrouleurs. Le serveur vérifie (PMG seul : il ne garde que le PMG).
+  - **salarié** (`salarie`) : le chef coche (colonne `droits`) **les applis qu'il peut ouvrir** (`acces` :
+    dose, irrigation, pluie, gnr, tracteurs ; décidé le 31/10/2026, absent = toutes) et **ce qu'il peut noter ou
+    modifier** : pluie, pleins GNR, heures tracteurs (cochés par défaut), PMG seulement, semences, enrouleurs.
+    Le serveur vérifie tout (PMG seul : il ne garde que le PMG ; un droit ne vaut que si l'appli est ouverte).
   - **administrateur du site** (`super_admin`, Julien) : crée les exploitations
     (Dimancheville, autres agriculteurs) et leur premier chef. Pas d'inscription libre.
   - Un compte ne se supprime pas, il se désactive.
 - Sans connexion, les outils marchent quand même (données dans l'appareil).
-- Trois applis : dose de semis, irrigation enrouleur, pluviométrie. D'autres viendront selon les idées.
+- Cinq applis : dose de semis, irrigation enrouleur, pluviométrie, suivi du GNR, heures des tracteurs. D'autres viendront selon les idées.
 
 ## Où est quoi
 
@@ -37,9 +38,12 @@ mots simples, et évite le jargon quand un mot courant suffit.
 | `public/irrigation-enrouleur/` | Irrigation enrouleur, une seule page (onglet Villechèvre retiré le 08/10/2026) : calcul dose ↔ vitesse avec menus enrouleur puis buse (remplissent débit et largeur, temps pour tout le tuyau) ; « Mes enrouleurs » = {nom, diametre, tuyau, buses:[{buse, pression, debit, largeur}]}, modèles Beinlich Ø135/Ø125 et Perrot Ø110 à 8 bars, rangés dans l'espace (`/api/reglages/enrouleurs`), modifiables par le chef seulement. |
 | `public/dose-de-semis/` | La dose de semis (reprise de `../dose-de-semis`). La connexion se fait à l'accueil ; la page lit `applis.moi` dans l'appareil et vérifie `/api/moi`. |
 | `public/pluviometrie/` | Pluviométrie (08/10/2026) : pluviomètres créés par le chef, saisie rapide du jour, tableau jours × mois (décades, jours de pluie, total, cumul), historique (histogramme par mois + moyenne des autres années, totaux par année), export tableur. Connexion obligatoire. |
+| `public/gnr/` | Suivi du GNR (31/10/2026, Bretonvilliers seulement, pas de répartition par entité) : pleins des tracteurs (menu déroulant, litres, compteur d'heures facultatif → L/h), livraisons à la cuve par le marchand (chef : litres, prix HT/L, fournisseur), niveau estimé = relevé de jauge + livraisons − pleins, par tracteur, par mois, export. |
+| `public/tracteurs/` | Heures des tracteurs (31/10/2026) : sorties (tracteur, jour, compteur départ/retour ou heures, pour qui/où — Bretonvilliers, Guillaume, ETA… —, travail), tableaux pour qui × tracteur, export. Même liste de tracteurs que le GNR (table `engins`, gérée par le chef via `/api/gnr/engins`). |
+| `public/commun/` | Styles et petits outils communs au GNR et aux heures des tracteurs. |
 | `functions/api/[[chemin]].js` | Toutes les adresses `/api/…`, qui appellent `src/api.js`. |
 | `src/api.js`, `src/session.js` | Règles du serveur (code standard, sans dépendance à l'hébergeur). |
-| `db/schema.sql` | Tables : exploitations, comptes (avec `droits`), sessions, echecs, semences, reglages (enrouleurs), pluviometres, releves_pluie. Migrations à passer une fois en ligne : `db/migrations/`. |
+| `db/schema.sql` | Tables : exploitations, comptes (avec `droits`), sessions, echecs, semences, reglages (enrouleurs, gnr_stock), pluviometres, releves_pluie, engins, gnr_pleins, gnr_livraisons, heures_engins. Migrations à passer une fois en ligne : `db/migrations/`. |
 | `public/icone.svg`, `favicon.ico`, `icone-*.png`, `apple-touch-icon.png`, `manifest.webmanifest` | Icône du site (grange et silo sur fond vert, choisie le 10/10/2026), pour les favoris et l'écran d'accueil ; PNG et ICO fabriqués depuis le SVG avec sharp. |
 | `scripts/premiere-exploitation.mjs` | Crée la 1re exploitation et son chef administrateur du site (une fois). |
 

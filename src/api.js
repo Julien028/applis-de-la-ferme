@@ -17,17 +17,28 @@ const MAX_SEMENCES = 1000;            // par exploitation
 const CLES_REGLAGES = ['enrouleurs', 'largVille']; // irrigation enrouleur
 const TAILLE_MAX_REGLAGE = 50000;
 // Ce qu'un salarié peut modifier, coché par le chef (le chef peut tout)
-export const DROITS = ['pluie', 'pmg', 'semences', 'enrouleurs'];
-function lireDroits(brut) {
+// Ce qu'il peut modifier (cases du chef)…
+export const DROITS = ['pluie', 'gnr', 'heures', 'pmg', 'semences', 'enrouleurs'];
+// … et les applis qu'il peut ouvrir (31/10/2026). Absent = toutes (comptes plus anciens).
+export const APPLIS = ['dose', 'irrigation', 'pluie', 'gnr', 'tracteurs'];
+// Chaque droit de modification dépend de l'accès à son appli
+const APPLI_DU_DROIT = { pluie: 'pluie', gnr: 'gnr', heures: 'tracteurs', pmg: 'dose', semences: 'dose', enrouleurs: 'irrigation' };
+const tout = liste => Object.fromEntries(liste.map(k => [k, true]));
+// masque : un droit de modification ne vaut que si l'appli est ouverte (faux pour la liste du chef, qui coche tout)
+function lireDroits(brut, masque = true) {
   let d = {};
   try { d = JSON.parse(brut || '{}') || {}; } catch {}
-  return Object.fromEntries(DROITS.map(k => [k, !!d[k]]));
+  const acces = d.acces && typeof d.acces === 'object' ? Object.fromEntries(APPLIS.map(k => [k, !!d.acces[k]])) : tout(APPLIS);
+  return { ...Object.fromEntries(DROITS.map(k => [k, !!d[k] && (!masque || acces[APPLI_DU_DROIT[k]])])), acces };
 }
-const droitsDe = m => m.role === 'chef' ? Object.fromEntries(DROITS.map(k => [k, true])) : lireDroits(m.droits);
-const peut = (m, droit) => droitsDe(m)[droit];
+const droitsDe = m => m.role === 'chef' ? { ...tout(DROITS), acces: tout(APPLIS) } : lireDroits(m.droits);
+const peut = (m, droit) => !!droitsDe(m)[droit];
+const voit = (m, appli) => !!droitsDe(m).acces[appli];
+const DROITS_PAR_DEFAUT = { pluie: true, gnr: true, heures: true, acces: tout(APPLIS) };
 function droitsDepuis(corps, defaut) {
   if (!corps || typeof corps !== 'object') return JSON.stringify(defaut);
-  return JSON.stringify(Object.fromEntries(DROITS.map(k => [k, !!corps[k]])));
+  const acces = corps.acces && typeof corps.acces === 'object' ? Object.fromEntries(APPLIS.map(k => [k, !!corps.acces[k]])) : tout(APPLIS);
+  return JSON.stringify({ ...Object.fromEntries(DROITS.map(k => [k, !!corps[k]])), acces });
 }
 const TAILLE_MAX_NOM = 60;
 const MAX_ECHECS = 10;                // essais ratés tolérés…
@@ -92,7 +103,7 @@ function semencePourNavigateur(l) {
 const compteExiste = (env, identifiant) => env.DB.prepare('SELECT 1 FROM comptes WHERE identifiant = ?').bind(identifiant).first();
 
 // Crée un compte avec un mot de passe provisoire (montré une seule fois)
-async function creerCompte(env, { exploitationId, identifiant, nom, role, creePar, droits = '{"pluie":true}' }) {
+async function creerCompte(env, { exploitationId, identifiant, nom, role, creePar, droits = JSON.stringify(DROITS_PAR_DEFAUT) }) {
   const mdp = motDePasseProvisoire();
   const c = await env.DB.prepare(
     `INSERT INTO comptes (exploitation_id, identifiant, nom, role, mot_de_passe, doit_changer, cree_par, droits)
@@ -197,14 +208,14 @@ export async function api(request, env, url) {
       const { results } = await env.DB.prepare(
         'SELECT id, identifiant, nom, role, actif, doit_changer, cree_le, droits FROM comptes WHERE exploitation_id = ? ORDER BY actif DESC, role, nom'
       ).bind(moi.exploitation_id).all();
-      return json(results.map(c => ({ ...c, droits: lireDroits(c.droits) })));
+      return json(results.map(c => ({ ...c, droits: lireDroits(c.droits, false) })));
     }
     if (p.length === 1 && methode === 'POST') {
       const n = lireNouveauCompte(corps);
       if (n.pb) return erreur(400, n.pb);
       const role = corps.role === 'chef' ? 'chef' : 'salarie';
       if (await compteExiste(env, n.identifiant)) return erreur(409, 'Cet identifiant est déjà pris (peut-être dans une autre exploitation). Ajoutez une initiale ou un chiffre.');
-      return json(await creerCompte(env, { exploitationId: moi.exploitation_id, ...n, role, creePar: moi.id, droits: droitsDepuis(corps.droits, { pluie: true }) }), 201);
+      return json(await creerCompte(env, { exploitationId: moi.exploitation_id, ...n, role, creePar: moi.id, droits: droitsDepuis(corps.droits, DROITS_PAR_DEFAUT) }), 201);
     }
     const id = Number(p[1]);
     const c = Number.isInteger(id) && await env.DB.prepare('SELECT * FROM comptes WHERE id = ? AND exploitation_id = ?').bind(id, moi.exploitation_id).first();
@@ -230,6 +241,12 @@ export async function api(request, env, url) {
   }
 
   // ---------- semences (dose de semis) ----------
+  if (p[0] === 'semences' && !voit(moi, 'dose')) return erreur(403, 'Vous n\'avez pas accès à la dose de semis.');
+  if (p[0] === 'reglages' && !voit(moi, 'irrigation')) return erreur(403, 'Vous n\'avez pas accès à l\'irrigation.');
+  if ((p[0] === 'pluviometres' || p[0] === 'pluie') && !voit(moi, 'pluie')) return erreur(403, 'Vous n\'avez pas accès à la pluviométrie.');
+  if (p[0] === 'gnr' && !voit(moi, 'gnr') && !(chef)) return erreur(403, 'Vous n\'avez pas accès au suivi du GNR.');
+  if (p[0] === 'tracteurs' && !voit(moi, 'tracteurs')) return erreur(403, 'Vous n\'avez pas accès aux heures des tracteurs.');
+
   if (p[0] === 'semences') {
     if (p.length === 1 && methode === 'GET') {
       const { results } = await env.DB.prepare(
@@ -386,6 +403,166 @@ export async function api(request, env, url) {
          ON CONFLICT (pluviometre_id, jour) DO UPDATE SET mm = excluded.mm, saisi_par = excluded.saisi_par, saisi_le = datetime('now')`
       ).bind(id, jour, mm, moi.id).run();
       return json({ jour, mm, saisi_par: moi.nom });
+    }
+    return erreur(405, 'Méthode non prise en charge.');
+  }
+
+  // ---------- suivi du GNR ----------
+  if (p[0] === 'gnr') {
+    const jourValide = j => /^\d{4}-\d{2}-\d{2}$/.test(j || '') && !isNaN(Date.parse(j + 'T00:00:00Z'));
+    const nombre = (v, max) => { const n = Math.round(Number(String(v ?? '').replace(',', '.')) * 100) / 100; return n > 0 && n <= max ? n : null; };
+    const E = moi.exploitation_id;
+
+    // Tout ce qu'il faut pour la page, pour une année
+    if (p.length === 1 && methode === 'GET') {
+      const annee = /^\d{4}$/.test(url.searchParams.get('annee') || '') ? url.searchParams.get('annee') : String(new Date().getUTCFullYear());
+      const du = annee + '-01-01', au = annee + '-12-31';
+      const engins = (await env.DB.prepare('SELECT id, nom, actif FROM engins WHERE exploitation_id = ? ORDER BY actif DESC, nom').bind(E).all()).results;
+      const pleins = (await env.DB.prepare(
+        `SELECT g.id, g.engin_id, g.jour, g.litres, g.compteur, g.saisi_par AS saisi_par_id, c.nom AS saisi_par
+           FROM gnr_pleins g LEFT JOIN comptes c ON c.id = g.saisi_par
+          WHERE g.exploitation_id = ? AND g.jour BETWEEN ? AND ? ORDER BY g.jour DESC, g.id DESC`).bind(E, du, au).all()).results;
+      const livraisons = (await env.DB.prepare(
+        `SELECT l.id, l.jour, l.litres, l.prix_litre, l.fournisseur, c.nom AS saisi_par
+           FROM gnr_livraisons l LEFT JOIN comptes c ON c.id = l.saisi_par
+          WHERE l.exploitation_id = ? AND l.jour BETWEEN ? AND ? ORDER BY l.jour DESC, l.id DESC`).bind(E, du, au).all()).results;
+      // Dernier compteur connu de chaque engin AVANT l'année (pour les heures de l'année)
+      const avant = (await env.DB.prepare(
+        `SELECT engin_id, MAX(compteur) AS compteur FROM gnr_pleins
+          WHERE exploitation_id = ? AND jour < ? AND compteur IS NOT NULL GROUP BY engin_id`).bind(E, du).all()).results;
+      // Niveau de la cuve : point de départ (jauge) + livraisons − pleins depuis
+      const r = await env.DB.prepare("SELECT valeur FROM reglages WHERE exploitation_id = ? AND cle = 'gnr_stock'").bind(E).first();
+      let depart = null; try { depart = r ? JSON.parse(r.valeur) : null; } catch {}
+      let cuve = null;
+      if (depart && depart.jour) {
+        const { liv } = await env.DB.prepare('SELECT COALESCE(SUM(litres),0) AS liv FROM gnr_livraisons WHERE exploitation_id = ? AND jour > ?').bind(E, depart.jour).first();
+        const { pl } = await env.DB.prepare('SELECT COALESCE(SUM(litres),0) AS pl FROM gnr_pleins WHERE exploitation_id = ? AND jour > ?').bind(E, depart.jour).first();
+        cuve = { depart, livre: liv, pris: pl, estime: Math.round((depart.litres + liv - pl) * 10) / 10 };
+      }
+      return json({ annee, engins, pleins, livraisons, compteursAvant: avant, cuve });
+    }
+
+    // Un plein : tous ceux qui ont la case « GNR » (le chef toujours)
+    if (p[1] === 'pleins' && p.length === 2 && methode === 'POST') {
+      if (!peut(moi, 'gnr')) return erreur(403, 'Vous ne pouvez pas noter de plein.');
+      const engin = await env.DB.prepare('SELECT id FROM engins WHERE id = ? AND exploitation_id = ? AND actif = 1').bind(Number(corps.engin), E).first();
+      if (!engin) return erreur(400, 'Choisissez l\'engin.');
+      if (!jourValide(corps.jour)) return erreur(400, 'Date invalide.');
+      const litres = nombre(corps.litres, 5000);
+      if (!litres) return erreur(400, 'Litres invalides (entre 0 et 5 000).');
+      let compteur = null;
+      if (corps.compteur !== undefined && corps.compteur !== null && String(corps.compteur).trim() !== '') {
+        compteur = nombre(corps.compteur, 200000);
+        if (!compteur) return erreur(400, 'Compteur d\'heures invalide.');
+      }
+      const l = await env.DB.prepare('INSERT INTO gnr_pleins (exploitation_id, engin_id, jour, litres, compteur, saisi_par) VALUES (?, ?, ?, ?, ?, ?) RETURNING id')
+        .bind(E, engin.id, corps.jour, litres, compteur, moi.id).first();
+      return json({ id: l.id, litres, compteur }, 201);
+    }
+    // Effacer un plein : le chef, ou celui qui l'a noté
+    if (p[1] === 'pleins' && p.length === 3 && methode === 'DELETE') {
+      const l = await env.DB.prepare('SELECT * FROM gnr_pleins WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).first();
+      if (!l) return erreur(404, 'Plein introuvable.');
+      if (!chef && l.saisi_par !== moi.id) return erreur(403, 'Seul le chef ou celui qui l\'a noté peut l\'effacer.');
+      await env.DB.prepare('DELETE FROM gnr_pleins WHERE id = ?').bind(l.id).run();
+      return json({ ok: true });
+    }
+
+    // Tout le reste : le chef d'exploitation
+    if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
+    if (p[1] === 'livraisons' && p.length === 2 && methode === 'POST') {
+      if (!jourValide(corps.jour)) return erreur(400, 'Date invalide.');
+      const litres = nombre(corps.litres, 100000);
+      if (!litres) return erreur(400, 'Litres invalides.');
+      let prix = null;
+      if (corps.prix !== undefined && String(corps.prix ?? '').trim() !== '') { prix = nombre(corps.prix, 10); if (!prix) return erreur(400, 'Prix au litre invalide (en €, ex. 1,05).'); }
+      const l = await env.DB.prepare('INSERT INTO gnr_livraisons (exploitation_id, jour, litres, prix_litre, fournisseur, saisi_par) VALUES (?, ?, ?, ?, ?, ?) RETURNING id')
+        .bind(E, corps.jour, litres, prix, texte(corps.fournisseur, 60) || null, moi.id).first();
+      return json({ id: l.id }, 201);
+    }
+    if (p[1] === 'livraisons' && p.length === 3 && methode === 'DELETE') {
+      await env.DB.prepare('DELETE FROM gnr_livraisons WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).run();
+      return json({ ok: true });
+    }
+    if (p[1] === 'engins' && p.length === 2 && methode === 'POST') {
+      const nom = texte(corps.nom, TAILLE_MAX_NOM);
+      if (!nom) return erreur(400, 'Donnez un nom à l\'engin.');
+      return json(await env.DB.prepare('INSERT INTO engins (exploitation_id, nom) VALUES (?, ?) RETURNING id, nom, actif').bind(E, nom).first(), 201);
+    }
+    if (p[1] === 'engins' && p.length === 3 && methode === 'PATCH') {
+      const en = await env.DB.prepare('SELECT * FROM engins WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).first();
+      if (!en) return erreur(404, 'Engin introuvable.');
+      const nom = corps.nom === undefined ? en.nom : texte(corps.nom, TAILLE_MAX_NOM);
+      if (!nom) return erreur(400, 'Donnez un nom à l\'engin.');
+      const actif = corps.actif === undefined ? en.actif : (corps.actif ? 1 : 0);
+      await env.DB.prepare('UPDATE engins SET nom = ?, actif = ? WHERE id = ?').bind(nom, actif, en.id).run();
+      return json({ ok: true });
+    }
+    // Niveau de la cuve relevé à la jauge : nouveau point de départ
+    if (p[1] === 'cuve' && p.length === 2 && methode === 'PUT') {
+      if (!jourValide(corps.jour)) return erreur(400, 'Date invalide.');
+      const litres = Math.round(Number(String(corps.litres ?? '').replace(',', '.')) * 10) / 10;
+      if (!(litres >= 0) || litres > 100000) return erreur(400, 'Niveau invalide.');
+      const v = JSON.stringify({ jour: corps.jour, litres });
+      await env.DB.prepare(`INSERT INTO reglages (exploitation_id, cle, valeur, modifie_par) VALUES (?, 'gnr_stock', ?, ?)
+        ON CONFLICT (exploitation_id, cle) DO UPDATE SET valeur = excluded.valeur, version = version + 1, modifie_le = datetime('now'), modifie_par = excluded.modifie_par`)
+        .bind(E, v, moi.id).run();
+      return json({ ok: true });
+    }
+    return erreur(404, 'Introuvable.');
+  }
+
+  // ---------- heures des tracteurs (31/10/2026) ----------
+  // Une sortie : un engin, un jour, ses heures (compteur début → fin, ou un nombre d'heures),
+  // pour qui / où (Bretonvilliers, Guillaume, l'ETA…) et le travail fait.
+  if (p[0] === 'tracteurs') {
+    const E = moi.exploitation_id;
+    const jourValide = j => /^\d{4}-\d{2}-\d{2}$/.test(j || '') && !isNaN(Date.parse(j + 'T00:00:00Z'));
+    const nb = v => { const t = String(v ?? '').trim(); if (t === '') return null; const n = Math.round(Number(t.replace(',', '.')) * 100) / 100; return isFinite(n) ? n : NaN; };
+    if (p.length === 1 && methode === 'GET') {
+      const annee = /^\d{4}$/.test(url.searchParams.get('annee') || '') ? url.searchParams.get('annee') : String(new Date().getUTCFullYear());
+      const engins = (await env.DB.prepare('SELECT id, nom, actif FROM engins WHERE exploitation_id = ? ORDER BY actif DESC, nom').bind(E).all()).results;
+      const sorties = (await env.DB.prepare(
+        `SELECT h.id, h.engin_id, h.jour, h.debut, h.fin, h.heures, h.pour_qui, h.travail, h.saisi_par AS saisi_par_id, c.nom AS saisi_par
+           FROM heures_engins h LEFT JOIN comptes c ON c.id = h.saisi_par
+          WHERE h.exploitation_id = ? AND h.jour BETWEEN ? AND ? ORDER BY h.jour DESC, h.id DESC`).bind(E, annee + '-01-01', annee + '-12-31').all()).results;
+      // « Pour qui » déjà utilisés, pour les proposer
+      const lieux = (await env.DB.prepare(
+        'SELECT pour_qui, COUNT(*) AS n FROM heures_engins WHERE exploitation_id = ? GROUP BY pour_qui ORDER BY n DESC LIMIT 30').bind(E).all()).results.map(x => x.pour_qui);
+      // Dernier compteur connu de chaque engin (sorties et pleins de GNR)
+      const compteurs = (await env.DB.prepare(
+        `SELECT engin_id, MAX(c) AS compteur FROM (
+           SELECT engin_id, fin AS c FROM heures_engins WHERE exploitation_id = ? AND fin IS NOT NULL
+           UNION ALL SELECT engin_id, compteur AS c FROM gnr_pleins WHERE exploitation_id = ? AND compteur IS NOT NULL)
+         GROUP BY engin_id`).bind(E, E).all()).results;
+      return json({ annee, engins, sorties, lieux, compteurs });
+    }
+    if (p.length === 1 && methode === 'POST') {
+      if (!peut(moi, 'heures')) return erreur(403, 'Vous ne pouvez pas noter d\'heures de tracteur.');
+      const engin = await env.DB.prepare('SELECT id FROM engins WHERE id = ? AND exploitation_id = ? AND actif = 1').bind(Number(corps.engin), E).first();
+      if (!engin) return erreur(400, 'Choisissez le tracteur.');
+      if (!jourValide(corps.jour)) return erreur(400, 'Date invalide.');
+      const debut = nb(corps.debut), fin = nb(corps.fin);
+      let heures = nb(corps.heures);
+      if ([debut, fin, heures].some(v => Number.isNaN(v))) return erreur(400, 'Chiffre illisible.');
+      if (debut !== null && fin !== null) {
+        if (fin < debut) return erreur(400, 'Le compteur de fin est plus petit que celui du début.');
+        heures = Math.round((fin - debut) * 100) / 100;
+      }
+      if (!(heures > 0) || heures > 24 * 31) return erreur(400, 'Indiquez les heures : compteur début et fin, ou le nombre d\'heures.');
+      const pourQui = texte(corps.pour_qui, 60);
+      if (!pourQui) return erreur(400, 'Indiquez pour qui ou où (Bretonvilliers, Guillaume, ETA…).');
+      const l = await env.DB.prepare(
+        'INSERT INTO heures_engins (exploitation_id, engin_id, jour, debut, fin, heures, pour_qui, travail, saisi_par) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .bind(E, engin.id, corps.jour, debut, fin, heures, pourQui, texte(corps.travail, 120) || null, moi.id).first();
+      return json({ id: l.id, heures }, 201);
+    }
+    if (p.length === 2 && methode === 'DELETE') {
+      const l = await env.DB.prepare('SELECT * FROM heures_engins WHERE id = ? AND exploitation_id = ?').bind(Number(p[1]), E).first();
+      if (!l) return erreur(404, 'Sortie introuvable.');
+      if (!chef && l.saisi_par !== moi.id) return erreur(403, 'Seul le chef ou celui qui l\'a notée peut l\'effacer.');
+      await env.DB.prepare('DELETE FROM heures_engins WHERE id = ?').bind(l.id).run();
+      return json({ ok: true });
     }
     return erreur(405, 'Méthode non prise en charge.');
   }

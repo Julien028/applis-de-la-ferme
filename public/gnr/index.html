@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi du GNR</title>
+<meta name="theme-color" content="#2F5D3A">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/commun/outil.css">
+</head>
+<body class="theme-gnr">
+  <div class="applis"><a href="../">← Applis de la ferme</a><span id="qui"></span><span class="etat" id="etat"></span></div>
+  <h1>Suivi du GNR</h1>
+  <p class="sub">Les pleins des tracteurs, les livraisons à la cuve, la consommation de chaque tracteur.</p>
+
+  <div class="card" id="pasConnecte" hidden><p class="vide" style="margin:0">Le suivi du GNR est enregistré dans l'espace de l'exploitation : <a href="../">connectez-vous depuis l'accueil</a>.</p></div>
+  <div class="card" id="pasAcces" hidden><p class="vide" style="margin:0">Votre compte n'a pas accès au suivi du GNR. Demandez-le au chef d'exploitation.</p></div>
+
+  <div id="contenu" hidden>
+    <!-- ============ PLEIN ============ -->
+    <div class="card" id="cartePlein">
+      <h2>Noter un plein</h2>
+      <p class="vide" id="pasDEngin" hidden></p>
+      <div id="formPlein">
+        <label for="pEngin">Tracteur</label>
+        <select id="pEngin"></select>
+        <div class="grille2">
+          <div><label for="pJour">Jour</label><input type="date" id="pJour"></div>
+          <div><label for="pLitres">Litres</label><div class="row"><input type="number" id="pLitres" inputmode="decimal" step="any" min="0" placeholder="ex. 180"><span class="unit">L</span></div></div>
+        </div>
+        <label for="pCompteur">Compteur d'heures du tracteur <span class="leger">(facultatif, pour la consommation à l'heure)</span></label>
+        <div class="row"><input type="number" id="pCompteur" inputmode="decimal" step="any" min="0"><span class="unit">h</span></div>
+        <button class="principal large" id="pOk" type="button">Noter le plein</button>
+        <p class="msg" id="pMsg" hidden></p>
+      </div>
+    </div>
+
+    <!-- ============ CUVE ============ -->
+    <div class="card">
+      <h2>La cuve</h2>
+      <div class="cuve"><div class="v" id="cuveNiveau">—</div><div class="k" id="cuveDetail">Niveau estimé : indiquez d'abord un relevé de jauge.</div></div>
+      <div id="blocChefCuve" hidden>
+        <button class="lien" id="ouvrirLivraison" type="button">+ Livraison du marchand</button>
+        <button class="lien" id="ouvrirJauge" type="button">Relevé de jauge</button>
+        <div class="panneau" id="formLivraison" hidden>
+          <div class="grille2">
+            <div><label for="lJour">Jour</label><input type="date" id="lJour"></div>
+            <div><label for="lLitres">Litres livrés</label><div class="row"><input type="number" id="lLitres" inputmode="decimal" step="any" min="0" placeholder="ex. 3000"><span class="unit">L</span></div></div>
+          </div>
+          <div class="grille2">
+            <div><label for="lPrix">Prix HT au litre</label><div class="row"><input type="number" id="lPrix" inputmode="decimal" step="0.001" min="0" placeholder="ex. 1,05"><span class="unit">€/L</span></div></div>
+            <div><label for="lFour">Fournisseur</label><input type="text" id="lFour" maxlength="60" list="fournisseurs"></div>
+          </div>
+          <datalist id="fournisseurs"></datalist>
+          <button class="principal large" id="lOk" type="button">Enregistrer la livraison</button>
+          <p class="msg" id="lMsg" hidden></p>
+        </div>
+        <div class="panneau" id="formJauge" hidden>
+          <p class="hint" style="margin-top:0">Ce que vous lisez sur la jauge : c'est le nouveau point de départ, ensuite le site ajoute les livraisons et retire les pleins.</p>
+          <div class="grille2">
+            <div><label for="jJour">Jour</label><input type="date" id="jJour"></div>
+            <div><label for="jLitres">Dans la cuve</label><div class="row"><input type="number" id="jLitres" inputmode="decimal" step="any" min="0"><span class="unit">L</span></div></div>
+          </div>
+          <button class="principal large" id="jOk" type="button">Enregistrer le niveau</button>
+          <p class="msg" id="jMsg" hidden></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ANNÉE ============ -->
+    <div class="card">
+      <div class="annee"><button id="anPrec" type="button" aria-label="Année précédente">◀</button><b id="anTitre"></b><button id="anSuiv" type="button" aria-label="Année suivante">▶</button></div>
+      <div class="tuiles">
+        <div><div class="v" id="tPleins">—</div><div class="k">mis dans les tracteurs</div></div>
+        <div><div class="v" id="tLivre">—</div><div class="k">livré à la cuve</div></div>
+        <div><div class="v" id="tEuros">—</div><div class="k" id="tEurosK">dépensé (HT)</div></div>
+      </div>
+      <h3>Par tracteur</h3>
+      <div class="defile"><table class="tab" id="parEngin"></table></div>
+      <p class="hint">Consommation à l'heure : litres mis entre deux pleins, divisés par les heures du compteur. Il faut noter le compteur à chaque plein.</p>
+      <h3>Par mois</h3>
+      <div class="defile"><table class="tab" id="parMois"></table></div>
+      <button class="lien" id="exporter" type="button">Exporter l'année (tableur)</button>
+    </div>
+
+    <!-- ============ JOURNAL ============ -->
+    <div class="card">
+      <h2>Pleins et livraisons</h2>
+      <div class="defile"><table class="tab journal" id="journal"></table></div>
+    </div>
+
+    <!-- ============ TRACTEURS (chef) ============ -->
+    <div class="card" id="carteEngins" hidden>
+      <h2>Les tracteurs</h2>
+      <p class="hint" style="margin-top:-4px">La même liste sert au GNR et aux heures des tracteurs.</p>
+      <ul class="liste" id="listeEngins"></ul>
+      <div class="row" style="margin-top:8px"><input type="text" id="nouvelEngin" maxlength="60" placeholder="ex. Fendt 724, John Deere 6155R…"><button class="principal" id="ajoutEngin" type="button">Ajouter</button></div>
+      <p class="msg" id="eMsg" hidden></p>
+    </div>
+  </div>
+
+<script src="/commun/outil.js"></script>
+<script>
+"use strict";
+let donnees = null, annee = new Date().getFullYear();
+
+/* ============ CHARGEMENT ============ */
+async function charger(){
+  const cle="gnr:"+annee;
+  donnees = relire(cle) || donnees;
+  if(donnees) dessiner();
+  try{ donnees = await appel("GET","/api/gnr?annee="+annee); garder(cle, donnees); etat("À jour"); dessiner(); }
+  catch(e){ if(e.status===401) return deconnecte(); if(e.status===403) return sansAcces(); etat("Hors ligne : derniers chiffres connus", true); }
+}
+
+function dessiner(){
+  const d=donnees, actifs=d.engins.filter(x=>x.actif), nomEngin=id=>(d.engins.find(x=>x.id===id)||{}).nom||"?";
+  // plein
+  $("cartePlein").hidden = !peut("gnr");
+  remplirEngins($("pEngin"), actifs);
+  $("pasDEngin").hidden = !!actifs.length; $("formPlein").hidden = !actifs.length;
+  $("pasDEngin").textContent = chef() ? "Ajoutez d'abord vos tracteurs, en bas de la page." : "Le chef d'exploitation n'a pas encore créé la liste des tracteurs.";
+  if(!$("pJour").value) $("pJour").value=aujourdhui();
+  majCompteurSuggere();
+  // cuve
+  $("blocChefCuve").hidden = !chef();
+  if(d.cuve){
+    $("cuveNiveau").textContent = fmt(d.cuve.estime,0)+" L";
+    $("cuveDetail").textContent = "Niveau estimé : "+fmt(d.cuve.depart.litres,0)+" L à la jauge le "+dateCourte(d.cuve.depart.jour)+", + "+fmt(d.cuve.livre,0)+" L livrés, − "+fmt(d.cuve.pris,0)+" L de pleins depuis.";
+  } else { $("cuveNiveau").textContent="—"; $("cuveDetail").textContent = chef() ? "Niveau estimé : faites un « Relevé de jauge » pour partir d'un niveau connu." : "Niveau estimé : pas encore de relevé de jauge."; }
+  const four=[...new Set(d.livraisons.map(l=>l.fournisseur).filter(Boolean))]; $("fournisseurs").innerHTML=""; four.forEach(f=>{ const o=document.createElement("option"); o.value=f; $("fournisseurs").appendChild(o); });
+  // année
+  $("anTitre").textContent=annee; $("anSuiv").disabled = annee>=new Date().getFullYear();
+  const totPleins=d.pleins.reduce((s,x)=>s+x.litres,0), totLivre=d.livraisons.reduce((s,x)=>s+x.litres,0);
+  const avecPrix=d.livraisons.filter(l=>l.prix_litre), euros=avecPrix.reduce((s,l)=>s+l.litres*l.prix_litre,0);
+  $("tPleins").textContent = d.pleins.length ? fmt(totPleins,0)+" L" : "—";
+  $("tLivre").textContent = d.livraisons.length ? fmt(totLivre,0)+" L" : "—";
+  $("tEuros").textContent = avecPrix.length ? fmt(euros,0)+" €" : "—";
+  $("tEurosK").textContent = avecPrix.length && avecPrix.length<d.livraisons.length ? "dépensé (HT, livraisons avec prix)" : "dépensé (HT)";
+  dessinerParEngin(nomEngin); dessinerParMois(); dessinerJournal(nomEngin); dessinerEngins();
+}
+
+// Consommation par tracteur : litres entre deux pleins ÷ heures du compteur
+function dessinerParEngin(nomEngin){
+  const d=donnees, t=$("parEngin"); t.innerHTML="";
+  const ids=[...new Set(d.pleins.map(x=>x.engin_id))];
+  if(!ids.length){ t.innerHTML="<tr><td class=\"vide\">Aucun plein noté cette année.</td></tr>"; return; }
+  t.innerHTML="<tr><th>Tracteur</th><th>Litres</th><th>Heures</th><th>L/h</th></tr>";
+  ids.map(id=>{
+    const pl=d.pleins.filter(x=>x.engin_id===id), litres=pl.reduce((s,x)=>s+x.litres,0);
+    const avecC=pl.filter(x=>x.compteur!=null).sort((a,b)=>a.jour.localeCompare(b.jour)||a.compteur-b.compteur);
+    const avant=(d.compteursAvant.find(x=>x.engin_id===id)||{}).compteur;
+    let heures=null, litresH=0;
+    if(avecC.length){
+      const depart = avant!=null ? avant : avecC[0].compteur;
+      heures = avecC[avecC.length-1].compteur - depart;
+      // les litres comptés sont ceux mis APRÈS le compteur de départ
+      litresH = avant!=null ? avecC.reduce((s,x)=>s+x.litres,0) : avecC.slice(1).reduce((s,x)=>s+x.litres,0);
+    }
+    return {nom:nomEngin(id), litres, heures, lh: heures>0 && litresH>0 ? litresH/heures : null};
+  }).sort((a,b)=>a.nom.localeCompare(b.nom,"fr")).forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML="<td></td><td>"+fmt(r.litres,0)+" L</td><td>"+(r.heures>0?fmt(r.heures,1)+" h":"—")+"</td><td class=\"fort\">"+(r.lh?fmt(r.lh,1):"—")+"</td>";
+    tr.firstChild.textContent=r.nom; t.appendChild(tr);
+  });
+}
+function dessinerParMois(){
+  const d=donnees, t=$("parMois");
+  const m=[...Array(12)].map(()=>({pl:0,li:0,eu:0}));
+  d.pleins.forEach(x=>m[Number(x.jour.slice(5,7))-1].pl+=x.litres);
+  d.livraisons.forEach(x=>{ const i=Number(x.jour.slice(5,7))-1; m[i].li+=x.litres; if(x.prix_litre) m[i].eu+=x.litres*x.prix_litre; });
+  const max=Math.max(1,...m.map(x=>x.pl));
+  t.innerHTML="<tr><th>Mois</th><th>Pleins</th><th></th><th>Livré</th><th>€ HT</th></tr>";
+  m.forEach((x,i)=>{ if(!x.pl && !x.li) return;
+    const tr=document.createElement("tr");
+    tr.innerHTML="<td>"+MOIS[i]+"</td><td>"+(x.pl?fmt(x.pl,0)+" L":"")+"</td><td class=\"barre\"><div style=\"width:"+(x.pl/max*100).toFixed(1)+"%\"></div></td><td>"+(x.li?fmt(x.li,0)+" L":"")+"</td><td>"+(x.eu?fmt(x.eu,0)+" €":"")+"</td>";
+    t.appendChild(tr); });
+  if(t.rows.length===1) t.innerHTML="<tr><td class=\"vide\">Rien de noté cette année.</td></tr>";
+}
+function dessinerJournal(nomEngin){
+  const d=donnees, t=$("journal"); t.innerHTML="";
+  const lignes=[...d.pleins.map(x=>({...x,type:"plein"})), ...d.livraisons.map(x=>({...x,type:"livraison"}))].sort((a,b)=>b.jour.localeCompare(a.jour));
+  if(!lignes.length){ t.innerHTML="<tr><td class=\"vide\">Rien de noté cette année.</td></tr>"; return; }
+  lignes.forEach(x=>{
+    const tr=document.createElement("tr"); if(x.type==="livraison") tr.className="livraison";
+    tr.innerHTML="<td>"+dateCourte(x.jour)+"</td><td><span></span><small></small></td><td class=\"fort\">"+(x.type==="livraison"?"+ ":"")+fmt(x.litres,0)+" L</td><td></td>";
+    tr.querySelector("span").textContent = x.type==="livraison" ? "Livraison cuve" : nomEngin(x.engin_id);
+    tr.querySelector("small").textContent = x.type==="livraison"
+      ? [x.fournisseur, x.prix_litre ? fmt(x.prix_litre,3)+" €/L" : "", x.saisi_par].filter(Boolean).join(" · ")
+      : [x.compteur!=null ? fmt(x.compteur,1)+" h au compteur" : "", x.saisi_par].filter(Boolean).join(" · ");
+    const peutEffacer = chef() || (x.type==="plein" && x.saisi_par_id===moi.compte.id);
+    if(peutEffacer){
+      const b=document.createElement("button"); b.className="croix"; b.type="button"; b.title="Effacer"; b.textContent="✕";
+      b.addEventListener("click", async ()=>{
+        if(!confirm("Effacer "+(x.type==="livraison"?"cette livraison":"ce plein")+" de "+fmt(x.litres,0)+" L du "+dateCourte(x.jour)+" ?")) return;
+        try{ await appel("DELETE","/api/gnr/"+(x.type==="livraison"?"livraisons":"pleins")+"/"+x.id); await charger(); }catch(e){ alert(e.message); }
+      });
+      tr.lastChild.appendChild(b);
+    }
+    t.appendChild(tr);
+  });
+}
+
+/* ============ SAISIES ============ */
+function majCompteurSuggere(){
+  const id=Number($("pEngin").value), pl=(donnees?donnees.pleins:[]).filter(x=>x.engin_id===id && x.compteur!=null);
+  const dernier = pl.length ? Math.max(...pl.map(x=>x.compteur)) : (donnees && (donnees.compteursAvant.find(x=>x.engin_id===id)||{}).compteur);
+  $("pCompteur").placeholder = dernier!=null ? "dernier : "+String(dernier).replace(".",",") : "ex. 4520";
+}
+$("pEngin").addEventListener("change", ()=>{ garderChoix("gnr.engin", $("pEngin").value); majCompteurSuggere(); });
+$("pOk").addEventListener("click", async ()=>{
+  message("pMsg","");
+  if(!$("pLitres").value){ message("pMsg","Tapez les litres mis dans le tracteur.","erreur"); return; }
+  if($("pJour").value>aujourdhui()){ message("pMsg","Ce jour n'est pas encore arrivé.","erreur"); return; }
+  try{
+    await appel("POST","/api/gnr/pleins",{engin:$("pEngin").value, jour:$("pJour").value, litres:$("pLitres").value, compteur:$("pCompteur").value});
+    const nom=$("pEngin").selectedOptions[0].textContent, l=$("pLitres").value;
+    $("pLitres").value=""; $("pCompteur").value="";
+    annee=Number($("pJour").value.slice(0,4)); await charger();
+    message("pMsg","Noté : "+l+" L dans "+nom+".","ok");
+  }catch(e){ message("pMsg", e.message, "erreur"); }
+});
+$("ouvrirLivraison").addEventListener("click",()=>{ $("formLivraison").hidden=!$("formLivraison").hidden; $("formJauge").hidden=true; if(!$("lJour").value) $("lJour").value=aujourdhui(); });
+$("ouvrirJauge").addEventListener("click",()=>{ $("formJauge").hidden=!$("formJauge").hidden; $("formLivraison").hidden=true; if(!$("jJour").value) $("jJour").value=aujourdhui(); });
+$("lOk").addEventListener("click", async ()=>{
+  message("lMsg","");
+  try{
+    await appel("POST","/api/gnr/livraisons",{jour:$("lJour").value, litres:$("lLitres").value, prix:$("lPrix").value, fournisseur:$("lFour").value});
+    ["lLitres","lPrix"].forEach(i=>$(i).value=""); $("formLivraison").hidden=true;
+    annee=Number($("lJour").value.slice(0,4)); await charger();
+  }catch(e){ message("lMsg", e.message, "erreur"); }
+});
+$("jOk").addEventListener("click", async ()=>{
+  message("jMsg","");
+  if($("jLitres").value===""){ message("jMsg","Tapez ce que vous lisez sur la jauge.","erreur"); return; }
+  try{ await appel("PUT","/api/gnr/cuve",{jour:$("jJour").value, litres:$("jLitres").value}); $("formJauge").hidden=true; await charger(); }
+  catch(e){ message("jMsg", e.message, "erreur"); }
+});
+
+/* ============ TRACTEURS ============ */
+function dessinerEngins(){
+  $("carteEngins").hidden = !chef();
+  if(!chef()) return;
+  gererEngins($("listeEngins"), donnees.engins, charger);
+}
+$("ajoutEngin").addEventListener("click", async ()=>{
+  message("eMsg","");
+  try{ await appel("POST","/api/gnr/engins",{nom:$("nouvelEngin").value}); $("nouvelEngin").value=""; await charger(); }
+  catch(e){ message("eMsg", e.message, "erreur"); }
+});
+
+/* ============ ANNÉE, EXPORT ============ */
+$("anPrec").addEventListener("click", async ()=>{ annee--; await charger(); });
+$("anSuiv").addEventListener("click", async ()=>{ annee++; await charger(); });
+$("exporter").addEventListener("click",()=>{
+  const d=donnees, nom=id=>(d.engins.find(x=>x.id===id)||{}).nom||"";
+  const l=[["Type","Jour","Tracteur","Litres","Compteur (h)","Prix HT (€/L)","Fournisseur","Noté par"].join(";")];
+  [...d.pleins.map(x=>({...x,t:"Plein"})), ...d.livraisons.map(x=>({...x,t:"Livraison"}))].sort((a,b)=>a.jour.localeCompare(b.jour)).forEach(x=>{
+    l.push([x.t, x.jour.split("-").reverse().join("/"), x.t==="Plein"?nom(x.engin_id):"", num(x.litres), x.compteur!=null?num(x.compteur):"", x.prix_litre?num(x.prix_litre):"", x.fournisseur||"", x.saisi_par||""].map(csv).join(";"));
+  });
+  telecharger("gnr-"+annee+".csv", l);
+});
+
+demarrer("gnr", ()=>{ const c=lireChoix("gnr.engin"); charger().then(()=>{ if(c && [...$("pEngin").options].some(o=>o.value===c)){ $("pEngin").value=c; majCompteurSuggere(); } }); });
+</script>
+</body>
+</html>

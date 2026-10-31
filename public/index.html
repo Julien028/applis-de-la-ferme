@@ -127,14 +127,12 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
       <div class="field"><label for="ncId">Identifiant de connexion</label><input type="text" id="ncId" maxlength="40" autocapitalize="none" spellcheck="false" placeholder="valentine" required></div>
       <div class="field"><label for="ncRole">Rôle</label>
         <select id="ncRole"><option value="salarie">Salarié — consulte et calcule</option><option value="chef">Chef d'exploitation — modifie et gère les comptes</option></select></div>
-      <div class="field" id="ncDroitsBloc"><label>Ce qu'il peut modifier</label>
-        <div class="droits" id="ncDroits">
-          <label><input type="checkbox" value="pluie" checked> Saisir la pluie</label>
-          <label><input type="checkbox" value="pmg"> PMG des semences</label>
-          <label><input type="checkbox" value="semences"> Semences (dose, quantités…)</label>
-          <label><input type="checkbox" value="enrouleurs"> Enrouleurs</label>
-        </div>
-        <p class="hint">Sans case cochée, il consulte et fait les calculs. Modifiable plus tard dans la liste ci-dessus.</p>
+      <div class="field" id="ncDroitsBloc">
+        <label>Les applis qu'il peut ouvrir</label>
+        <div class="droits" id="ncAcces"></div>
+        <label style="margin-top:10px">Ce qu'il peut noter ou modifier</label>
+        <div class="droits" id="ncDroits"></div>
+        <p class="hint">Sans case « noter ou modifier », il consulte et fait les calculs. Tout se change plus tard dans la liste ci-dessus.</p>
       </div>
       <button type="submit" class="bouton">Créer le compte</button>
       <p class="msg erreur" id="ncErreur" hidden></p>
@@ -168,17 +166,25 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
 <section>
   <h2>Les applis</h2>
   <div class="tuiles">
-    <a class="tuile" href="dose-de-semis/">
+    <a class="tuile" href="dose-de-semis/" data-appli="dose">
       <img src="dose-de-semis/apple-touch-icon.png" alt="">
       <div><div class="t">Dose de semis</div><div class="d">Du PMG à la dose en kg/ha, surface faisable, essai de débit, récapitulatif par campagne.</div></div>
     </a>
-    <a class="tuile" href="irrigation-enrouleur/">
+    <a class="tuile" href="irrigation-enrouleur/" data-appli="irrigation">
       <img src="irrigation-enrouleur/icon-192.png" alt="">
       <div><div class="t">Irrigation enrouleur</div><div class="d">Dose d'eau ou vitesse d'avancement, enrouleurs de l'exploitation enregistrés.</div></div>
     </a>
-    <a class="tuile" href="pluviometrie/">
+    <a class="tuile" href="pluviometrie/" data-appli="pluie">
       <div class="vide" aria-hidden="true">🌧️</div>
       <div><div class="t">Pluviométrie</div><div class="d">Relevés de pluie par pluviomètre, tableau de l'année, historique en graphique.</div></div>
+    </a>
+    <a class="tuile" href="gnr/" data-appli="gnr">
+      <div class="vide" aria-hidden="true">⛽</div>
+      <div><div class="t">Suivi du GNR</div><div class="d">Pleins des tracteurs, livraisons à la cuve, consommation par tracteur.</div></div>
+    </a>
+    <a class="tuile" href="tracteurs/" data-appli="tracteurs">
+      <div class="vide" aria-hidden="true">🚜</div>
+      <div><div class="t">Heures des tracteurs</div><div class="d">Sorties des tracteurs : heures, pour qui ou où, travail fait.</div></div>
     </a>
   </div>
 </section>
@@ -224,10 +230,13 @@ function codes(boite, titre, lignes){
 function dessiner(){
   $("blocConnexion").hidden = !!moi;
   $("blocCompte").hidden = !moi;
+  if(!moi) document.querySelectorAll(".tuile[data-appli]").forEach(t=>t.hidden=false);
   if(!moi){ $("blocAdmin").hidden=true; delete $("blocAdmin").dataset.vu; return; }
   $("quiNom").textContent = moi.compte.nom;
   $("quiExpl").textContent = moi.exploitation.nom+" · "+(moi.compte.role==="chef" ? "chef d'exploitation" : "salarié");
   $("ouvrirComptes").hidden = moi.compte.role!=="chef";
+  const acces = moi.compte.role==="chef" || !moi.droits || !moi.droits.acces ? null : moi.droits.acces;
+  document.querySelectorAll(".tuile[data-appli]").forEach(t=>{ t.hidden = !!acces && !acces[t.dataset.appli]; });
   const admin = !!moi.superAdmin && !$("blocAdmin").dataset.vu;
   $("blocAdmin").hidden = !moi.superAdmin;
   if(admin){ $("blocAdmin").dataset.vu="1"; dessinerExploitations(); }
@@ -279,7 +288,21 @@ $("formMdp").addEventListener("submit", async e=>{
 });
 
 // ----- comptes de l'exploitation (chef) -----
-const DROITS = [["pluie","Pluie"],["pmg","PMG"],["semences","Semences"],["enrouleurs","Enrouleurs"]];
+const APPLIS = [["dose","Dose de semis"],["irrigation","Irrigation"],["pluie","Pluviométrie"],["gnr","GNR"],["tracteurs","Heures tracteurs"]];
+const DROITS = [["pluie","Pluie"],["gnr","Pleins GNR"],["heures","Heures tracteurs"],["pmg","PMG"],["semences","Semences"],["enrouleurs","Enrouleurs"]];
+const DROITS_DEFAUT = {pluie:true, gnr:true, heures:true};
+// Des cases à cocher : liste [clé, libellé], valeurs, et ce qu'on fait au changement
+function cases(boite, liste, valeurs, change){
+  boite.innerHTML="";
+  liste.forEach(([k,lib])=>{
+    const l=document.createElement("label"); const i=document.createElement("input"); i.type="checkbox"; i.value=k; i.checked=!!valeurs[k];
+    if(change) i.addEventListener("change", ()=>change(k, i));
+    l.append(i, " "+lib); boite.appendChild(l);
+  });
+}
+const lireCases = boite => Object.fromEntries([...boite.querySelectorAll("input")].map(i=>[i.value, i.checked]));
+cases($("ncAcces"), APPLIS, Object.fromEntries(APPLIS.map(([k])=>[k,true])));
+cases($("ncDroits"), DROITS, DROITS_DEFAUT);
 async function dessinerComptes(){
   const corps=$("comptesLignes"); corps.innerHTML="";
   let liste=[];
@@ -291,17 +314,17 @@ async function dessinerComptes(){
     tr.querySelector("small").textContent = c.identifiant+" · "+(c.role==="chef" ? "chef d'exploitation" : "salarié")+(c.doit_changer && c.actif ? " · mot de passe provisoire" : "");
     const act=tr.lastChild;
     if(c.role==="salarie" && c.actif){
-      const box=document.createElement("div"); box.className="droits";
-      DROITS.forEach(([k,lib])=>{
-        const l=document.createElement("label"); const i=document.createElement("input"); i.type="checkbox"; i.checked=!!(c.droits&&c.droits[k]);
-        i.addEventListener("change", async ()=>{
-          const droits={...c.droits, [k]:i.checked};
-          try{ await appel("PATCH","/api/comptes/"+c.id,{droits}); c.droits=droits; }
-          catch(e){ i.checked=!i.checked; alert(e.message); }
-        });
-        l.append(i, " "+lib); box.appendChild(l);
-      });
-      tr.firstChild.appendChild(box);
+      const enregistrer = async (droits, i) => {
+        try{ await appel("PATCH","/api/comptes/"+c.id,{droits}); c.droits=droits; }
+        catch(e){ i.checked=!i.checked; alert(e.message); }
+      };
+      const t1=document.createElement("small"); t1.textContent="Ouvre :"; t1.style.marginTop="6px";
+      const b1=document.createElement("div"); b1.className="droits";
+      cases(b1, APPLIS, c.droits.acces||{}, (k,i)=>enregistrer({...c.droits, acces:{...c.droits.acces, [k]:i.checked}}, i));
+      const t2=document.createElement("small"); t2.textContent="Peut noter ou modifier :"; t2.style.marginTop="4px";
+      const b2=document.createElement("div"); b2.className="droits";
+      cases(b2, DROITS, c.droits, (k,i)=>enregistrer({...c.droits, [k]:i.checked}, i));
+      tr.firstChild.append(t1, b1, t2, b2);
     }
     if(c.id!==moi.compte.id){
       const r=document.createElement("button"); r.type="button"; r.className="lien"; r.textContent="Nouveau mot de passe";
@@ -332,9 +355,10 @@ $("ncRole").addEventListener("change",()=>{ $("ncDroitsBloc").hidden = $("ncRole
 $("formCompte").addEventListener("submit", async e=>{
   e.preventDefault(); message("ncErreur","");
   try{
-    const droits={}; $("ncDroits").querySelectorAll("input").forEach(i=>droits[i.value]=i.checked);
+    const droits={...lireCases($("ncDroits")), acces:lireCases($("ncAcces"))};
     const n=await appel("POST","/api/comptes",{nom:$("ncNom").value, identifiant:$("ncId").value, role:$("ncRole").value, droits});
     $("ncNom").value=""; $("ncId").value=""; delete $("ncId").dataset.touche; $("ncRole").value="salarie"; $("ncDroitsBloc").hidden=false;
+    cases($("ncAcces"), APPLIS, Object.fromEntries(APPLIS.map(([k])=>[k,true]))); cases($("ncDroits"), DROITS, DROITS_DEFAUT);
     codes("comptesCodes", n.nom, [["Identifiant",n.identifiant],["Mot de passe provisoire",n.motDePasse]]);
     dessinerComptes();
   }catch(err){ message("ncErreur", err.message, "erreur"); }
