@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiche de suivi</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/icone.svg" type="image/svg+xml">
+<style>
+/* Fiche A4 du suivi du GNR ou des heures des tracteurs, à enregistrer en PDF ou imprimer.
+   Paramètres : ?type=gnr|tracteurs&du=AAAA-MM-JJ&au=AAAA-MM-JJ&engin=<id>&qui=<pour qui> */
+:root{--encre:#1B2D1C;--doux:#5A6857;--ligne:#CFC8B8;--fond:#F3F0E8;--accent:#2F5D3A;color-scheme:light}
+body.gnr{--accent:#B5651D}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:#E9E5DA;color:var(--encre);font:11px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.outils{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--ligne);padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.outils .btn{min-height:46px;padding:0 18px;border:0;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+.outils .btn.doux{background:var(--fond);color:var(--encre)}
+.outils p{margin:0;color:var(--doux);font-size:.9rem;flex:1;min-width:200px}
+.outils .etat{font-size:.8rem;color:#B4472B}
+.message{max-width:600px;margin:30px auto;background:#fff;padding:20px;border-radius:12px;font-size:14px}
+.feuille{background:#fff;width:210mm;max-width:100%;margin:16px auto;padding:10mm;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.entete{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;border-bottom:2.5px solid var(--accent);padding-bottom:6px;margin-bottom:8px}
+.entete h1{font-size:19px;margin:0;font-family:Georgia,serif}
+.entete .ferme{font-size:11.5px;color:var(--doux);margin-top:2px}
+.entete .quoi{text-align:right;font-size:11px;color:var(--doux)}
+.entete .quoi b{display:block;font-size:14px;color:var(--encre)}
+.bilan{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.bilan div{background:var(--fond);border-radius:6px;padding:5px 8px;border-left:3px solid var(--accent)}
+.bilan small{display:block;font-size:9px;font-weight:700;color:var(--doux);text-transform:uppercase;letter-spacing:.03em}
+.bilan b{font-size:15px}
+h2{font-size:12.5px;margin:12px 0 4px;font-family:Georgia,serif;color:var(--accent)}
+.deux{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid var(--ligne);padding:2.5px 5px;vertical-align:top;text-align:left}
+th{background:var(--fond);font-size:9px;text-transform:uppercase;letter-spacing:.02em}
+td.n,th.n{text-align:right;white-space:nowrap}
+td.jour{white-space:nowrap}
+tr.total td{background:var(--fond);font-weight:700}
+tr.livraison td{background:#FBF4EA}
+.ecart{font-weight:700;color:#B4472B}
+.barre{width:30%}.barre div{height:8px;background:var(--accent);border-radius:2px;opacity:.75}
+.vide{color:#9A968C;font-style:italic}
+.signatures{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+.signatures div{border:1px solid var(--ligne);border-radius:6px;height:56px;padding:4px 8px;font-size:10px;color:var(--doux)}
+.pied{margin-top:10px;font-size:9px;color:var(--doux);display:flex;justify-content:space-between}
+/* Le temps de la photo pour le PDF, et à l'impression */
+body.photo{background:#fff}
+body.photo .outils{display:none}
+body.photo .feuille{width:190mm;max-width:none;margin:0;padding:0;box-shadow:none}
+@page{size:A4;margin:10mm}
+@media print{
+  body{background:#fff}
+  .outils{display:none}
+  .feuille{width:auto;margin:0;padding:0;box-shadow:none}
+  tr,.bloc{break-inside:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media (max-width:600px){ .feuille{padding:5mm;overflow-x:auto} body.photo .feuille{overflow:visible} }
+</style>
+</head>
+<body>
+  <div class="outils">
+    <button class="btn" id="pdf" type="button">📄 Enregistrer en PDF</button>
+    <button class="btn doux" id="imprimer" type="button">Imprimer</button>
+    <a class="btn doux" id="retour" href="../">Retour</a>
+    <p id="aide">Sur téléphone, le PDF arrive dans les téléchargements.</p>
+    <span class="etat" id="etat"></span><span id="qui" hidden></span>
+  </div>
+  <div class="message" id="pasConnecte" hidden>Connectez-vous d'abord <a href="../">depuis l'accueil</a>.</div>
+  <div class="message" id="pasAcces" hidden>Votre compte n'a pas accès à ce suivi.</div>
+  <div id="contenu" hidden><div class="feuille" id="feuille"></div></div>
+
+<script src="/commun/outil.js"></script>
+<script src="/commun/pdf.js"></script>
+<script>
+"use strict";
+const P=new URLSearchParams(location.search);
+const TYPE = P.get("type")==="tracteurs" ? "tracteurs" : "gnr";
+const an=new Date().getFullYear();
+const DU = /^\d{4}-\d{2}-\d{2}$/.test(P.get("du")||"") ? P.get("du") : an+"-01-01";
+const AU = /^\d{4}-\d{2}-\d{2}$/.test(P.get("au")||"") ? P.get("au") : aujourdhui();
+const ENGIN = P.get("engin") ? Number(P.get("engin")) : null;
+const QUI = P.get("qui") || "";
+document.body.classList.add(TYPE);
+$("retour").href = TYPE==="gnr" ? "/gnr/" : "/tracteurs/";
+const dateLongue = j => j.split("-").reverse().join("/");
+const esc = s => String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const h1 = x => fmt(x, x%1 ? 1 : 0);
+let nomFiche = "";
+
+// Toutes les années de la période, réunies
+async function lire(){
+  const ans=[]; for(let a=Number(DU.slice(0,4)); a<=Number(AU.slice(0,4)); a++) ans.push(a);
+  const reps=await Promise.all(ans.map(a=>appel("GET","/api/"+TYPE+"?annee="+a)));
+  const dans = x => x.jour>=DU && x.jour<=AU;
+  const d={engins:reps[reps.length-1].engins};
+  if(TYPE==="gnr"){
+    d.pleins=reps.flatMap(r=>r.pleins).filter(dans).filter(x=>!ENGIN||x.engin_id===ENGIN).sort((a,b)=>a.jour.localeCompare(b.jour)||a.id-b.id);
+    d.livraisons=ENGIN ? [] : reps.flatMap(r=>r.livraisons).filter(dans).sort((a,b)=>a.jour.localeCompare(b.jour));
+    d.pompe=ENGIN ? [] : (reps[reps.length-1].pompe||[]).filter(x=>x.au>=DU && x.du<=AU);
+  } else {
+    d.sorties=reps.flatMap(r=>r.sorties).filter(dans).filter(x=>(!ENGIN||x.engin_id===ENGIN)&&(!QUI||x.pour_qui===QUI)).sort((a,b)=>a.jour.localeCompare(b.jour)||a.id-b.id);
+  }
+  return d;
+}
+
+function entete(titre, d){
+  const e=ENGIN ? d.engins.find(x=>x.id===ENGIN) : null;
+  const filtre=[e ? e.nom+(e.plaque?" · "+e.plaque:"") : (TYPE==="gnr"?"Tous les engins":"Tous les tracteurs"), QUI ? "pour "+QUI : ""].filter(Boolean).join(" — ");
+  return '<div class="entete bloc"><div><h1>'+titre+'</h1><div class="ferme">'+esc(moi.exploitation.nom)+'</div></div>'
+    +'<div class="quoi"><b>du '+dateLongue(DU)+' au '+dateLongue(AU)+'</b>'+esc(filtre)+'</div></div>';
+}
+const pied = () => '<div class="pied"><span>Applis de la ferme · '+esc(moi.exploitation.nom)+'</span><span>Édité le '+new Date().toLocaleDateString("fr-FR")+' par '+esc(moi.compte.nom)+'</span></div>';
+const tuile = (k,v) => '<div><small>'+k+'</small><b>'+v+'</b></div>';
+
+/* ============ GNR ============ */
+function ficheGnr(d){
+  const nom=id=>{ const e=d.engins.find(x=>x.id===id); return e ? e.nom : "?"; };
+  const totP=d.pleins.reduce((s,x)=>s+x.litres,0), totL=d.livraisons.reduce((s,x)=>s+x.litres,0);
+  const avecPrix=d.livraisons.filter(x=>x.prix_litre), euros=avecPrix.reduce((s,x)=>s+x.litres*x.prix_litre,0);
+  let h=entete("Suivi du GNR", d);
+  h+='<div class="bilan bloc">'+tuile("Mis dans les engins", fmt(totP,0)+" L")+tuile("Pleins", d.pleins.length)
+    +(ENGIN ? tuile("Moyenne par plein", d.pleins.length?fmt(totP/d.pleins.length,0)+" L":"—")+tuile("Engin", esc(nom(ENGIN)))
+            : tuile("Livré à la cuve", d.livraisons.length?fmt(totL,0)+" L":"—")+tuile("Dépensé (HT)", avecPrix.length?fmt(euros,0)+" €":"—"))+'</div>';
+  // par engin
+  const ids=[...new Set(d.pleins.map(x=>x.engin_id))];
+  const lignes=ids.map(id=>{
+    const pl=d.pleins.filter(x=>x.engin_id===id), l=pl.reduce((s,x)=>s+x.litres,0);
+    const c=pl.filter(x=>x.compteur!=null); let lh=null, heures=null;
+    if(c.length>1){ heures=c[c.length-1].compteur-c[0].compteur; const apres=c.slice(1).reduce((s,x)=>s+x.litres,0); if(heures>0) lh=apres/heures; }
+    return {nom:nom(id), l, n:pl.length, heures, lh};
+  }).sort((a,b)=>b.l-a.l);
+  const max=Math.max(1,...lignes.map(x=>x.l));
+  let t='<table><tr><th>Engin</th><th class="n">Litres</th><th class="n">Part</th><th></th><th class="n">Pleins</th><th class="n">L/h</th></tr>';
+  lignes.forEach(x=>{ t+='<tr><td>'+esc(x.nom)+'</td><td class="n"><b>'+fmt(x.l,0)+' L</b></td><td class="n">'+(totP?fmt(x.l/totP*100,0)+' %':'')+'</td><td class="barre"><div style="width:'+(x.l/max*100).toFixed(1)+'%"></div></td><td class="n">'+x.n+'</td><td class="n">'+(x.lh?fmt(x.lh,1):"—")+'</td></tr>'; });
+  t+='<tr class="total"><td>Total</td><td class="n">'+fmt(totP,0)+' L</td><td></td><td></td><td class="n">'+d.pleins.length+'</td><td></td></tr></table>';
+  if(!ENGIN) h+='<h2>Par engin</h2>'+(lignes.length?t:'<p class="vide">Aucun plein sur la période.</p>');
+  // par mois
+  const mois={}; d.pleins.forEach(x=>{ const k=x.jour.slice(0,7); (mois[k]=mois[k]||{p:0,l:0}).p+=x.litres; });
+  d.livraisons.forEach(x=>{ const k=x.jour.slice(0,7); (mois[k]=mois[k]||{p:0,l:0}).l+=x.litres; });
+  const km=Object.keys(mois).sort(), mm=Math.max(1,...km.map(k=>mois[k].p));
+  if(km.length){
+    let m='<table><tr><th>Mois</th><th class="n">Pleins</th><th></th>'+(ENGIN?'':'<th class="n">Livré</th>')+'</tr>';
+    km.forEach(k=>{ m+='<tr><td>'+MOIS[Number(k.slice(5))-1]+' '+k.slice(0,4)+'</td><td class="n">'+(mois[k].p?fmt(mois[k].p,0)+' L':'')+'</td><td class="barre"><div style="width:'+(mois[k].p/mm*100).toFixed(1)+'%"></div></td>'+(ENGIN?'':'<td class="n">'+(mois[k].l?fmt(mois[k].l,0)+' L':'')+'</td>')+'</tr>'; });
+    h+='<h2>Par mois</h2>'+m+'</table>';
+  }
+  // livraisons et pompe
+  if(d.livraisons.length){
+    let l='<table><tr><th>Jour</th><th class="n">Litres</th><th class="n">Prix HT</th><th class="n">Montant HT</th><th>Fournisseur</th><th class="n">Index pompe</th></tr>';
+    d.livraisons.forEach(x=>{ l+='<tr><td class="jour">'+dateLongue(x.jour)+'</td><td class="n">'+fmt(x.litres,0)+' L</td><td class="n">'+(x.prix_litre?fmt(x.prix_litre,3)+' €/L':'')+'</td><td class="n">'+(x.prix_litre?fmt(x.litres*x.prix_litre,0)+' €':'')+'</td><td>'+esc(x.fournisseur||"")+'</td><td class="n">'+(x.index_pompe!=null?fmt(x.index_pompe,0):'')+'</td></tr>'; });
+    h+='<h2>Livraisons à la cuve</h2>'+l+'</table>';
+  }
+  if(d.pompe.length){
+    let p='<table><tr><th>Période</th><th class="n">Index</th><th class="n">Sorti de la pompe</th><th class="n">Pleins notés</th><th class="n">Écart</th></tr>';
+    d.pompe.forEach(x=>{ const gros=Math.abs(x.ecart)>Math.max(30,x.pompe*0.03);
+      p+='<tr><td class="jour">'+dateLongue(x.du)+' → '+dateLongue(x.au)+'</td><td class="n">'+fmt(x.index_du,0)+' → '+fmt(x.index_au,0)+'</td><td class="n">'+fmt(x.pompe,0)+' L</td><td class="n">'+fmt(x.note,0)+' L</td><td class="n'+(gros?' ecart':'')+'">'+(x.ecart>0?'+':'')+fmt(x.ecart,0)+' L</td></tr>'; });
+    h+='<h2>Compteur de la pompe</h2>'+p+'</table>';
+  }
+  // détail
+  let j='<table><tr><th>Jour</th><th>Engin</th><th class="n">Litres</th><th>Type de travail</th><th class="n">Compteur</th><th>Noté par</th></tr>';
+  d.pleins.forEach(x=>{ j+='<tr><td class="jour">'+dateLongue(x.jour)+'</td><td>'+esc(nom(x.engin_id))+'</td><td class="n">'+fmt(x.litres,0)+' L</td><td>'+esc(x.travail||"")+'</td><td class="n">'+(x.compteur!=null?fmt(x.compteur,1)+' h':'')+'</td><td>'+esc(x.saisi_par||"")+'</td></tr>'; });
+  h+='<h2>Détail des pleins</h2>'+(d.pleins.length?j+'</table>':'<p class="vide">Aucun plein sur la période.</p>');
+  nomFiche=nomFichier("gnr", ENGIN?nom(ENGIN):"", DU, AU);
+  return h+pied();
+}
+
+/* ============ HEURES DES TRACTEURS ============ */
+function ficheTracteurs(d){
+  const nom=id=>{ const e=d.engins.find(x=>x.id===id); return e ? e.nom : "?"; };
+  const S=d.sorties, tot=S.reduce((s,x)=>s+x.heures,0);
+  const qui=[...new Set(S.map(x=>x.pour_qui))].sort((a,b)=>a.localeCompare(b,"fr"));
+  const ids=[...new Set(S.map(x=>x.engin_id))].sort((a,b)=>nom(a).localeCompare(nom(b),"fr",{numeric:true}));
+  const somme=f=>S.filter(f).reduce((s,x)=>s+x.heures,0);
+  let h=entete("Heures des tracteurs", d);
+  const parQui=qui.map(q=>[q,somme(x=>x.pour_qui===q)]).sort((a,b)=>b[1]-a[1]);
+  h+='<div class="bilan bloc">'+tuile("Heures", h1(tot)+" h")+tuile("Sorties", S.length)
+    +parQui.slice(0,2).map(([q,v])=>tuile(esc(q), h1(v)+" h")).join("")+(parQui.length<2?tuile("Tracteurs", ids.length):"")+(parQui.length<1?tuile("—","—"):"")+'</div>';
+  if(S.length && (qui.length>1 || ids.length>1)){
+    let t='<table><tr><th>Pour qui / où</th>'+ids.map(id=>'<th class="n">'+esc(nom(id))+'</th>').join("")+'<th class="n">Total</th></tr>';
+    qui.forEach(q=>{ t+='<tr><td>'+esc(q)+'</td>'+ids.map(id=>{ const v=somme(x=>x.pour_qui===q&&x.engin_id===id); return '<td class="n">'+(v?h1(v):'')+'</td>'; }).join("")+'<td class="n"><b>'+h1(somme(x=>x.pour_qui===q))+' h</b></td></tr>'; });
+    t+='<tr class="total"><td>Total</td>'+ids.map(id=>'<td class="n">'+h1(somme(x=>x.engin_id===id))+'</td>').join("")+'<td class="n">'+h1(tot)+' h</td></tr></table>';
+    h+='<h2>Heures par tracteur et pour qui</h2>'+t;
+  }
+  let j='<table><tr><th>Jour</th>'+(ENGIN?'':'<th>Tracteur</th>')+'<th class="n">Début</th><th class="n">Fin</th><th class="n">Heures</th>'+(QUI?'':'<th>Pour qui</th>')+'<th>Travail</th><th>Noté par</th></tr>';
+  S.forEach(x=>{ j+='<tr><td class="jour">'+dateLongue(x.jour)+'</td>'+(ENGIN?'':'<td>'+esc(nom(x.engin_id))+'</td>')+'<td class="n">'+(x.debut!=null?fmt(x.debut,1):'')+'</td><td class="n">'+(x.fin!=null?fmt(x.fin,1):'')+'</td><td class="n"><b>'+fmt(x.heures,x.heures%1?2:0)+'</b></td>'+(QUI?'':'<td>'+esc(x.pour_qui)+'</td>')+'<td>'+esc(x.travail||"")+'</td><td>'+esc(x.saisi_par||"")+'</td></tr>'; });
+  if(S.length) j+='<tr class="total"><td colspan="'+(ENGIN?3:4)+'">Total</td><td class="n">'+h1(tot)+' h</td><td colspan="'+(QUI?2:3)+'"></td></tr>';
+  h+='<h2>Détail des sorties</h2>'+(S.length?j+'</table>':'<p class="vide">Aucune sortie sur la période.</p>');
+  // Relevé pour un tiers (Guillaume, ETA…) : cases de signature
+  if(QUI && !/bretonvilliers/i.test(QUI)) h+='<div class="signatures bloc"><div>Pour '+esc(moi.exploitation.nom)+'</div><div>Pour '+esc(QUI)+'</div></div>';
+  nomFiche=nomFichier("heures-tracteurs", ENGIN?nom(ENGIN):"", QUI, DU, AU);
+  return h+pied();
+}
+
+$("pdf").addEventListener("click", async ()=>{
+  const b=$("pdf"); b.disabled=true; b.textContent="Préparation…";
+  try{ await enregistrerPDF({nom:nomFiche, racine:$("feuille")}); }
+  catch(e){ alert(e.message||"Le PDF n'a pas pu être fait."); }
+  finally{ b.disabled=false; b.textContent="📄 Enregistrer en PDF"; }
+});
+$("imprimer").addEventListener("click", ()=>window.print());
+
+demarrer(TYPE, async ()=>{
+  try{
+    const d=await lire();
+    $("feuille").innerHTML = TYPE==="gnr" ? ficheGnr(d) : ficheTracteurs(d);
+    document.title = (TYPE==="gnr"?"GNR":"Heures des tracteurs")+" du "+dateLongue(DU)+" au "+dateLongue(AU);
+  }catch(e){ if(e.status===401) return deconnecte(); if(e.status===403) return sansAcces(); $("feuille").innerHTML='<p class="vide">'+esc(e.message)+'</p>'; }
+});
+</script>
+</body>
+</html>

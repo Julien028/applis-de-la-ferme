@@ -65,6 +65,40 @@ function gererEngins(ul, engins, recharger){
   });
 }
 
+// Carte « Fiche PDF » : période (raccourcis), tracteur, pour qui → ouvre /fiche/
+function preparerFiche(type){
+  const an=new Date().getFullYear(), m=new Date().getMonth();
+  const jour=(a,mo,j)=>a+"-"+deux(mo+1)+"-"+deux(j), fin=(a,mo)=>new Date(a,mo+1,0).getDate();
+  const periodes={
+    "Ce mois": [jour(an,m,1), aujourdhui()],
+    "Mois dernier": (()=>{ const a=m?an:an-1, mo=m?m-1:11; return [jour(a,mo,1), jour(a,mo,fin(a,mo))]; })(),
+    "Cette année": [an+"-01-01", aujourdhui()],
+    "Année dernière": [(an-1)+"-01-01", (an-1)+"-12-31"],
+    "Campagne": m>=8 ? [an+"-09-01", aujourdhui()] : [(an-1)+"-09-01", aujourdhui()]
+  };
+  const boite=$("fRaccourcis"); boite.innerHTML="";
+  Object.entries(periodes).forEach(([lib,[du,au]])=>{
+    const b=document.createElement("button"); b.type="button"; b.className="puce"; b.textContent=lib;
+    b.addEventListener("click", ()=>{ $("fDu").value=du; $("fAu").value=au; boite.querySelectorAll(".puce").forEach(x=>x.classList.toggle("choisi", x===b)); });
+    boite.appendChild(b);
+  });
+  if(!$("fDu").value){ $("fDu").value=periodes["Cette année"][0]; $("fAu").value=periodes["Cette année"][1]; boite.children[2].classList.add("choisi"); }
+  $("fOk").onclick=()=>{
+    if($("fDu").value>$("fAu").value){ alert("La date de début est après la date de fin."); return; }
+    const q=new URLSearchParams({type, du:$("fDu").value, au:$("fAu").value});
+    if($("fEngin").value) q.set("engin", $("fEngin").value);
+    if($("fQui") && $("fQui").value) q.set("qui", $("fQui").value);
+    location.href="/fiche/?"+q;
+  };
+}
+// Menu « tous / un engin » de la carte Fiche PDF (tous les engins, même mis de côté)
+function remplirFiltreEngins(select, engins, tous){
+  const avant=select.value; select.innerHTML="";
+  const o=document.createElement("option"); o.value=""; o.textContent=tous; select.appendChild(o);
+  engins.slice().sort((a,b)=>(b.actif-a.actif)||a.nom.localeCompare(b.nom,"fr",{numeric:true})).forEach(e=>{ const x=document.createElement("option"); x.value=e.id; x.textContent=e.nom; select.appendChild(x); });
+  if([...select.options].some(x=>x.value===avant)) select.value=avant;
+}
+
 function deconnecte(){ moi=null; $("pasConnecte").hidden=false; $("contenu").hidden=true; $("qui").textContent=""; try{ localStorage.removeItem("applis.moi"); }catch(e){} }
 function sansAcces(){ $("pasAcces").hidden=false; $("contenu").hidden=true; }
 

@@ -102,6 +102,19 @@
       <button class="lien" id="exporter" type="button">Exporter l'année (tableur)</button>
     </div>
 
+    <!-- ============ FICHE PDF ============ -->
+    <div class="card">
+      <h2>Fiche PDF</h2>
+      <p class="hint" style="margin-top:-4px">Une fiche A4 propre pour une période : bilan, tableaux et détail, à enregistrer en PDF ou imprimer.</p>
+      <div class="puces" id="fRaccourcis"></div>
+      <div class="grille2">
+        <div><label for="fDu">Du</label><input type="date" id="fDu"></div>
+        <div><label for="fAu">Au</label><input type="date" id="fAu"></div>
+      </div>
+      <label for="fEngin">Engin</label><select id="fEngin"></select>
+      <button class="principal large" id="fOk" type="button">Voir la fiche</button>
+    </div>
+
     <!-- ============ JOURNAL ============ -->
     <div class="card">
       <h2>Pleins et livraisons</h2>
@@ -159,6 +172,7 @@ function dessiner(){
   $("tEurosK").textContent = avecPrix.length && avecPrix.length<d.livraisons.length ? "dépensé (HT, livraisons avec prix)" : "dépensé (HT)";
   const trav=[...new Set(d.pleins.map(x=>x.travail).filter(Boolean))]; $("travaux").innerHTML=""; trav.forEach(f=>{ const o=document.createElement("option"); o.value=f; $("travaux").appendChild(o); });
   majIndexAttendu();
+  remplirFiltreEngins($("fEngin"), d.engins, "Tous les engins");
   dessinerParEngin(nomEngin); dessinerParMois(); dessinerPompe(); dessinerJournal(nomEngin); dessinerEngins();
 }
 
@@ -308,7 +322,7 @@ $("exporter").addEventListener("click",()=>{
   telecharger("gnr-"+annee+".csv", l);
 });
 
-demarrer("gnr", ()=>{ const c=lireChoix("gnr.engin"); charger().then(()=>{ if(c && [...$("pEngin").options].some(o=>o.value===c)){ $("pEngin").value=c; majCompteurSuggere(); } }); });
+demarrer("gnr", ()=>{ preparerFiche("gnr"); const c=lireChoix("gnr.engin"); charger().then(()=>{ if(c && [...$("pEngin").options].some(o=>o.value===c)){ $("pEngin").value=c; majCompteurSuggere(); } }); });
 </script>
 </body>
 </html>

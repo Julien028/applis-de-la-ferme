@@ -59,6 +59,20 @@
       <button class="lien" id="exporter" type="button">Exporter l'année (tableur)</button>
     </div>
 
+    <!-- ============ FICHE PDF ============ -->
+    <div class="card">
+      <h2>Fiche PDF</h2>
+      <p class="hint" style="margin-top:-4px">Une fiche A4 propre pour une période : bilan, tableaux et détail, à enregistrer en PDF ou imprimer.</p>
+      <div class="puces" id="fRaccourcis"></div>
+      <div class="grille2">
+        <div><label for="fDu">Du</label><input type="date" id="fDu"></div>
+        <div><label for="fAu">Au</label><input type="date" id="fAu"></div>
+      </div>
+      <label for="fEngin">Tracteur</label><select id="fEngin"></select>
+      <label for="fQui">Pour qui / où</label><select id="fQui"></select>
+      <button class="principal large" id="fOk" type="button">Voir la fiche</button>
+    </div>
+
     <!-- ============ JOURNAL ============ -->
     <div class="card">
       <h2>Les sorties</h2>
@@ -98,6 +112,8 @@ function dessiner(){
   if(!$("sJour").value) $("sJour").value=aujourdhui();
   const dl=$("lieux"); dl.innerHTML=""; [...new Set([...d.lieux, "Bretonvilliers", "Dimancheville"])].forEach(l=>{ const o=document.createElement("option"); o.value=l; dl.appendChild(o); });
   majDebutSuggere(); majCalcul();
+  remplirFiltreEngins($("fEngin"), d.engins, "Tous les tracteurs");
+  { const f=$("fQui"), avant=f.value; f.innerHTML="<option value=\"\">Tout le monde</option>"; [...new Set(["Bretonvilliers","Dimancheville",...d.lieux])].sort((a,b)=>a.localeCompare(b,"fr")).forEach(l=>{ const o=document.createElement("option"); o.value=l; o.textContent=l; f.appendChild(o); }); f.value=avant; }
   // année
   $("anTitre").textContent=annee; $("anSuiv").disabled = annee>=new Date().getFullYear();
   const tot=d.sorties.reduce((s,x)=>s+x.heures,0);
@@ -181,7 +197,7 @@ $("exporter").addEventListener("click",()=>{
   telecharger("heures-tracteurs-"+annee+".csv", l);
 });
 
-demarrer("tracteurs", ()=>{
+demarrer("tracteurs", ()=>{ preparerFiche("tracteurs");
   const q=lireChoix("tracteurs.qui"); if(q) $("sPourQui").value=q;
   const c=lireChoix("tracteurs.engin");
   charger().then(()=>{ if(c && [...$("sEngin").options].some(o=>o.value===c)){ $("sEngin").value=c; majDebutSuggere(); } });
