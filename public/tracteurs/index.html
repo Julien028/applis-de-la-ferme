@@ -35,8 +35,8 @@
         <div class="row"><input type="number" id="sHeures" inputmode="decimal" step="0.25" min="0"><span class="unit">h</span></div>
         <p class="hint" id="sCalcul"></p>
         <p class="hint" id="sDernier"></p>
-        <label for="sPourQui">Pour qui / où</label>
-        <input type="text" id="sPourQui" list="lieux" maxlength="60" placeholder="Bretonvilliers, Guillaume, ETA…" autocomplete="off">
+        <label for="sPourQui">Pour qui (société) / où</label>
+        <input type="text" id="sPourQui" list="lieux" maxlength="60" placeholder="Bretonvilliers, Dimancheville, Guillaume, ETA…" autocomplete="off">
         <datalist id="lieux"></datalist>
         <label for="sTravail">Travail <span class="leger">(facultatif)</span></label>
         <input type="text" id="sTravail" maxlength="120" placeholder="ex. labour, semis, transport…">
@@ -95,7 +95,7 @@ function dessiner(){
   $("pasDEngin").hidden = !!actifs.length; $("formSortie").hidden = !actifs.length;
   $("pasDEngin").textContent = chef() ? "Ajoutez d'abord vos tracteurs, en bas de la page." : "Le chef d'exploitation n'a pas encore créé la liste des tracteurs.";
   if(!$("sJour").value) $("sJour").value=aujourdhui();
-  const dl=$("lieux"); dl.innerHTML=""; [...new Set([...d.lieux, "Bretonvilliers"])].forEach(l=>{ const o=document.createElement("option"); o.value=l; dl.appendChild(o); });
+  const dl=$("lieux"); dl.innerHTML=""; [...new Set([...d.lieux, "Bretonvilliers", "Dimancheville"])].forEach(l=>{ const o=document.createElement("option"); o.value=l; dl.appendChild(o); });
   majDebutSuggere(); majCalcul();
   // année
   $("anTitre").textContent=annee; $("anSuiv").disabled = annee>=new Date().getFullYear();
@@ -144,8 +144,9 @@ function dessiner(){
 
 function majDebutSuggere(){
   const c=donnees && (donnees.compteurs.find(x=>x.engin_id===Number($("sEngin").value))||{}).compteur;
-  $("sDebut").placeholder = c!=null ? String(c).replace(".",",") : "ex. 4520";
-  $("sDernier").textContent = c!=null ? "Dernier compteur noté pour ce tracteur : "+fmt(c,1)+" h." : "";
+  $("sDebut").placeholder = "ex. 4520";
+  if(!$("sFin").value) $("sDebut").value = c!=null ? c : "";  // départ = dernier compteur noté, comme sur la feuille
+  $("sDernier").textContent = c!=null ? "Départ rempli avec le dernier compteur noté ("+fmt(c,1)+" h) ; corrigez-le si besoin." : "";
 }
 function majCalcul(){
   const d=parseFloat($("sDebut").value), f=parseFloat($("sFin").value);
