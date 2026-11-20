@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entretien du matériel</title>
+<meta name="theme-color" content="#3A5F7D">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/commun/outil.css">
+<style>
+.groupe{margin:14px 0 4px;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.machines{list-style:none;margin:0;padding:0}
+.machines li{border-bottom:1px solid var(--grille)}
+.machines button{display:flex;width:100%;align-items:center;gap:8px;background:none;border:0;padding:10px 2px;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
+.machines button span{flex:1;font-weight:600}
+.machines button small{color:var(--muted);font-size:.78rem;white-space:nowrap}
+.machines button::after{content:"›";color:var(--muted);font-size:1.2rem}
+.machines li.cote span{font-weight:400;color:var(--muted)}
+.texte{white-space:pre-wrap;background:var(--accent-clair);border-radius:12px;padding:10px 12px;font-size:.92rem;margin:4px 0 0}
+.fiche-tete{display:flex;align-items:flex-start;gap:8px}
+.fiche-tete h2{flex:1;margin:0}
+.fiche-tete .cat{font-size:.8rem;color:var(--muted)}
+.carnet{list-style:none;margin:6px 0 0;padding:0}
+.carnet li{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--grille)}
+.carnet .date{min-width:70px;color:var(--muted);font-size:.85rem;white-space:nowrap;padding-top:1px}
+.carnet .quoi{flex:1;white-space:pre-wrap;font-size:.95rem}
+.carnet .quoi b{display:block;font-size:.85rem;color:var(--accent-fonce)}
+.carnet .quoi small{display:block;color:var(--muted);font-size:.78rem;margin-top:2px}
+input[type=search]{margin-bottom:4px}
+</style>
+</head>
+<body class="theme-entretien">
+  <div class="applis"><a href="../">← Applis de la ferme</a><span id="qui"></span><span class="etat" id="etat"></span></div>
+  <h1>Entretien du matériel</h1>
+  <p class="sub">Ce qui a été fait sur chaque machine, et quand.</p>
+
+  <div class="card" id="pasConnecte" hidden><p class="vide" style="margin:0">L'entretien du matériel est enregistré dans l'espace de l'exploitation : <a href="../">connectez-vous depuis l'accueil</a>.</p></div>
+  <div class="card" id="pasAcces" hidden><p class="vide" style="margin:0">Votre compte n'a pas accès à l'entretien du matériel. Demandez-le au chef d'exploitation.</p></div>
+
+  <div id="contenu" hidden>
+    <!-- ============ FICHE D'UNE MACHINE ============ -->
+    <div class="card" id="fiche" hidden>
+      <div class="fiche-tete"><div style="flex:1"><h2 id="fNom"></h2><div class="cat" id="fCat"></div></div><button class="lien" id="fFermer" type="button">Fermer ✕</button></div>
+      <div id="fInfosBloc"><h3>Infos</h3><p class="texte" id="fInfos"></p></div>
+      <div id="fPiecesBloc"><h3>Pièces et références</h3><p class="texte" id="fPieces"></p></div>
+      <button class="principal large" id="fNoter" type="button">🔧 Noter un entretien</button>
+      <h3>Carnet d'entretien</h3>
+      <ul class="carnet" id="fCarnet"></ul>
+      <div id="fChef" hidden>
+        <button class="lien" id="fModifier" type="button">Modifier la fiche</button>
+        <button class="lien" id="fCote" type="button"></button>
+        <div class="panneau" id="fForm" hidden>
+          <label for="mNom">Nom</label><input type="text" id="mNom" maxlength="80">
+          <label for="mCat">Catégorie</label><input type="text" id="mCat" maxlength="40" list="categories" autocomplete="off">
+          <label for="mInfos">Infos <span class="leger">(date d'arrivée, n° de série, remarques)</span></label><textarea id="mInfos" rows="3" maxlength="2000"></textarea>
+          <label for="mPieces">Pièces et références <span class="leger">(filtres, huiles, courroies…)</span></label><textarea id="mPieces" rows="6" maxlength="4000"></textarea>
+          <button class="principal large" id="mOk" type="button">Enregistrer la fiche</button>
+          <p class="msg" id="mMsg" hidden></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ NOTER ============ -->
+    <div class="card" id="carteNoter">
+      <h2>Noter un entretien</h2>
+      <p class="vide" id="pasDeMateriel" hidden></p>
+      <div id="formNoter">
+        <label for="nMateriel">Matériel</label><select id="nMateriel"></select>
+        <div class="grille2">
+          <div><label for="nJour">Jour</label><input type="date" id="nJour"></div>
+          <div><label for="nCompteur">Compteur <span class="leger">(facultatif)</span></label><div class="row"><input type="number" id="nCompteur" inputmode="decimal" step="any" min="0"><span class="unit">h</span></div></div>
+        </div>
+        <label for="nTravail">Ce qui a été fait</label>
+        <textarea id="nTravail" rows="3" maxlength="2000" placeholder="ex. vidange moteur + filtres, changé les dents, réparé la fuite…"></textarea>
+        <label for="nPieces">Pièces <span class="leger">(facultatif)</span></label>
+        <input type="text" id="nPieces" maxlength="1000" placeholder="ex. filtre à huile 84228488, 12 L 15W40">
+        <label for="nOu">Fait où / par qui <span class="leger">(facultatif)</span></label>
+        <input type="text" id="nOu" list="lieux" maxlength="60" placeholder="À la ferme, garage Lecoq…" autocomplete="off">
+        <datalist id="lieux"></datalist>
+        <button class="principal large" id="nOk" type="button">Enregistrer</button>
+        <p class="msg" id="nMsg" hidden></p>
+      </div>
+    </div>
+
+    <!-- ============ LE MATÉRIEL ============ -->
+    <div class="card">
+      <h2>Le matériel</h2>
+      <input type="search" id="chercher" placeholder="Chercher une machine…" autocomplete="off">
+      <div id="liste"></div>
+      <div id="ajout" hidden>
+        <div class="panneau">
+          <h3 style="margin-top:0">Ajouter du matériel</h3>
+          <div class="grille2"><div><label for="aNom">Nom</label><input type="text" id="aNom" maxlength="80" placeholder="ex. TM150"></div>
+          <div><label for="aCat">Catégorie</label><input type="text" id="aCat" maxlength="40" list="categories" autocomplete="off" placeholder="ex. Outils"></div></div>
+          <datalist id="categories"></datalist>
+          <button class="principal" id="aOk" type="button" style="margin-top:10px">Ajouter</button>
+          <p class="hint">Ensuite, touchez la machine dans la liste pour compléter sa fiche (infos, pièces).</p>
+          <p class="msg" id="aMsg" hidden></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ DERNIERS ENTRETIENS ============ -->
+    <div class="card">
+      <h2>Derniers entretiens</h2>
+      <ul class="carnet" id="derniers"></ul>
+      <button class="lien" id="exporter" type="button">Exporter tout le carnet (tableur)</button>
+    </div>
+  </div>
+
+<script src="/commun/outil.js"></script>
+<script>
+"use strict";
+const CATEGORIES = ["Tracteurs et automoteurs","Outils","Pommes de terre","Irrigation","Bâtiments et atelier"];
+let donnees = null, ouverte = null;
+
+// Une date du carnet : jour (AAAA-MM-JJ) ou seulement le mois (AAAA-MM)
+const dateCarnet = j => j.length===7 ? MOIS[Number(j.slice(5))-1].toLowerCase()+" "+j.slice(0,4) : j.slice(8)+"/"+j.slice(5,7)+"/"+j.slice(0,4);
+const nomDe = id => (donnees.materiel.find(m=>m.id===id)||{}).nom || "?";
+
+async function charger(){
+  donnees = relire("entretien") || donnees;
+  if(donnees) dessiner();
+  try{ donnees = await appel("GET","/api/entretien"); garder("entretien", donnees); etat("À jour"); dessiner(); }
+  catch(e){ if(e.status===401) return deconnecte(); if(e.status===403) return sansAcces(); etat("Hors ligne : dernières données connues", true); }
+}
+
+function ligneCarnet(x, avecMachine){
+  const li=document.createElement("li");
+  li.innerHTML="<div class=\"date\"></div><div class=\"quoi\"></div><div></div>";
+  li.children[0].textContent=dateCarnet(x.jour);
+  const q=li.children[1];
+  if(avecMachine){ const b=document.createElement("b"); b.textContent=nomDe(x.materiel_id); q.appendChild(b); }
+  q.appendChild(document.createTextNode(x.travail));
+  const det=[x.compteur!=null ? fmt(x.compteur, x.compteur%1?1:0)+" h" : "", x.pieces ? "Pièces : "+x.pieces : "", x.ou, x.saisi_par ? "noté par "+x.saisi_par : ""].filter(Boolean).join(" · ");
+  if(det){ const s=document.createElement("small"); s.textContent=det; q.appendChild(s); }
+  if(chef() || x.saisi_par_id===moi.compte.id){
+    const b=document.createElement("button"); b.className="croix"; b.type="button"; b.title="Effacer"; b.textContent="✕";
+    b.addEventListener("click", async ev=>{ ev.stopPropagation();
+      if(!confirm("Effacer cet entretien du "+dateCarnet(x.jour)+" ("+nomDe(x.materiel_id)+") ?")) return;
+      try{ await appel("DELETE","/api/entretien/"+x.id); await charger(); }catch(e){ alert(e.message); } });
+    li.children[2].appendChild(b);
+  }
+  return li;
+}
+
+function dessiner(){
+  const d=donnees, actifs=d.materiel.filter(m=>m.actif);
+  // catégories proposées
+  const cats=[...new Set([...CATEGORIES, ...d.materiel.map(m=>m.categorie)])];
+  $("categories").innerHTML=""; cats.forEach(c=>{ const o=document.createElement("option"); o.value=c; $("categories").appendChild(o); });
+  // formulaire
+  $("carteNoter").hidden = !peut("entretien");
+  const sel=$("nMateriel"), avant=sel.value; sel.innerHTML="";
+  const parCat=liste=>{ const g={}; liste.forEach(m=>(g[m.categorie]=g[m.categorie]||[]).push(m)); return Object.keys(g).sort((a,b)=>(CATEGORIES.indexOf(a)+1||99)-(CATEGORIES.indexOf(b)+1||99)||a.localeCompare(b,"fr")).map(c=>[c, g[c].sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{numeric:true}))]); };
+  parCat(actifs).forEach(([c,ms])=>{ const og=document.createElement("optgroup"); og.label=c; ms.forEach(m=>{ const o=document.createElement("option"); o.value=m.id; o.textContent=m.nom; og.appendChild(o); }); sel.appendChild(og); });
+  if([...sel.options].some(o=>o.value===avant)) sel.value=avant;
+  $("pasDeMateriel").hidden=!!actifs.length; $("formNoter").hidden=!actifs.length;
+  $("pasDeMateriel").textContent = chef() ? "Ajoutez d'abord votre matériel, dans la carte « Le matériel » ci-dessous." : "Le chef d'exploitation n'a pas encore créé la liste du matériel.";
+  if(!$("nJour").value) $("nJour").value=aujourdhui();
+  $("lieux").innerHTML=""; [...new Set([...d.lieux,"À la ferme","Garage Lecoq"])].forEach(l=>{ const o=document.createElement("option"); o.value=l; $("lieux").appendChild(o); });
+  // liste du matériel
+  const filtre=$("chercher").value.trim().toLowerCase(), boite=$("liste"); boite.innerHTML="";
+  const visibles=d.materiel.filter(m=>(m.actif||chef()) && (!filtre || (m.nom+" "+m.categorie).toLowerCase().includes(filtre)));
+  if(!d.materiel.length) boite.innerHTML="<p class=\"vide\">Aucun matériel pour l'instant.</p>";
+  else if(!visibles.length) boite.innerHTML="<p class=\"vide\">Aucune machine ne correspond.</p>";
+  parCat(visibles).forEach(([c,ms])=>{
+    const t=document.createElement("div"); t.className="groupe"; t.textContent=c; boite.appendChild(t);
+    const ul=document.createElement("ul"); ul.className="machines";
+    ms.sort((a,b)=>b.actif-a.actif).forEach(m=>{
+      const der=d.entretiens.find(x=>x.materiel_id===m.id);
+      const li=document.createElement("li"); if(!m.actif) li.className="cote";
+      const b=document.createElement("button"); b.type="button"; b.innerHTML="<span></span><small></small>";
+      b.firstChild.textContent=m.nom+(m.actif?"":" (mis de côté)");
+      b.lastChild.textContent= der ? "dernier : "+dateCarnet(der.jour) : "rien de noté";
+      b.addEventListener("click",()=>ouvrir(m.id));
+      li.appendChild(b); ul.appendChild(li);
+    });
+    boite.appendChild(ul);
+  });
+  $("ajout").hidden=!chef();
+  // derniers entretiens
+  const dl=$("derniers"); dl.innerHTML="";
+  if(!d.entretiens.length) dl.innerHTML="<li><span class=\"vide\">Rien de noté pour l'instant.</span></li>";
+  d.entretiens.slice(0,30).forEach(x=>{ const li=ligneCarnet(x,true); li.style.cursor="pointer"; li.addEventListener("click",()=>ouvrir(x.materiel_id)); dl.appendChild(li); });
+  // fiche ouverte
+  if(ouverte) dessinerFiche();
+}
+
+function ouvrir(id){ ouverte=id; history.replaceState(null,"","#m"+id); $("fForm").hidden=true; dessinerFiche(); $("fiche").scrollIntoView({behavior:"smooth",block:"start"}); }
+function fermer(){ ouverte=null; history.replaceState(null,"",location.pathname); $("fiche").hidden=true; }
+function dessinerFiche(){
+  const m=donnees.materiel.find(x=>x.id===ouverte); if(!m){ fermer(); return; }
+  $("fiche").hidden=false;
+  $("fNom").textContent=m.nom+(m.actif?"":" (mis de côté)"); $("fCat").textContent=m.categorie;
+  $("fInfosBloc").hidden=!m.infos; $("fInfos").textContent=m.infos||"";
+  $("fPiecesBloc").hidden=!m.pieces; $("fPieces").textContent=m.pieces||"";
+  $("fNoter").hidden=!peut("entretien") || !m.actif;
+  const c=$("fCarnet"); c.innerHTML="";
+  const liste=donnees.entretiens.filter(x=>x.materiel_id===m.id);
+  if(!liste.length) c.innerHTML="<li><span class=\"vide\">Rien de noté pour cette machine.</span></li>";
+  liste.forEach(x=>c.appendChild(ligneCarnet(x,false)));
+  $("fChef").hidden=!chef();
+  $("fCote").textContent = m.actif ? "Mettre de côté" : "Reprendre";
+}
+
+$("fFermer").addEventListener("click", fermer);
+$("fNoter").addEventListener("click",()=>{ $("nMateriel").value=ouverte; $("carteNoter").scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(()=>$("nTravail").focus(),400); });
+$("fModifier").addEventListener("click",()=>{
+  const m=donnees.materiel.find(x=>x.id===ouverte); const f=$("fForm"); f.hidden=!f.hidden; message("mMsg","");
+  $("mNom").value=m.nom; $("mCat").value=m.categorie; $("mInfos").value=m.infos||""; $("mPieces").value=m.pieces||"";
+});
+$("mOk").addEventListener("click", async ()=>{
+  try{ await appel("PATCH","/api/entretien/materiel/"+ouverte,{nom:$("mNom").value, categorie:$("mCat").value, infos:$("mInfos").value, pieces:$("mPieces").value}); $("fForm").hidden=true; await charger(); }
+  catch(e){ message("mMsg", e.message, "erreur"); }
+});
+$("fCote").addEventListener("click", async ()=>{
+  const m=donnees.materiel.find(x=>x.id===ouverte);
+  if(m.actif && !confirm("Mettre « "+m.nom+" » de côté (vendu, plus utilisé) ? Il ne sera plus proposé ; son carnet est gardé.")) return;
+  try{ await appel("PATCH","/api/entretien/materiel/"+m.id,{actif:!m.actif}); await charger(); }catch(e){ alert(e.message); }
+});
+$("chercher").addEventListener("input", dessiner);
+$("nMateriel").addEventListener("change",()=>garderChoix("entretien.materiel",$("nMateriel").value));
+$("nOk").addEventListener("click", async ()=>{
+  message("nMsg","");
+  if($("nJour").value>aujourdhui()){ message("nMsg","Ce jour n'est pas encore arrivé.","erreur"); return; }
+  try{
+    await appel("POST","/api/entretien",{materiel:$("nMateriel").value, jour:$("nJour").value, compteur:$("nCompteur").value, travail:$("nTravail").value, pieces:$("nPieces").value, ou:$("nOu").value});
+    const nom=$("nMateriel").selectedOptions[0].textContent;
+    ["nCompteur","nTravail","nPieces"].forEach(i=>$(i).value=""); garderChoix("entretien.ou",$("nOu").value);
+    await charger(); message("nMsg","Noté sur le carnet de "+nom+".","ok");
+  }catch(e){ message("nMsg", e.message, "erreur"); }
+});
+$("aOk").addEventListener("click", async ()=>{
+  message("aMsg","");
+  try{ const r=await appel("POST","/api/entretien/materiel",{nom:$("aNom").value, categorie:$("aCat").value}); $("aNom").value=""; await charger(); message("aMsg","Ajouté.","ok"); ouvrir(r.id); }
+  catch(e){ message("aMsg", e.message, "erreur"); }
+});
+$("exporter").addEventListener("click",()=>{
+  const d=donnees, cat=id=>(d.materiel.find(m=>m.id===id)||{}).categorie||"";
+  const l=[["Date","Matériel","Catégorie","Ce qui a été fait","Compteur (h)","Pièces","Fait où / par qui","Noté par"].join(";")];
+  d.entretiens.slice().sort((a,b)=>a.jour.localeCompare(b.jour)).forEach(x=>l.push([x.jour.length===7?x.jour.slice(5)+"/"+x.jour.slice(0,4):x.jour.split("-").reverse().join("/"), nomDe(x.materiel_id), cat(x.materiel_id), x.travail, x.compteur!=null?num(x.compteur):"", x.pieces||"", x.ou||"", x.saisi_par||""].map(csv).join(";")));
+  telecharger("entretien-materiel.csv", l);
+});
+
+demarrer("entretien", ()=>{
+  const o=lireChoix("entretien.ou"); if(o) $("nOu").value=o;
+  const m=/^#m(\d+)$/.exec(location.hash); if(m) ouverte=Number(m[1]);
+  const c=lireChoix("entretien.materiel");
+  charger().then(()=>{ if(c && [...$("nMateriel").options].some(o=>o.value===c)) $("nMateriel").value=c; if(ouverte) dessinerFiche(); });
+});
+</script>
+</body>
+</html>

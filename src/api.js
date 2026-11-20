@@ -18,23 +18,26 @@ const CLES_REGLAGES = ['enrouleurs', 'largVille']; // irrigation enrouleur
 const TAILLE_MAX_REGLAGE = 50000;
 // Ce qu'un salarié peut modifier, coché par le chef (le chef peut tout)
 // Ce qu'il peut modifier (cases du chef)…
-export const DROITS = ['pluie', 'gnr', 'heures', 'pmg', 'semences', 'enrouleurs'];
+export const DROITS = ['pluie', 'gnr', 'heures', 'entretien', 'pmg', 'semences', 'enrouleurs'];
 // … et les applis qu'il peut ouvrir (31/10/2026). Absent = toutes (comptes plus anciens).
-export const APPLIS = ['dose', 'irrigation', 'pluie', 'gnr', 'tracteurs'];
+export const APPLIS = ['dose', 'irrigation', 'pluie', 'gnr', 'tracteurs', 'entretien'];
+// Applis et droits ajoutés après coup : ouverts / cochés pour les comptes qui n'en disent rien
+const NOUVEAUX = { entretien: true };
 // Chaque droit de modification dépend de l'accès à son appli
-const APPLI_DU_DROIT = { pluie: 'pluie', gnr: 'gnr', heures: 'tracteurs', pmg: 'dose', semences: 'dose', enrouleurs: 'irrigation' };
+const APPLI_DU_DROIT = { pluie: 'pluie', gnr: 'gnr', heures: 'tracteurs', entretien: 'entretien', pmg: 'dose', semences: 'dose', enrouleurs: 'irrigation' };
 const tout = liste => Object.fromEntries(liste.map(k => [k, true]));
 // masque : un droit de modification ne vaut que si l'appli est ouverte (faux pour la liste du chef, qui coche tout)
 function lireDroits(brut, masque = true) {
   let d = {};
   try { d = JSON.parse(brut || '{}') || {}; } catch {}
-  const acces = d.acces && typeof d.acces === 'object' ? Object.fromEntries(APPLIS.map(k => [k, !!d.acces[k]])) : tout(APPLIS);
-  return { ...Object.fromEntries(DROITS.map(k => [k, !!d[k] && (!masque || acces[APPLI_DU_DROIT[k]])])), acces };
+  const lire = (o, k) => k in o ? !!o[k] : !!NOUVEAUX[k];
+  const acces = d.acces && typeof d.acces === 'object' ? Object.fromEntries(APPLIS.map(k => [k, lire(d.acces, k)])) : tout(APPLIS);
+  return { ...Object.fromEntries(DROITS.map(k => [k, lire(d, k) && (!masque || acces[APPLI_DU_DROIT[k]])])), acces };
 }
 const droitsDe = m => m.role === 'chef' ? { ...tout(DROITS), acces: tout(APPLIS) } : lireDroits(m.droits);
 const peut = (m, droit) => !!droitsDe(m)[droit];
 const voit = (m, appli) => !!droitsDe(m).acces[appli];
-const DROITS_PAR_DEFAUT = { pluie: true, gnr: true, heures: true, acces: tout(APPLIS) };
+const DROITS_PAR_DEFAUT = { pluie: true, gnr: true, heures: true, entretien: true, acces: tout(APPLIS) };
 function droitsDepuis(corps, defaut) {
   if (!corps || typeof corps !== 'object') return JSON.stringify(defaut);
   const acces = corps.acces && typeof corps.acces === 'object' ? Object.fromEntries(APPLIS.map(k => [k, !!corps.acces[k]])) : tout(APPLIS);
@@ -246,6 +249,7 @@ export async function api(request, env, url) {
   if ((p[0] === 'pluviometres' || p[0] === 'pluie') && !voit(moi, 'pluie')) return erreur(403, 'Vous n\'avez pas accès à la pluviométrie.');
   if (p[0] === 'gnr' && !voit(moi, 'gnr') && !(chef)) return erreur(403, 'Vous n\'avez pas accès au suivi du GNR.');
   if (p[0] === 'tracteurs' && !voit(moi, 'tracteurs')) return erreur(403, 'Vous n\'avez pas accès aux heures des tracteurs.');
+  if (p[0] === 'entretien' && !voit(moi, 'entretien')) return erreur(403, 'Vous n\'avez pas accès à l\'entretien du matériel.');
 
   if (p[0] === 'semences') {
     if (p.length === 1 && methode === 'GET') {
@@ -593,6 +597,76 @@ export async function api(request, env, url) {
       if (!chef && l.saisi_par !== moi.id) return erreur(403, 'Seul le chef ou celui qui l\'a notée peut l\'effacer.');
       await env.DB.prepare('DELETE FROM heures_engins WHERE id = ?').bind(l.id).run();
       return json({ ok: true });
+    }
+    return erreur(405, 'Méthode non prise en charge.');
+  }
+
+  // ---------- entretien du matériel (20/11/2026) ----------
+  // Sa propre liste de matériel (chef), et le carnet : ce qui a été fait, quand, sur quelle
+  // machine. Noté par tous ceux qui ont la case « Entretien » (le chef toujours).
+  if (p[0] === 'entretien') {
+    const E = moi.exploitation_id;
+    const jourOk = j => /^\d{4}-\d{2}(-\d{2})?$/.test(j || '') && !isNaN(Date.parse((j.length === 7 ? j + '-01' : j) + 'T00:00:00Z'));
+    const long = (v, max) => String(v ?? '').replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max);
+    if (p.length === 1 && methode === 'GET') {
+      const materiel = (await env.DB.prepare(
+        `SELECT m.id, m.nom, m.categorie, m.infos, m.pieces, m.actif, m.modifie_le, c.nom AS modifie_par
+           FROM materiel m LEFT JOIN comptes c ON c.id = m.modifie_par WHERE m.exploitation_id = ? ORDER BY m.categorie, m.nom`).bind(E).all()).results;
+      const entretiens = (await env.DB.prepare(
+        `SELECT e.id, e.materiel_id, e.jour, e.compteur, e.travail, e.ou, e.pieces, e.saisi_par AS saisi_par_id, c.nom AS saisi_par
+           FROM entretiens e LEFT JOIN comptes c ON c.id = e.saisi_par
+          WHERE e.exploitation_id = ? ORDER BY e.jour DESC, e.id DESC`).bind(E).all()).results;
+      const lieux = (await env.DB.prepare(
+        'SELECT ou, COUNT(*) AS n FROM entretiens WHERE exploitation_id = ? AND ou IS NOT NULL GROUP BY ou ORDER BY n DESC LIMIT 30').bind(E).all()).results.map(x => x.ou);
+      return json({ materiel, entretiens, lieux });
+    }
+    if (p.length === 1 && methode === 'POST') {
+      if (!peut(moi, 'entretien')) return erreur(403, 'Vous ne pouvez pas noter d\'entretien.');
+      const m = await env.DB.prepare('SELECT id FROM materiel WHERE id = ? AND exploitation_id = ? AND actif = 1').bind(Number(corps.materiel), E).first();
+      if (!m) return erreur(400, 'Choisissez le matériel.');
+      if (!jourOk(corps.jour)) return erreur(400, 'Date invalide.');
+      const travail = long(corps.travail, 2000);
+      if (!travail) return erreur(400, 'Écrivez ce qui a été fait.');
+      let compteur = null;
+      if (String(corps.compteur ?? '').trim() !== '') {
+        compteur = Math.round(Number(String(corps.compteur).replace(',', '.').replace(/\s/g, '')) * 10) / 10;
+        if (!(compteur >= 0) || compteur > 500000) return erreur(400, 'Compteur d\'heures invalide.');
+      }
+      const l = await env.DB.prepare(
+        'INSERT INTO entretiens (exploitation_id, materiel_id, jour, compteur, travail, ou, pieces, saisi_par) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .bind(E, m.id, corps.jour, compteur, travail, texte(corps.ou, 60) || null, long(corps.pieces, 1000) || null, moi.id).first();
+      return json({ id: l.id }, 201);
+    }
+    if (p.length === 2 && methode === 'DELETE') {
+      const l = await env.DB.prepare('SELECT * FROM entretiens WHERE id = ? AND exploitation_id = ?').bind(Number(p[1]), E).first();
+      if (!l) return erreur(404, 'Entretien introuvable.');
+      if (!chef && l.saisi_par !== moi.id) return erreur(403, 'Seul le chef ou celui qui l\'a noté peut l\'effacer.');
+      await env.DB.prepare('DELETE FROM entretiens WHERE id = ?').bind(l.id).run();
+      return json({ ok: true });
+    }
+    // La liste du matériel et les fiches : le chef d'exploitation
+    if (p[1] === 'materiel') {
+      if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
+      if (p.length === 2 && methode === 'POST') {
+        const nom = texte(corps.nom, 80), categorie = texte(corps.categorie, 40);
+        if (!nom) return erreur(400, 'Donnez un nom au matériel.');
+        if (!categorie) return erreur(400, 'Choisissez la catégorie.');
+        return json(await env.DB.prepare('INSERT INTO materiel (exploitation_id, nom, categorie, infos, pieces, modifie_par) VALUES (?, ?, ?, ?, ?, ?) RETURNING id')
+          .bind(E, nom, categorie, long(corps.infos, 2000) || null, long(corps.pieces, 4000) || null, moi.id).first(), 201);
+      }
+      if (p.length === 3 && methode === 'PATCH') {
+        const m = await env.DB.prepare('SELECT * FROM materiel WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).first();
+        if (!m) return erreur(404, 'Matériel introuvable.');
+        const nom = corps.nom === undefined ? m.nom : texte(corps.nom, 80);
+        const categorie = corps.categorie === undefined ? m.categorie : texte(corps.categorie, 40);
+        if (!nom || !categorie) return erreur(400, 'Le nom et la catégorie sont obligatoires.');
+        const infos = corps.infos === undefined ? m.infos : (long(corps.infos, 2000) || null);
+        const pieces = corps.pieces === undefined ? m.pieces : (long(corps.pieces, 4000) || null);
+        const actif = corps.actif === undefined ? m.actif : (corps.actif ? 1 : 0);
+        await env.DB.prepare(`UPDATE materiel SET nom = ?, categorie = ?, infos = ?, pieces = ?, actif = ?, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?`)
+          .bind(nom, categorie, infos, pieces, actif, moi.id, m.id).run();
+        return json({ ok: true });
+      }
     }
     return erreur(405, 'Méthode non prise en charge.');
   }

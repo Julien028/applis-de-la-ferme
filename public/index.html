@@ -186,6 +186,10 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
       <div class="vide" aria-hidden="true">🚜</div>
       <div><div class="t">Heures des tracteurs</div><div class="d">Sorties des tracteurs : heures, pour qui ou où, travail fait.</div></div>
     </a>
+    <a class="tuile" href="entretien/" data-appli="entretien">
+      <div class="vide" aria-hidden="true">🔧</div>
+      <div><div class="t">Entretien du matériel</div><div class="d">Ce qui a été fait sur chaque machine et quand : vidanges, réparations, pièces.</div></div>
+    </a>
   </div>
 </section>
 
@@ -288,9 +292,9 @@ $("formMdp").addEventListener("submit", async e=>{
 });
 
 // ----- comptes de l'exploitation (chef) -----
-const APPLIS = [["dose","Dose de semis"],["irrigation","Irrigation"],["pluie","Pluviométrie"],["gnr","GNR"],["tracteurs","Heures tracteurs"]];
-const DROITS = [["pluie","Pluie"],["gnr","Pleins GNR"],["heures","Heures tracteurs"],["pmg","PMG"],["semences","Semences"],["enrouleurs","Enrouleurs"]];
-const DROITS_DEFAUT = {pluie:true, gnr:true, heures:true};
+const APPLIS = [["dose","Dose de semis"],["irrigation","Irrigation"],["pluie","Pluviométrie"],["gnr","GNR"],["tracteurs","Heures tracteurs"],["entretien","Entretien"]];
+const DROITS = [["pluie","Pluie"],["gnr","Pleins GNR"],["heures","Heures tracteurs"],["entretien","Entretien"],["pmg","PMG"],["semences","Semences"],["enrouleurs","Enrouleurs"]];
+const DROITS_DEFAUT = {pluie:true, gnr:true, heures:true, entretien:true};
 // Des cases à cocher : liste [clé, libellé], valeurs, et ce qu'on fait au changement
 function cases(boite, liste, valeurs, change){
   boite.innerHTML="";

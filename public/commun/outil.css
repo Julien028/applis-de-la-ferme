@@ -3,6 +3,7 @@
 :root{--bg:#EEF2EE;--ink:#18241C;--muted:#5B6B60;--card:#FFFFFF;--line:#D6E0DA;--grille:#E4EBE6;--accent:#2F5D3A;--accent-fonce:#24482D;--accent-clair:#E6F0E8;--rouge:#B4472B;--ok:#3F7D3A;}
 body.theme-gnr{--accent:#B5651D;--accent-fonce:#8A4A12;--accent-clair:#F7EBDD;}
 body.theme-tracteurs{--accent:#2F5D3A;--accent-fonce:#24482D;--accent-clair:#E6F0E8;}
+body.theme-entretien{--accent:#3A5F7D;--accent-fonce:#2A475E;--accent-clair:#E3ECF3;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0}
 [hidden]{display:none!important}
@@ -21,7 +22,7 @@ label{display:block;font-size:.82rem;font-weight:600;color:var(--muted);margin:1
 .leger{font-weight:400}
 .row{display:flex;gap:10px;align-items:center}
 .grille2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-input[type=number],input[type=text],input[type=date],select{width:100%;padding:11px 12px;font-size:1.05rem;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font-family:inherit;-moz-appearance:textfield;min-width:0}
+input[type=number],input[type=text],input[type=date],input[type=search],textarea,select{width:100%;padding:11px 12px;font-size:1.05rem;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font-family:inherit;-moz-appearance:textfield;min-width:0}
 select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'><path d='M3 5l4 4 4-4' fill='none' stroke='%235B6B60' stroke-width='2'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
 input:focus,select:focus{outline:2px solid var(--accent);border-color:var(--accent)}
 .unit{color:var(--muted);font-size:.9rem;min-width:22px}
@@ -71,3 +72,4 @@ table.tab{width:100%;border-collapse:collapse;font-size:.9rem;font-variant-numer
 .puces{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px}
 .puce{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:7px 12px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:inherit}
 .puce.choisi{background:var(--accent);border-color:var(--accent);color:#fff}
+textarea{resize:vertical;min-height:4.5em;line-height:1.4}

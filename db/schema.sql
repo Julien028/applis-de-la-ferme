@@ -156,3 +156,34 @@ CREATE TABLE IF NOT EXISTS heures_engins (
   saisi_le TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS heures_engins_exploitation ON heures_engins (exploitation_id, jour);
+
+-- Entretien du matériel (ajouté le 20/11/2026) : sa propre liste de matériel (pas les engins
+-- du GNR), rentrée par le chef, et le carnet des entretiens, noté aussi par les salariés qui
+-- ont la case « Entretien ». jour : AAAA-MM-JJ, ou AAAA-MM quand on ne connaît que le mois
+-- (vieilles feuilles papier).
+CREATE TABLE IF NOT EXISTS materiel (
+  id INTEGER PRIMARY KEY,
+  exploitation_id INTEGER NOT NULL REFERENCES exploitations(id),
+  nom TEXT NOT NULL,                  -- ex. « TM150 », « Charrue Kuhn Varimaster 122 »
+  categorie TEXT NOT NULL,            -- Tracteurs et automoteurs, Outils, Pommes de terre, Irrigation…
+  infos TEXT,                         -- date d'arrivée, n° de série, remarques
+  pieces TEXT,                        -- références des pièces : filtres, huiles, courroies…
+  actif INTEGER NOT NULL DEFAULT 1,
+  modifie_par INTEGER REFERENCES comptes(id),
+  modifie_le TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS materiel_exploitation ON materiel (exploitation_id);
+
+CREATE TABLE IF NOT EXISTS entretiens (
+  id INTEGER PRIMARY KEY,
+  exploitation_id INTEGER NOT NULL REFERENCES exploitations(id),
+  materiel_id INTEGER NOT NULL REFERENCES materiel(id),
+  jour TEXT NOT NULL,                 -- AAAA-MM-JJ ou AAAA-MM
+  compteur REAL,                      -- heures au compteur, facultatif
+  travail TEXT NOT NULL,              -- ce qui a été fait
+  ou TEXT,                            -- à la ferme, garage Lecoq…
+  pieces TEXT,                        -- pièces changées, facultatif
+  saisi_par INTEGER REFERENCES comptes(id),
+  saisi_le TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS entretiens_exploitation ON entretiens (exploitation_id, materiel_id, jour);
