@@ -44,6 +44,8 @@ function droitsDepuis(corps, defaut) {
   return JSON.stringify({ ...Object.fromEntries(DROITS.map(k => [k, !!corps[k]])), acces });
 }
 const TAILLE_MAX_NOM = 60;
+// Entretien : petites cases de la fiche d'une machine (texte libre, ex. « 4 m », « 150 ch »)
+const CARACTERISTIQUES = ['largeur', 'puissance', 'annee', 'serie', 'plaque'];
 const MAX_ECHECS = 10;                // essais ratés tolérés…
 const FENETRE_ECHECS = '-15 minutes'; // …sur cette durée
 
@@ -631,7 +633,7 @@ export async function api(request, env, url) {
     const long = (v, max) => String(v ?? '').replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max);
     if (p.length === 1 && methode === 'GET') {
       const materiel = (await env.DB.prepare(
-        `SELECT m.id, m.nom, m.categorie, m.infos, m.pieces, m.liens, m.actif, m.modifie_le, c.nom AS modifie_par
+        `SELECT m.id, m.nom, m.categorie, m.infos, m.pieces, m.liens, m.largeur, m.puissance, m.annee, m.serie, m.plaque, m.actif, m.modifie_le, c.nom AS modifie_par
            FROM materiel m LEFT JOIN comptes c ON c.id = m.modifie_par WHERE m.exploitation_id = ? ORDER BY m.categorie, m.nom`).bind(E).all()).results;
       const entretiens = (await env.DB.prepare(
         `SELECT e.id, e.materiel_id, e.jour, e.compteur, e.travail, e.ou, e.pieces, e.saisi_par AS saisi_par_id, c.nom AS saisi_par
@@ -672,8 +674,8 @@ export async function api(request, env, url) {
         const nom = texte(corps.nom, 80), categorie = texte(corps.categorie, 40);
         if (!nom) return erreur(400, 'Donnez un nom au matériel.');
         if (!categorie) return erreur(400, 'Choisissez la catégorie.');
-        return json(await env.DB.prepare('INSERT INTO materiel (exploitation_id, nom, categorie, infos, pieces, liens, modifie_par) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id')
-          .bind(E, nom, categorie, long(corps.infos, 4000) || null, long(corps.pieces, 6000) || null, long(corps.liens, 4000) || null, moi.id).first(), 201);
+        return json(await env.DB.prepare(`INSERT INTO materiel (exploitation_id, nom, categorie, infos, pieces, liens, ${CARACTERISTIQUES.join(', ')}, modifie_par) VALUES (?, ?, ?, ?, ?, ?, ${CARACTERISTIQUES.map(() => '?').join(', ')}, ?) RETURNING id`)
+          .bind(E, nom, categorie, long(corps.infos, 4000) || null, long(corps.pieces, 6000) || null, long(corps.liens, 4000) || null, ...CARACTERISTIQUES.map(k => texte(corps[k], 40) || null), moi.id).first(), 201);
       }
       if (p.length === 3 && methode === 'PATCH') {
         const m = await env.DB.prepare('SELECT * FROM materiel WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).first();
@@ -685,8 +687,9 @@ export async function api(request, env, url) {
         const pieces = corps.pieces === undefined ? m.pieces : (long(corps.pieces, 6000) || null);
         const liens = corps.liens === undefined ? m.liens : (long(corps.liens, 4000) || null);
         const actif = corps.actif === undefined ? m.actif : (corps.actif ? 1 : 0);
-        await env.DB.prepare(`UPDATE materiel SET nom = ?, categorie = ?, infos = ?, pieces = ?, liens = ?, actif = ?, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?`)
-          .bind(nom, categorie, infos, pieces, liens, actif, moi.id, m.id).run();
+        const ch = Object.fromEntries(CARACTERISTIQUES.map(k => [k, corps[k] === undefined ? m[k] : (texte(corps[k], 40) || null)]));
+        await env.DB.prepare(`UPDATE materiel SET nom = ?, categorie = ?, infos = ?, pieces = ?, liens = ?, ${CARACTERISTIQUES.map(k => k + ' = ?').join(', ')}, actif = ?, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?`)
+          .bind(nom, categorie, infos, pieces, liens, ...CARACTERISTIQUES.map(k => ch[k]), actif, moi.id, m.id).run();
         return json({ ok: true });
       }
     }

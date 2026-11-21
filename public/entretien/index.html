@@ -19,6 +19,12 @@
 .machines button small{color:var(--muted);font-size:.78rem;white-space:nowrap}
 .machines button::after{content:"›";color:var(--muted);font-size:1.2rem}
 .machines li.cote span{font-weight:400;color:var(--muted)}
+.machines button span em{font-style:normal;font-weight:400;color:var(--muted);font-size:.85rem}
+details.cotes{margin-top:18px;border-top:1px dashed var(--line);padding-top:8px}
+details.cotes summary{cursor:pointer;color:var(--muted);font-size:.85rem;padding:6px 0}
+.carac{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+.carac span{background:var(--accent-clair);border-radius:999px;padding:4px 10px;font-size:.85rem}
+.carac b{color:var(--accent-fonce)}
 .texte{white-space:pre-wrap;background:var(--accent-clair);border-radius:12px;padding:10px 12px;font-size:.92rem;margin:4px 0 0}
 .fiche-tete{display:flex;align-items:flex-start;gap:8px}
 .fiche-tete h2{flex:1;margin:0}
@@ -48,6 +54,7 @@ a.bouton-lien{display:flex;align-items:center;justify-content:center;text-decora
     <!-- ============ FICHE D'UNE MACHINE ============ -->
     <div class="card" id="fiche" hidden>
       <div class="fiche-tete"><div style="flex:1"><h2 id="fNom"></h2><div class="cat" id="fCat"></div></div><button class="lien" id="fFermer" type="button">Fermer ✕</button></div>
+      <div class="carac" id="fCarac"></div>
       <div id="fInfosBloc"><h3>Infos</h3><p class="texte" id="fInfos"></p></div>
       <div id="fPiecesBloc"><h3>Pièces et références</h3><p class="texte" id="fPieces"></p></div>
       <div id="fLiensBloc"><h3>Notices et liens</h3><ul class="liens" id="fLiens"></ul></div>
@@ -60,6 +67,13 @@ a.bouton-lien{display:flex;align-items:center;justify-content:center;text-decora
         <div class="panneau" id="fForm" hidden>
           <label for="mNom">Nom</label><input type="text" id="mNom" maxlength="80">
           <label for="mCat">Catégorie</label><input type="text" id="mCat" maxlength="40" list="categories" autocomplete="off">
+          <div class="grille2">
+            <div><label for="mLargeur">Largeur</label><input type="text" id="mLargeur" maxlength="40" placeholder="ex. 4 m"></div>
+            <div><label for="mPuissance">Puissance</label><input type="text" id="mPuissance" maxlength="40" placeholder="ex. 150 ch"></div>
+            <div><label for="mAnnee">Année</label><input type="text" id="mAnnee" maxlength="40" placeholder="ex. 2007"></div>
+            <div><label for="mPlaque">Immatriculation</label><input type="text" id="mPlaque" maxlength="40" autocapitalize="characters"></div>
+          </div>
+          <label for="mSerie">Numéro de série</label><input type="text" id="mSerie" maxlength="40">
           <label for="mInfos">Infos <span class="leger">(date d'arrivée, n° de série, remarques)</span></label><textarea id="mInfos" rows="3" maxlength="4000"></textarea>
           <label for="mPieces">Pièces et références <span class="leger">(filtres, huiles, courroies…)</span></label><textarea id="mPieces" rows="6" maxlength="6000"></textarea>
           <label for="mLiens">Notices et liens <span class="leger">(une adresse internet par ligne, ex. « Notice : https://… »)</span></label><textarea id="mLiens" rows="3" maxlength="4000"></textarea>
@@ -100,7 +114,7 @@ a.bouton-lien{display:flex;align-items:center;justify-content:center;text-decora
         <div class="panneau">
           <h3 style="margin-top:0">Ajouter du matériel</h3>
           <div class="grille2"><div><label for="aNom">Nom</label><input type="text" id="aNom" maxlength="80" placeholder="ex. TM150"></div>
-          <div><label for="aCat">Catégorie</label><input type="text" id="aCat" maxlength="40" list="categories" autocomplete="off" placeholder="ex. Outils"></div></div>
+          <div><label for="aCat">Catégorie</label><input type="text" id="aCat" maxlength="40" list="categories" autocomplete="off" placeholder="ex. Travail du sol"></div></div>
           <datalist id="categories"></datalist>
           <button class="principal" id="aOk" type="button" style="margin-top:10px">Ajouter</button>
           <p class="hint">Ensuite, touchez la machine dans la liste pour compléter sa fiche (infos, pièces).</p>
@@ -121,7 +135,7 @@ a.bouton-lien{display:flex;align-items:center;justify-content:center;text-decora
 <script src="/commun/outil.js"></script>
 <script>
 "use strict";
-const CATEGORIES = ["Tracteurs et automoteurs","Outils","Pommes de terre","Irrigation","Véhicules","Bâtiments et atelier"];
+const CATEGORIES = ["Tracteurs","Moissonneuses et automoteurs","Manutention","Travail du sol","Semis et épandage","Broyage et entretien","Transport","Pommes de terre","Irrigation","Véhicules","Chantier et atelier"];
 let donnees = null, ouverte = null;
 
 // Une date du carnet : jour (AAAA-MM-JJ) ou seulement le mois (AAAA-MM)
@@ -174,20 +188,30 @@ function dessiner(){
   const visibles=d.materiel.filter(m=>(m.actif||chef()) && (!filtre || (m.nom+" "+m.categorie).toLowerCase().includes(filtre)));
   if(!d.materiel.length) boite.innerHTML="<p class=\"vide\">Aucun matériel pour l'instant.</p>";
   else if(!visibles.length) boite.innerHTML="<p class=\"vide\">Aucune machine ne correspond.</p>";
-  parCat(visibles).forEach(([c,ms])=>{
-    const t=document.createElement("div"); t.className="groupe"; t.textContent=c; boite.appendChild(t);
+  const ligneMachine=m=>{
+    const der=d.entretiens.find(x=>x.materiel_id===m.id);
+    const li=document.createElement("li"); if(!m.actif) li.className="cote";
+    const b=document.createElement("button"); b.type="button"; b.innerHTML="<span></span><small></small>";
+    b.firstChild.textContent=m.nom;
+    if(m.largeur){ const l=document.createElement("em"); l.textContent=" · "+m.largeur; b.firstChild.appendChild(l); }
+    b.lastChild.textContent= der ? "dernier : "+dateCarnet(der.jour) : "rien de noté";
+    b.addEventListener("click",()=>ouvrir(m.id));
+    li.appendChild(b); return li;
+  };
+  parCat(visibles.filter(m=>m.actif)).forEach(([c,ms])=>{
+    const t=document.createElement("div"); t.className="groupe"; t.textContent=c+" ("+ms.length+")"; boite.appendChild(t);
     const ul=document.createElement("ul"); ul.className="machines";
-    ms.sort((a,b)=>b.actif-a.actif).forEach(m=>{
-      const der=d.entretiens.find(x=>x.materiel_id===m.id);
-      const li=document.createElement("li"); if(!m.actif) li.className="cote";
-      const b=document.createElement("button"); b.type="button"; b.innerHTML="<span></span><small></small>";
-      b.firstChild.textContent=m.nom+(m.actif?"":" (mis de côté)");
-      b.lastChild.textContent= der ? "dernier : "+dateCarnet(der.jour) : "rien de noté";
-      b.addEventListener("click",()=>ouvrir(m.id));
-      li.appendChild(b); ul.appendChild(li);
-    });
+    ms.forEach(m=>ul.appendChild(ligneMachine(m)));
     boite.appendChild(ul);
   });
+  // Le matériel mis de côté (vendu, plus là) : tout en bas, replié
+  const cote=visibles.filter(m=>!m.actif).sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{numeric:true}));
+  if(cote.length){
+    const det=document.createElement("details"); det.className="cotes"; det.open=!!filtre;
+    det.innerHTML="<summary></summary>"; det.firstChild.textContent="Mis de côté, plus à la ferme ("+cote.length+")";
+    const ul=document.createElement("ul"); ul.className="machines"; cote.forEach(m=>ul.appendChild(ligneMachine(m)));
+    det.appendChild(ul); boite.appendChild(det);
+  }
   $("ajout").hidden=!chef();
   // derniers entretiens
   const dl=$("derniers"); dl.innerHTML="";
@@ -203,6 +227,9 @@ function dessinerFiche(){
   const m=donnees.materiel.find(x=>x.id===ouverte); if(!m){ fermer(); return; }
   $("fiche").hidden=false;
   $("fNom").textContent=m.nom+(m.actif?"":" (mis de côté)"); $("fCat").textContent=m.categorie;
+  const car=$("fCarac"); car.innerHTML="";
+  [["Largeur","largeur"],["Puissance","puissance"],["Année","annee"],["Immat.","plaque"],["N° de série","serie"]].forEach(([lib,k])=>{ if(!m[k]) return; const sp=document.createElement("span"); sp.innerHTML="<b></b> "; sp.firstChild.textContent=lib+" :"; sp.append(m[k]); car.appendChild(sp); });
+  car.hidden=!car.children.length;
   $("fInfosBloc").hidden=!m.infos; $("fInfos").textContent=m.infos||"";
   $("fPiecesBloc").hidden=!m.pieces; $("fPieces").textContent=m.pieces||"";
   $("fLiensBloc").hidden=!m.liens; const ul=$("fLiens"); ul.innerHTML="";
@@ -225,10 +252,10 @@ $("fFermer").addEventListener("click", fermer);
 $("fNoter").addEventListener("click",()=>{ $("nMateriel").value=ouverte; $("carteNoter").scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(()=>$("nTravail").focus(),400); });
 $("fModifier").addEventListener("click",()=>{
   const m=donnees.materiel.find(x=>x.id===ouverte); const f=$("fForm"); f.hidden=!f.hidden; message("mMsg","");
-  $("mNom").value=m.nom; $("mCat").value=m.categorie; $("mInfos").value=m.infos||""; $("mPieces").value=m.pieces||""; $("mLiens").value=m.liens||"";
+  $("mNom").value=m.nom; $("mCat").value=m.categorie; $("mInfos").value=m.infos||""; $("mPieces").value=m.pieces||""; $("mLiens").value=m.liens||""; ["largeur","puissance","annee","plaque","serie"].forEach(k=>$("m"+k[0].toUpperCase()+k.slice(1)).value=m[k]||"");
 });
 $("mOk").addEventListener("click", async ()=>{
-  try{ await appel("PATCH","/api/entretien/materiel/"+ouverte,{nom:$("mNom").value, categorie:$("mCat").value, infos:$("mInfos").value, pieces:$("mPieces").value, liens:$("mLiens").value}); $("fForm").hidden=true; await charger(); }
+  try{ await appel("PATCH","/api/entretien/materiel/"+ouverte,{nom:$("mNom").value, categorie:$("mCat").value, infos:$("mInfos").value, pieces:$("mPieces").value, liens:$("mLiens").value, largeur:$("mLargeur").value, puissance:$("mPuissance").value, annee:$("mAnnee").value, plaque:$("mPlaque").value, serie:$("mSerie").value}); $("fForm").hidden=true; await charger(); }
   catch(e){ message("mMsg", e.message, "erreur"); }
 });
 $("fCote").addEventListener("click", async ()=>{

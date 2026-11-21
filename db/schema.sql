@@ -169,6 +169,11 @@ CREATE TABLE IF NOT EXISTS materiel (
   infos TEXT,                         -- date d'arrivée, n° de série, remarques
   pieces TEXT,                        -- références des pièces : filtres, huiles, courroies…
   liens TEXT,                         -- notices techniques, catalogues de pièces : une adresse par ligne
+  largeur TEXT,                       -- ex. « 4 m » (outils)
+  puissance TEXT,                     -- ex. « 150 ch »
+  annee TEXT,                         -- année de construction ou d'arrivée
+  serie TEXT,                         -- numéro de série
+  plaque TEXT,                        -- immatriculation
   actif INTEGER NOT NULL DEFAULT 1,
   modifie_par INTEGER REFERENCES comptes(id),
   modifie_le TEXT NOT NULL DEFAULT (datetime('now'))

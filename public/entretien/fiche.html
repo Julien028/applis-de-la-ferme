@@ -71,7 +71,7 @@ body.photo .feuille{width:190mm;max-width:none;margin:0;padding:0;box-shadow:non
 <script src="/commun/pdf.js"></script>
 <script>
 "use strict";
-const CATEGORIES = ["Tracteurs et automoteurs","Outils","Pommes de terre","Irrigation","Véhicules","Bâtiments et atelier"];
+const CATEGORIES = ["Tracteurs","Moissonneuses et automoteurs","Manutention","Travail du sol","Semis et épandage","Broyage et entretien","Transport","Pommes de terre","Irrigation","Véhicules","Chantier et atelier"];
 const QUI = new URLSearchParams(location.search).get("m") || "tout";
 const dateCarnet = j => j.length===4 ? j : j.length===7 ? MOIS[Number(j.slice(5))-1].toLowerCase()+" "+j.slice(0,4) : j.slice(8)+"/"+j.slice(5,7)+"/"+j.slice(0,4);
 const el = (tag, cls, txt) => { const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; };
@@ -80,6 +80,8 @@ let nomPdf = "entretien-materiel.pdf";
 function blocMachine(m, entretiens, saut){
   const b=el("div","machine"+(saut?" saut":""));
   const t=el("div","bloc"); t.append(el("h2",null,m.nom), el("div","cat",m.categorie+(m.actif?"":" · mis de côté"))); b.appendChild(t);
+  const car=[["Largeur","largeur"],["Puissance","puissance"],["Année","annee"],["Immat.","plaque"],["N° de série","serie"]].filter(([,k])=>m[k]).map(([l,k])=>l+" : "+m[k]).join("   ·   ");
+  if(car) t.appendChild(el("div",null,car));
   const haut=el("div", m.infos && m.pieces ? "deux bloc" : "bloc");
   if(m.infos){ const d=el("div"); d.append(el("h3",null,"Infos"), el("p","texte",m.infos)); haut.appendChild(d); }
   if(m.pieces){ const d=el("div"); d.append(el("h3",null,"Pièces et références"), el("p","texte",m.pieces)); haut.appendChild(d); }
