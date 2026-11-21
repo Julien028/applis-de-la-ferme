@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiche d'entretien</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/icone.svg" type="image/svg+xml">
+<style>
+/* Fiche A4 de l'entretien du matériel : ?m=<id> (une machine) ou ?m=tout (tout le matériel) */
+:root{--encre:#1B2D1C;--doux:#5A6857;--ligne:#CFC8B8;--fond:#F3F0E8;--accent:#3A5F7D;color-scheme:light}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:#E9E5DA;color:var(--encre);font:11px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.outils{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--ligne);padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.outils .btn{min-height:46px;padding:0 18px;border:0;border-radius:12px;background:var(--accent);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+.outils .btn.doux{background:var(--fond);color:var(--encre)}
+.outils p{margin:0;color:var(--doux);font-size:.9rem;flex:1;min-width:200px}
+.outils .etat{font-size:.8rem;color:#B4472B}
+.message{max-width:600px;margin:30px auto;background:#fff;padding:20px;border-radius:12px;font-size:14px}
+.feuille{background:#fff;width:210mm;max-width:100%;margin:16px auto;padding:10mm;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.entete{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;border-bottom:2.5px solid var(--accent);padding-bottom:6px;margin-bottom:8px}
+.entete h1{font-size:19px;margin:0;font-family:Georgia,serif}
+.entete .ferme{font-size:11.5px;color:var(--doux);margin-top:2px}
+.entete .quoi{text-align:right;font-size:11px;color:var(--doux)}
+.machine{margin-top:14px}
+.machine h2{font-size:15px;margin:0 0 2px;font-family:Georgia,serif;color:var(--accent)}
+.machine .cat{font-size:10px;color:var(--doux);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.machine + .machine{border-top:1.5px solid var(--ligne);padding-top:12px}
+h3{font-size:11px;margin:8px 0 3px;color:var(--doux);text-transform:uppercase;letter-spacing:.04em}
+.texte{white-space:pre-wrap;background:var(--fond);border-radius:5px;padding:5px 8px;margin:0}
+.deux{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid var(--ligne);padding:2.5px 5px;vertical-align:top;text-align:left}
+th{background:var(--fond);font-size:9px;text-transform:uppercase;letter-spacing:.02em}
+td.n{text-align:right;white-space:nowrap}
+td.jour{white-space:nowrap}
+td small{color:var(--doux)}
+.vide{color:#9A968C;font-style:italic}
+.liens{margin:0;padding-left:16px;word-break:break-all}
+.pied{margin-top:10px;font-size:9px;color:var(--doux);display:flex;justify-content:space-between}
+body.photo{background:#fff}
+body.photo .outils{display:none}
+body.photo .feuille{width:190mm;max-width:none;margin:0;padding:0;box-shadow:none}
+@page{size:A4;margin:10mm}
+@media print{
+  body{background:#fff}
+  .outils{display:none}
+  .feuille{width:auto;margin:0;padding:0;box-shadow:none}
+  tr,.bloc{break-inside:avoid}
+  .machine.saut{break-before:page}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media (max-width:600px){ .feuille{padding:5mm;overflow-x:auto} body.photo .feuille{overflow:visible} }
+</style>
+</head>
+<body>
+  <div class="outils">
+    <button class="btn" id="pdf" type="button">📄 Enregistrer en PDF</button>
+    <button class="btn doux" id="imprimer" type="button">Imprimer</button>
+    <a class="btn doux" id="retour" href="./">Retour</a>
+    <p>Sur téléphone, le PDF arrive dans les téléchargements.</p>
+    <span class="etat" id="etat"></span><span id="qui" hidden></span>
+  </div>
+  <div class="message" id="pasConnecte" hidden>Connectez-vous d'abord <a href="../">depuis l'accueil</a>.</div>
+  <div class="message" id="pasAcces" hidden>Votre compte n'a pas accès à l'entretien du matériel.</div>
+  <div id="contenu" hidden><div class="feuille" id="feuille"></div></div>
+
+<script src="/commun/outil.js"></script>
+<script src="/commun/pdf.js"></script>
+<script>
+"use strict";
+const CATEGORIES = ["Tracteurs et automoteurs","Outils","Pommes de terre","Irrigation","Véhicules","Bâtiments et atelier"];
+const QUI = new URLSearchParams(location.search).get("m") || "tout";
+const dateCarnet = j => j.length===4 ? j : j.length===7 ? MOIS[Number(j.slice(5))-1].toLowerCase()+" "+j.slice(0,4) : j.slice(8)+"/"+j.slice(5,7)+"/"+j.slice(0,4);
+const el = (tag, cls, txt) => { const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; };
+let nomPdf = "entretien-materiel.pdf";
+
+function blocMachine(m, entretiens, saut){
+  const b=el("div","machine"+(saut?" saut":""));
+  const t=el("div","bloc"); t.append(el("h2",null,m.nom), el("div","cat",m.categorie+(m.actif?"":" · mis de côté"))); b.appendChild(t);
+  const haut=el("div", m.infos && m.pieces ? "deux bloc" : "bloc");
+  if(m.infos){ const d=el("div"); d.append(el("h3",null,"Infos"), el("p","texte",m.infos)); haut.appendChild(d); }
+  if(m.pieces){ const d=el("div"); d.append(el("h3",null,"Pièces et références"), el("p","texte",m.pieces)); haut.appendChild(d); }
+  if(haut.children.length) b.appendChild(haut);
+  if(m.liens){ const d=el("div","bloc"); d.appendChild(el("h3",null,"Notices et liens")); const ul=el("ul","liens"); m.liens.split("\n").map(l=>l.trim()).filter(Boolean).forEach(l=>ul.appendChild(el("li",null,l))); d.appendChild(ul); b.appendChild(d); }
+  b.appendChild(el("h3",null,"Carnet d'entretien"));
+  if(!entretiens.length){ b.appendChild(el("p","vide","Rien de noté.")); return b; }
+  const tab=el("table"); tab.innerHTML="<tr><th>Date</th><th>Compteur</th><th>Ce qui a été fait</th><th>Pièces</th><th>Où / par qui</th></tr>";
+  entretiens.slice().sort((a,b)=>a.jour.localeCompare(b.jour)||a.id-b.id).forEach(x=>{
+    const tr=el("tr");
+    tr.append(el("td","jour",dateCarnet(x.jour)), el("td","n",x.compteur!=null?fmt(x.compteur,x.compteur%1?1:0)+" h":""), el("td",null,x.travail), el("td",null,x.pieces||""), el("td",null,x.ou||""));
+    tab.appendChild(tr);
+  });
+  b.appendChild(tab);
+  return b;
+}
+
+async function lire(){
+  let d;
+  try{ d=await appel("GET","/api/entretien"); garder("entretien", d); }
+  catch(e){ if(e.status===401) return deconnecte(); if(e.status===403) return sansAcces(); d=relire("entretien"); if(!d){ $("etat").textContent="Pas de réseau."; return; } $("etat").textContent="Hors ligne : dernières données connues."; }
+  const f=$("feuille"); f.innerHTML="";
+  const ent=el("div","entete bloc"), g=el("div"); g.append(el("h1",null,"Entretien du matériel"), el("div","ferme",moi.exploitation.nom));
+  const n=new Date(), aujour=deux(n.getDate())+"/"+deux(n.getMonth()+1)+"/"+n.getFullYear();
+  let liste;
+  if(QUI==="tout"){
+    const rang=c=>CATEGORIES.indexOf(c)+1||99;
+    liste=d.materiel.filter(m=>m.actif).sort((a,b)=>rang(a.categorie)-rang(b.categorie)||a.categorie.localeCompare(b.categorie,"fr")||a.nom.localeCompare(b.nom,"fr",{numeric:true}));
+    ent.append(g, el("div","quoi","Tout le matériel ("+liste.length+" machines) · "+aujour));
+    nomPdf=nomFichier("entretien-tout-le-materiel", n.getFullYear()+"-"+deux(n.getMonth()+1)+"-"+deux(n.getDate()));
+  } else {
+    liste=d.materiel.filter(m=>String(m.id)===QUI);
+    if(!liste.length){ f.appendChild(el("p","vide","Machine introuvable.")); return; }
+    ent.append(g, el("div","quoi","Fiche de la machine · "+aujour));
+    nomPdf=nomFichier("entretien", liste[0].nom);
+    $("retour").href="./#m"+liste[0].id;
+  }
+  f.appendChild(ent);
+  liste.forEach((m,i)=>f.appendChild(blocMachine(m, d.entretiens.filter(x=>x.materiel_id===m.id), i>0)));
+  const p=el("div","pied"); p.append(el("span",null,"Applis de la ferme — entretien du matériel"), el("span",null,"édité le "+aujour)); f.appendChild(p);
+  document.title=QUI==="tout" ? "Entretien — tout le matériel" : "Entretien — "+liste[0].nom;
+}
+
+$("pdf").addEventListener("click", async ()=>{
+  $("pdf").disabled=true; $("pdf").textContent="Préparation…";
+  try{ await enregistrerPDF({nom:nomPdf, racine:$("feuille")}); }
+  catch(e){ alert(e.message||"Le PDF n'a pas pu être fait."); }
+  finally{ $("pdf").disabled=false; $("pdf").textContent="📄 Enregistrer en PDF"; }
+});
+$("imprimer").addEventListener("click",()=>window.print());
+demarrer("entretien", lire);
+</script>
+</body>
+</html>

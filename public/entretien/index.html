@@ -30,6 +30,10 @@
 .carnet .quoi b{display:block;font-size:.85rem;color:var(--accent-fonce)}
 .carnet .quoi small{display:block;color:var(--muted);font-size:.78rem;margin-top:2px}
 input[type=search]{margin-bottom:4px}
+.liens{margin:4px 0 0;padding-left:18px;font-size:.92rem}
+.liens li{margin:3px 0;word-break:break-word}
+.liens a{color:var(--accent-fonce);font-weight:600}
+a.bouton-lien{display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box}
 </style>
 </head>
 <body class="theme-entretien">
@@ -46,7 +50,8 @@ input[type=search]{margin-bottom:4px}
       <div class="fiche-tete"><div style="flex:1"><h2 id="fNom"></h2><div class="cat" id="fCat"></div></div><button class="lien" id="fFermer" type="button">Fermer ✕</button></div>
       <div id="fInfosBloc"><h3>Infos</h3><p class="texte" id="fInfos"></p></div>
       <div id="fPiecesBloc"><h3>Pièces et références</h3><p class="texte" id="fPieces"></p></div>
-      <button class="principal large" id="fNoter" type="button">🔧 Noter un entretien</button>
+      <div id="fLiensBloc"><h3>Notices et liens</h3><ul class="liens" id="fLiens"></ul></div>
+      <div class="grille2"><button class="principal large" id="fNoter" type="button">🔧 Noter un entretien</button><a class="principal large bouton-lien" id="fPdf" href="#">📄 Fiche PDF</a></div>
       <h3>Carnet d'entretien</h3>
       <ul class="carnet" id="fCarnet"></ul>
       <div id="fChef" hidden>
@@ -55,8 +60,9 @@ input[type=search]{margin-bottom:4px}
         <div class="panneau" id="fForm" hidden>
           <label for="mNom">Nom</label><input type="text" id="mNom" maxlength="80">
           <label for="mCat">Catégorie</label><input type="text" id="mCat" maxlength="40" list="categories" autocomplete="off">
-          <label for="mInfos">Infos <span class="leger">(date d'arrivée, n° de série, remarques)</span></label><textarea id="mInfos" rows="3" maxlength="2000"></textarea>
-          <label for="mPieces">Pièces et références <span class="leger">(filtres, huiles, courroies…)</span></label><textarea id="mPieces" rows="6" maxlength="4000"></textarea>
+          <label for="mInfos">Infos <span class="leger">(date d'arrivée, n° de série, remarques)</span></label><textarea id="mInfos" rows="3" maxlength="4000"></textarea>
+          <label for="mPieces">Pièces et références <span class="leger">(filtres, huiles, courroies…)</span></label><textarea id="mPieces" rows="6" maxlength="6000"></textarea>
+          <label for="mLiens">Notices et liens <span class="leger">(une adresse internet par ligne, ex. « Notice : https://… »)</span></label><textarea id="mLiens" rows="3" maxlength="4000"></textarea>
           <button class="principal large" id="mOk" type="button">Enregistrer la fiche</button>
           <p class="msg" id="mMsg" hidden></p>
         </div>
@@ -108,17 +114,18 @@ input[type=search]{margin-bottom:4px}
       <h2>Derniers entretiens</h2>
       <ul class="carnet" id="derniers"></ul>
       <button class="lien" id="exporter" type="button">Exporter tout le carnet (tableur)</button>
+      <a class="lien" href="fiche.html?m=tout">📄 PDF de tout le matériel</a>
     </div>
   </div>
 
 <script src="/commun/outil.js"></script>
 <script>
 "use strict";
-const CATEGORIES = ["Tracteurs et automoteurs","Outils","Pommes de terre","Irrigation","Bâtiments et atelier"];
+const CATEGORIES = ["Tracteurs et automoteurs","Outils","Pommes de terre","Irrigation","Véhicules","Bâtiments et atelier"];
 let donnees = null, ouverte = null;
 
 // Une date du carnet : jour (AAAA-MM-JJ) ou seulement le mois (AAAA-MM)
-const dateCarnet = j => j.length===7 ? MOIS[Number(j.slice(5))-1].toLowerCase()+" "+j.slice(0,4) : j.slice(8)+"/"+j.slice(5,7)+"/"+j.slice(0,4);
+const dateCarnet = j => j.length===4 ? j : j.length===7 ? MOIS[Number(j.slice(5))-1].toLowerCase()+" "+j.slice(0,4) : j.slice(8)+"/"+j.slice(5,7)+"/"+j.slice(0,4);
 const nomDe = id => (donnees.materiel.find(m=>m.id===id)||{}).nom || "?";
 
 async function charger(){
@@ -198,6 +205,13 @@ function dessinerFiche(){
   $("fNom").textContent=m.nom+(m.actif?"":" (mis de côté)"); $("fCat").textContent=m.categorie;
   $("fInfosBloc").hidden=!m.infos; $("fInfos").textContent=m.infos||"";
   $("fPiecesBloc").hidden=!m.pieces; $("fPieces").textContent=m.pieces||"";
+  $("fLiensBloc").hidden=!m.liens; const ul=$("fLiens"); ul.innerHTML="";
+  (m.liens||"").split("\n").map(l=>l.trim()).filter(Boolean).forEach(l=>{
+    const li=document.createElement("li"), u=/https?:\/\/\S+/.exec(l);
+    if(u){ const a=document.createElement("a"); a.href=u[0]; a.target="_blank"; a.rel="noopener"; a.textContent=l.replace(u[0],"").replace(/[\s:–-]+$/,"").trim()||u[0]; li.appendChild(a); }
+    else li.textContent=l;
+    ul.appendChild(li); });
+  $("fPdf").href="fiche.html?m="+m.id;
   $("fNoter").hidden=!peut("entretien") || !m.actif;
   const c=$("fCarnet"); c.innerHTML="";
   const liste=donnees.entretiens.filter(x=>x.materiel_id===m.id);
@@ -211,10 +225,10 @@ $("fFermer").addEventListener("click", fermer);
 $("fNoter").addEventListener("click",()=>{ $("nMateriel").value=ouverte; $("carteNoter").scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(()=>$("nTravail").focus(),400); });
 $("fModifier").addEventListener("click",()=>{
   const m=donnees.materiel.find(x=>x.id===ouverte); const f=$("fForm"); f.hidden=!f.hidden; message("mMsg","");
-  $("mNom").value=m.nom; $("mCat").value=m.categorie; $("mInfos").value=m.infos||""; $("mPieces").value=m.pieces||"";
+  $("mNom").value=m.nom; $("mCat").value=m.categorie; $("mInfos").value=m.infos||""; $("mPieces").value=m.pieces||""; $("mLiens").value=m.liens||"";
 });
 $("mOk").addEventListener("click", async ()=>{
-  try{ await appel("PATCH","/api/entretien/materiel/"+ouverte,{nom:$("mNom").value, categorie:$("mCat").value, infos:$("mInfos").value, pieces:$("mPieces").value}); $("fForm").hidden=true; await charger(); }
+  try{ await appel("PATCH","/api/entretien/materiel/"+ouverte,{nom:$("mNom").value, categorie:$("mCat").value, infos:$("mInfos").value, pieces:$("mPieces").value, liens:$("mLiens").value}); $("fForm").hidden=true; await charger(); }
   catch(e){ message("mMsg", e.message, "erreur"); }
 });
 $("fCote").addEventListener("click", async ()=>{
@@ -242,7 +256,7 @@ $("aOk").addEventListener("click", async ()=>{
 $("exporter").addEventListener("click",()=>{
   const d=donnees, cat=id=>(d.materiel.find(m=>m.id===id)||{}).categorie||"";
   const l=[["Date","Matériel","Catégorie","Ce qui a été fait","Compteur (h)","Pièces","Fait où / par qui","Noté par"].join(";")];
-  d.entretiens.slice().sort((a,b)=>a.jour.localeCompare(b.jour)).forEach(x=>l.push([x.jour.length===7?x.jour.slice(5)+"/"+x.jour.slice(0,4):x.jour.split("-").reverse().join("/"), nomDe(x.materiel_id), cat(x.materiel_id), x.travail, x.compteur!=null?num(x.compteur):"", x.pieces||"", x.ou||"", x.saisi_par||""].map(csv).join(";")));
+  d.entretiens.slice().sort((a,b)=>a.jour.localeCompare(b.jour)).forEach(x=>l.push([x.jour.length===4?x.jour:x.jour.length===7?x.jour.slice(5)+"/"+x.jour.slice(0,4):x.jour.split("-").reverse().join("/"), nomDe(x.materiel_id), cat(x.materiel_id), x.travail, x.compteur!=null?num(x.compteur):"", x.pieces||"", x.ou||"", x.saisi_par||""].map(csv).join(";")));
   telecharger("entretien-materiel.csv", l);
 });
 

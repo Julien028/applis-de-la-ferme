@@ -168,6 +168,7 @@ CREATE TABLE IF NOT EXISTS materiel (
   categorie TEXT NOT NULL,            -- Tracteurs et automoteurs, Outils, Pommes de terre, Irrigation…
   infos TEXT,                         -- date d'arrivée, n° de série, remarques
   pieces TEXT,                        -- références des pièces : filtres, huiles, courroies…
+  liens TEXT,                         -- notices techniques, catalogues de pièces : une adresse par ligne
   actif INTEGER NOT NULL DEFAULT 1,
   modifie_par INTEGER REFERENCES comptes(id),
   modifie_le TEXT NOT NULL DEFAULT (datetime('now'))

@@ -138,6 +138,11 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
       <p class="msg erreur" id="ncErreur" hidden></p>
     </form>
     <div id="comptesCodes"></div>
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid #D6E0DA">
+      <button type="button" class="bouton" id="sauvegarder">💾 Sauvegarder toutes les données</button>
+      <p class="hint">Un fichier avec tout ce qui est enregistré pour l'exploitation (semences, pluie, GNR, heures, entretien, comptes sans les mots de passe), à garder sur l'ordinateur.</p>
+      <p class="msg" id="sauvMsg" hidden></p>
+    </div>
   </div>
 
 </section>
@@ -397,11 +402,29 @@ async function dessinerExploitations(){
         if(x.actif && !confirm("Suspendre « "+x.nom+" » ? Plus personne ne pourra s'y connecter ; rien n'est effacé.")) return;
         try{ await appel("PATCH","/api/exploitations/"+x.id,{actif:!x.actif}); dessinerExploitations(); }catch(e){ alert(e.message); }
       });
-      tr.lastChild.appendChild(s);
+      const sup=document.createElement("button"); sup.type="button"; sup.className="lien"; sup.style.color="#B4472B"; sup.textContent="Supprimer";
+      sup.addEventListener("click", async ()=>{
+        const nom=prompt("Supprimer « "+x.nom+" » pour de bon, avec ses comptes et toutes ses données ? On ne pourra pas revenir en arrière.
+
+Pour confirmer, retapez son nom :");
+        if(nom===null) return;
+        try{ await appel("DELETE","/api/exploitations/"+x.id,{nom}); dessinerExploitations(); }catch(e){ alert(e.message); }
+      });
+      tr.lastChild.append(s, sup);
     }
     corps.appendChild(tr);
   });
 }
+$("sauvegarder").addEventListener("click", async ()=>{
+  message("sauvMsg","");
+  try{
+    const d=await appel("GET","/api/sauvegarde");
+    const n=new Date(), jour=n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0");
+    const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,1)],{type:"application/json"}));
+    a.download="sauvegarde-applis-de-la-ferme-"+jour+".json"; document.body.appendChild(a); a.click(); a.remove();
+    message("sauvMsg","Fichier enregistré dans les téléchargements.","ok");
+  }catch(e){ message("sauvMsg", e.message, "erreur"); }
+});
 $("ouvrirNouvelle").addEventListener("click",()=>{ $("formExpl").hidden=false; $("ouvrirNouvelle").hidden=true; $("explCodes").innerHTML=""; $("neNom").focus(); });
 $("annulerNouvelle").addEventListener("click",()=>{ $("formExpl").hidden=true; $("ouvrirNouvelle").hidden=false; message("neErreur",""); });
 lierIdentifiant("neChef","neId");

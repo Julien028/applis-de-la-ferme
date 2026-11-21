@@ -131,7 +131,7 @@ export async function api(request, env, url) {
     if (origine && origine !== url.origin) return erreur(403, 'Origine refusée.');
     if (methode !== 'DELETE' && !(request.headers.get('content-type') || '').includes('application/json')) return erreur(415, 'JSON attendu.');
   }
-  const corps = (methode === 'POST' || methode === 'PUT' || methode === 'PATCH') ? await request.json().catch(() => ({})) : {};
+  const corps = (methode === 'POST' || methode === 'PUT' || methode === 'PATCH' || methode === 'DELETE') ? await request.json().catch(() => ({})) : {};
   const p = url.pathname.split('/').filter(Boolean).slice(1); // sans « api »
 
   // ---------- connexion ----------
@@ -193,6 +193,27 @@ export async function api(request, env, url) {
     if (identifiant !== moi.identifiant && await compteExiste(env, identifiant)) return erreur(409, 'Cet identifiant est déjà pris. Ajoutez une initiale ou un chiffre.');
     await env.DB.prepare('UPDATE comptes SET nom = ?, identifiant = ? WHERE id = ?').bind(nom, identifiant, moi.id).run();
     return json(moiPourNavigateur({ ...moi, nom, identifiant }));
+  }
+
+  // Sauvegarde : toutes les données de l'exploitation dans un fichier (chef). Sans les mots de passe.
+  if (p[0] === 'sauvegarde' && p.length === 1 && methode === 'GET') {
+    if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
+    const E = moi.exploitation_id, tout = async (sql) => (await env.DB.prepare(sql).bind(E).all()).results;
+    return json({
+      quoi: 'Sauvegarde des Applis de la ferme', le: new Date().toISOString(),
+      exploitation: await env.DB.prepare('SELECT id, nom, cree_le FROM exploitations WHERE id = ?').bind(E).first(),
+      comptes: await tout('SELECT id, identifiant, nom, role, actif, droits, cree_le FROM comptes WHERE exploitation_id = ?'),
+      semences: await tout('SELECT * FROM semences WHERE exploitation_id = ?'),
+      reglages: await tout('SELECT * FROM reglages WHERE exploitation_id = ?'),
+      pluviometres: await tout('SELECT * FROM pluviometres WHERE exploitation_id = ?'),
+      releves_pluie: await tout('SELECT r.* FROM releves_pluie r JOIN pluviometres p ON p.id = r.pluviometre_id WHERE p.exploitation_id = ?'),
+      engins: await tout('SELECT * FROM engins WHERE exploitation_id = ?'),
+      gnr_pleins: await tout('SELECT * FROM gnr_pleins WHERE exploitation_id = ?'),
+      gnr_livraisons: await tout('SELECT * FROM gnr_livraisons WHERE exploitation_id = ?'),
+      heures_engins: await tout('SELECT * FROM heures_engins WHERE exploitation_id = ?'),
+      materiel: await tout('SELECT * FROM materiel WHERE exploitation_id = ?'),
+      entretiens: await tout('SELECT * FROM entretiens WHERE exploitation_id = ?'),
+    });
   }
 
   // Le chef d'exploitation renomme son exploitation
@@ -606,11 +627,11 @@ export async function api(request, env, url) {
   // machine. Noté par tous ceux qui ont la case « Entretien » (le chef toujours).
   if (p[0] === 'entretien') {
     const E = moi.exploitation_id;
-    const jourOk = j => /^\d{4}-\d{2}(-\d{2})?$/.test(j || '') && !isNaN(Date.parse((j.length === 7 ? j + '-01' : j) + 'T00:00:00Z'));
+    const jourOk = j => /^\d{4}(-\d{2}(-\d{2})?)?$/.test(j || '') && !isNaN(Date.parse(String(j + '-01-01').slice(0, 10) + 'T00:00:00Z'));
     const long = (v, max) => String(v ?? '').replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max);
     if (p.length === 1 && methode === 'GET') {
       const materiel = (await env.DB.prepare(
-        `SELECT m.id, m.nom, m.categorie, m.infos, m.pieces, m.actif, m.modifie_le, c.nom AS modifie_par
+        `SELECT m.id, m.nom, m.categorie, m.infos, m.pieces, m.liens, m.actif, m.modifie_le, c.nom AS modifie_par
            FROM materiel m LEFT JOIN comptes c ON c.id = m.modifie_par WHERE m.exploitation_id = ? ORDER BY m.categorie, m.nom`).bind(E).all()).results;
       const entretiens = (await env.DB.prepare(
         `SELECT e.id, e.materiel_id, e.jour, e.compteur, e.travail, e.ou, e.pieces, e.saisi_par AS saisi_par_id, c.nom AS saisi_par
@@ -651,8 +672,8 @@ export async function api(request, env, url) {
         const nom = texte(corps.nom, 80), categorie = texte(corps.categorie, 40);
         if (!nom) return erreur(400, 'Donnez un nom au matériel.');
         if (!categorie) return erreur(400, 'Choisissez la catégorie.');
-        return json(await env.DB.prepare('INSERT INTO materiel (exploitation_id, nom, categorie, infos, pieces, modifie_par) VALUES (?, ?, ?, ?, ?, ?) RETURNING id')
-          .bind(E, nom, categorie, long(corps.infos, 2000) || null, long(corps.pieces, 4000) || null, moi.id).first(), 201);
+        return json(await env.DB.prepare('INSERT INTO materiel (exploitation_id, nom, categorie, infos, pieces, liens, modifie_par) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id')
+          .bind(E, nom, categorie, long(corps.infos, 4000) || null, long(corps.pieces, 6000) || null, long(corps.liens, 4000) || null, moi.id).first(), 201);
       }
       if (p.length === 3 && methode === 'PATCH') {
         const m = await env.DB.prepare('SELECT * FROM materiel WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).first();
@@ -660,11 +681,12 @@ export async function api(request, env, url) {
         const nom = corps.nom === undefined ? m.nom : texte(corps.nom, 80);
         const categorie = corps.categorie === undefined ? m.categorie : texte(corps.categorie, 40);
         if (!nom || !categorie) return erreur(400, 'Le nom et la catégorie sont obligatoires.');
-        const infos = corps.infos === undefined ? m.infos : (long(corps.infos, 2000) || null);
-        const pieces = corps.pieces === undefined ? m.pieces : (long(corps.pieces, 4000) || null);
+        const infos = corps.infos === undefined ? m.infos : (long(corps.infos, 4000) || null);
+        const pieces = corps.pieces === undefined ? m.pieces : (long(corps.pieces, 6000) || null);
+        const liens = corps.liens === undefined ? m.liens : (long(corps.liens, 4000) || null);
         const actif = corps.actif === undefined ? m.actif : (corps.actif ? 1 : 0);
-        await env.DB.prepare(`UPDATE materiel SET nom = ?, categorie = ?, infos = ?, pieces = ?, actif = ?, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?`)
-          .bind(nom, categorie, infos, pieces, actif, moi.id, m.id).run();
+        await env.DB.prepare(`UPDATE materiel SET nom = ?, categorie = ?, infos = ?, pieces = ?, liens = ?, actif = ?, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?`)
+          .bind(nom, categorie, infos, pieces, liens, actif, moi.id, m.id).run();
         return json({ ok: true });
       }
     }
@@ -696,6 +718,21 @@ export async function api(request, env, url) {
     const id = Number(p[1]);
     const e = Number.isInteger(id) && await env.DB.prepare('SELECT * FROM exploitations WHERE id = ?').bind(id).first();
     if (!e) return erreur(404, 'Exploitation introuvable.');
+    // Supprimer pour de bon une exploitation extérieure et toutes ses données : l'administrateur
+    // du site retape son nom (vérifié ici aussi). Jamais sa propre exploitation.
+    if (p.length === 2 && methode === 'DELETE') {
+      if (e.id === moi.exploitation_id) return erreur(400, 'Vous ne pouvez pas supprimer votre propre exploitation.');
+      if (texte(corps.nom, 80).toLowerCase() !== e.nom.toLowerCase()) return erreur(400, 'Retapez exactement le nom de l\'exploitation pour confirmer.');
+      const q = sql => env.DB.prepare(sql).bind(id);
+      await env.DB.batch([
+        q('DELETE FROM sessions WHERE compte_id IN (SELECT id FROM comptes WHERE exploitation_id = ?)'),
+        q('DELETE FROM releves_pluie WHERE pluviometre_id IN (SELECT id FROM pluviometres WHERE exploitation_id = ?)'),
+        ...['entretiens', 'materiel', 'heures_engins', 'gnr_pleins', 'gnr_livraisons', 'engins', 'pluviometres', 'semences', 'reglages', 'comptes']
+          .map(t => q(`DELETE FROM ${t} WHERE exploitation_id = ?`)),
+        q('DELETE FROM exploitations WHERE id = ?'),
+      ]);
+      return json({ ok: true });
+    }
     // Renommer, ou suspendre / rouvrir un espace (rien n'est effacé)
     if (p.length === 2 && methode === 'PATCH') {
       if (corps.nom !== undefined) {
