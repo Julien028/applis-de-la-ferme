@@ -35,13 +35,16 @@ input[type=text],input[type=password]{font-family:var(--body);font-size:17px;pad
 select{font-size:16px;padding:8px;border:1px solid var(--line-strong);border-radius:2px;background:#fff}
 input:focus-visible,button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--seed);outline-offset:1px}
 .bouton{font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;font-size:15px;padding:10px 18px;border:0;border-radius:2px;background:var(--ink);color:var(--card);cursor:pointer}
+.sortir{margin-left:auto;font-size:14px;font-weight:600;color:#B4472B;background:none;border:1.5px solid #B4472B;border-radius:8px;padding:6px 12px;cursor:pointer}
 .lien{font-size:13px;color:var(--muted);background:none;border:0;text-decoration:underline;cursor:pointer;padding:6px 4px}
 .msg{font-size:13px;margin:8px 0 0}
 .msg.erreur{color:var(--seed)}
 .msg.ok{color:var(--ok)}
 .hint{font-size:12px;color:var(--muted);margin:4px 0 0}
 .qui{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
-.qui b{font-size:18px}
+.qui b{font-size:22px}
+.qui .connecte{color:#3F7D3A;font-weight:700;font-size:13px}
+.quiDetail{color:var(--muted);font-size:14px;margin-top:2px}
 .qui span{color:var(--muted);font-size:14px}
 .actions{display:flex;flex-wrap:wrap;gap:0 8px;margin-top:6px}
 .panneau{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
@@ -91,11 +94,12 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
 </section>
 
 <section class="block" id="blocCompte" hidden>
-  <div class="qui"><b id="quiNom"></b><span id="quiExpl"></span></div>
+  <div class="qui"><b id="quiNom"></b><span class="connecte">● Connecté</span></div>
+  <div class="quiDetail" id="quiExpl"></div>
   <div class="actions">
     <button type="button" class="lien" id="ouvrirMdp">Mon compte</button>
     <button type="button" class="lien" id="ouvrirComptes">Comptes de l'exploitation</button>
-    <button type="button" class="lien" id="deconnexion">Se déconnecter</button>
+    <button type="button" class="sortir" id="deconnexion">⏻ Se déconnecter</button>
   </div>
 
   <div class="panneau" id="panneauMoi" hidden>
@@ -241,8 +245,8 @@ function dessiner(){
   $("blocCompte").hidden = !moi;
   if(!moi) document.querySelectorAll(".tuile[data-appli]").forEach(t=>t.hidden=false);
   if(!moi){ $("blocAdmin").hidden=true; delete $("blocAdmin").dataset.vu; return; }
-  $("quiNom").textContent = moi.compte.nom;
-  $("quiExpl").textContent = moi.exploitation.nom+" · "+(moi.compte.role==="chef" ? "chef d'exploitation" : "salarié");
+  $("quiNom").textContent = "Bonjour "+moi.compte.nom.trim().split(/\s+/)[0];
+  $("quiExpl").textContent = moi.compte.nom+" · "+moi.exploitation.nom+" · "+(moi.compte.role==="chef" ? "chef d'exploitation" : "salarié");
   $("ouvrirComptes").hidden = moi.compte.role!=="chef";
   const acces = moi.compte.role==="chef" || !moi.droits || !moi.droits.acces ? null : moi.droits.acces;
   document.querySelectorAll(".tuile[data-appli]").forEach(t=>{ t.hidden = !!acces && !acces[t.dataset.appli]; });
@@ -266,16 +270,17 @@ $("formConnexion").addEventListener("submit", async e=>{
     $("cxMdp").value=""; dessiner();
   }catch(err){ message("cxErreur", err.message, "erreur"); }
 });
-$("deconnexion").addEventListener("click", async ()=>{
+async function seDeconnecter(){
   await appel("POST","/api/deconnexion",{}).catch(()=>{});
   moi=null;
   // On efface aussi les copies des données de l'exploitation gardées dans l'appareil
   try{
     localStorage.removeItem("applis.moi");
-    Object.keys(localStorage).filter(k=>/^(dose-de-semis.semences|enrouleurs|largVille|versions)@/.test(k)).forEach(k=>localStorage.removeItem(k));
+    Object.keys(localStorage).filter(k=>/^(dose-de-semis.semences|enrouleurs|largVille|versions)@|^outil@/.test(k)).forEach(k=>localStorage.removeItem(k));
   }catch(e){}
   dessiner();
-});
+}
+$("deconnexion").addEventListener("click", seDeconnecter);
 
 // ----- mon mot de passe -----
 $("ouvrirMdp").addEventListener("click",()=>{ if(basculer("panneauMoi")){ $("moiNom").value=moi.compte.nom; $("moiId").value=moi.compte.identifiant; } });
@@ -404,9 +409,7 @@ async function dessinerExploitations(){
       });
       const sup=document.createElement("button"); sup.type="button"; sup.className="lien"; sup.style.color="#B4472B"; sup.textContent="Supprimer";
       sup.addEventListener("click", async ()=>{
-        const nom=prompt("Supprimer « "+x.nom+" » pour de bon, avec ses comptes et toutes ses données ? On ne pourra pas revenir en arrière.
-
-Pour confirmer, retapez son nom :");
+        const nom=prompt("Supprimer « "+x.nom+" » pour de bon, avec ses comptes et toutes ses données ? On ne pourra pas revenir en arrière.\n\nPour confirmer, retapez son nom :");
         if(nom===null) return;
         try{ await appel("DELETE","/api/exploitations/"+x.id,{nom}); dessinerExploitations(); }catch(e){ alert(e.message); }
       });
@@ -441,6 +444,8 @@ $("formExpl").addEventListener("submit", async e=>{
 
 // ----- démarrage -----
 (async function(){
+  // « Se déconnecter » en haut des applis : elles renvoient ici avec ?deconnexion
+  if(new URLSearchParams(location.search).has("deconnexion")){ history.replaceState(null,"",location.pathname); await seDeconnecter(); return; }
   try{ moi = JSON.parse(localStorage.getItem("applis.moi")); }catch(e){}
   dessiner();
   try{ moi = await appel("GET","/api/moi"); }
