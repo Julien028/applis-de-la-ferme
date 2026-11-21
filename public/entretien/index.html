@@ -98,7 +98,7 @@ a.bouton-lien{display:flex;align-items:center;justify-content:center;text-decora
         <label for="nPieces">Pièces <span class="leger">(facultatif)</span></label>
         <input type="text" id="nPieces" maxlength="1000" placeholder="ex. filtre à huile 84228488, 12 L 15W40">
         <label for="nOu">Fait où / par qui <span class="leger">(facultatif)</span></label>
-        <input type="text" id="nOu" list="lieux" maxlength="60" placeholder="À la ferme, garage Lecoq…" autocomplete="off">
+        <input type="text" id="nOu" list="lieux" maxlength="60" placeholder="À la ferme, Lecoq Boisville…" autocomplete="off">
         <datalist id="lieux"></datalist>
         <button class="principal large" id="nOk" type="button">Enregistrer</button>
         <p class="msg" id="nMsg" hidden></p>
@@ -182,7 +182,7 @@ function dessiner(){
   $("pasDeMateriel").hidden=!!actifs.length; $("formNoter").hidden=!actifs.length;
   $("pasDeMateriel").textContent = chef() ? "Ajoutez d'abord votre matériel, dans la carte « Le matériel » ci-dessous." : "Le chef d'exploitation n'a pas encore créé la liste du matériel.";
   if(!$("nJour").value) $("nJour").value=aujourdhui();
-  $("lieux").innerHTML=""; [...new Set([...d.lieux,"À la ferme","Garage Lecoq"])].forEach(l=>{ const o=document.createElement("option"); o.value=l; $("lieux").appendChild(o); });
+  $("lieux").innerHTML=""; [...new Set([...d.lieux,"À la ferme","Lecoq Boisville"])].forEach(l=>{ const o=document.createElement("option"); o.value=l; $("lieux").appendChild(o); });
   // liste du matériel
   const filtre=$("chercher").value.trim().toLowerCase(), boite=$("liste"); boite.innerHTML="";
   const visibles=d.materiel.filter(m=>(m.actif||chef()) && (!filtre || (m.nom+" "+m.categorie).toLowerCase().includes(filtre)));
