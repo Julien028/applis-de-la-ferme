@@ -25,6 +25,7 @@ details.cotes summary{cursor:pointer;color:var(--muted);font-size:.85rem;padding
 .carac{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
 .carac span{background:var(--accent-clair);border-radius:999px;padding:4px 10px;font-size:.85rem}
 .carac b{color:var(--accent-fonce)}
+.ajout-carac{border:1.5px dashed var(--accent);background:#fff;color:var(--accent-fonce);border-radius:999px;padding:4px 10px;font-size:.85rem;font-weight:600;cursor:pointer;font-family:inherit}
 .texte{white-space:pre-wrap;background:var(--accent-clair);border-radius:12px;padding:10px 12px;font-size:.92rem;margin:4px 0 0}
 .fiche-tete{display:flex;align-items:flex-start;gap:8px}
 .fiche-tete h2{flex:1;margin:0}
@@ -229,6 +230,16 @@ function dessinerFiche(){
   $("fNom").textContent=m.nom+(m.actif?"":" (mis de côté)"); $("fCat").textContent=m.categorie;
   const car=$("fCarac"); car.innerHTML="";
   [["Largeur","largeur"],["Puissance","puissance"],["Année","annee"],["Immat.","plaque"],["N° de série","serie"]].forEach(([lib,k])=>{ if(!m[k]) return; const sp=document.createElement("span"); sp.innerHTML="<b></b> "; sp.firstChild.textContent=lib+" :"; sp.append(m[k]); car.appendChild(sp); });
+  // N° de série / immatriculation manquants : un bouton pour les noter devant la machine
+  if(peut("entretien")) [["N° de série","serie"],["Immatriculation","plaque"]].forEach(([lib,k])=>{
+    if(m[k] || (k==="plaque" && !/Tracteurs|Véhicules|Manutention|Moissonneuses|Transport/.test(m.categorie))) return;
+    const b=document.createElement("button"); b.type="button"; b.className="ajout-carac"; b.textContent="＋ "+lib;
+    b.addEventListener("click", async ()=>{
+      const v=prompt(lib+" de « "+m.nom+" » :"); if(v===null || !v.trim()) return;
+      try{ await appel("PATCH","/api/entretien/materiel/"+m.id,{[k]:v}); await charger(); }catch(e){ alert(e.message); }
+    });
+    car.appendChild(b);
+  });
   car.hidden=!car.children.length;
   $("fInfosBloc").hidden=!m.infos; $("fInfos").textContent=m.infos||"";
   $("fPiecesBloc").hidden=!m.pieces; $("fPieces").textContent=m.pieces||"";

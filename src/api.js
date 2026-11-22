@@ -667,6 +667,17 @@ export async function api(request, env, url) {
       await env.DB.prepare('DELETE FROM entretiens WHERE id = ?').bind(l.id).run();
       return json({ ok: true });
     }
+    // N° de série et immatriculation : aussi ceux qui notent les entretiens (relevés devant la machine)
+    if (p[1] === 'materiel' && p.length === 3 && methode === 'PATCH' && !chef) {
+      if (!peut(moi, 'entretien')) return erreur(403, 'Vous ne pouvez pas modifier cette fiche.');
+      const m = await env.DB.prepare('SELECT id FROM materiel WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).first();
+      if (!m) return erreur(404, 'Matériel introuvable.');
+      const champs = ['serie', 'plaque'].filter(k => corps[k] !== undefined);
+      if (!champs.length || Object.keys(corps).some(k => !['serie', 'plaque'].includes(k))) return erreur(403, 'Seul le chef modifie la fiche ; vous pouvez noter le n° de série et l\'immatriculation.');
+      await env.DB.prepare(`UPDATE materiel SET ${champs.map(k => k + ' = ?').join(', ')}, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?`)
+        .bind(...champs.map(k => texte(corps[k], 40) || null), moi.id, m.id).run();
+      return json({ ok: true });
+    }
     // La liste du matériel et les fiches : le chef d'exploitation
     if (p[1] === 'materiel') {
       if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
