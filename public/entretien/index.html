@@ -184,7 +184,7 @@ function dessiner(){
   $("pasDeMateriel").hidden=!!actifs.length; $("formNoter").hidden=!actifs.length;
   $("pasDeMateriel").textContent = chef() ? "Ajoutez d'abord votre matériel, dans la carte « Le matériel » ci-dessous." : "Le chef d'exploitation n'a pas encore créé la liste du matériel.";
   if(!$("nJour").value) $("nJour").value=aujourdhui();
-  $("lieux").innerHTML=""; [...new Set([...d.lieux,"À la ferme","Lecoq Boisville"])].forEach(l=>{ const o=document.createElement("option"); o.value=l; $("lieux").appendChild(o); });
+  $("lieux").innerHTML=""; [...new Set([...d.lieux,"À la ferme","Lecoq Boisville","Ghestem Agri"])].forEach(l=>{ const o=document.createElement("option"); o.value=l; $("lieux").appendChild(o); });
   // liste du matériel
   const filtre=$("chercher").value.trim().toLowerCase(), boite=$("liste"); boite.innerHTML="";
   const visibles=d.materiel.filter(m=>(m.actif||chef()) && (!filtre || (m.nom+" "+m.categorie).toLowerCase().includes(filtre)));
