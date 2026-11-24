@@ -68,6 +68,15 @@ table{width:100%;border-collapse:collapse}
 td{padding:8px 4px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
 td small{display:block;color:var(--muted);font-size:12px}
 td.act{text-align:right;white-space:nowrap}
+#comptesLignes td{padding:12px 4px}
+#comptesLignes td > span{font-size:19px;font-weight:700}
+.nomCompte{cursor:pointer;user-select:none}
+.nomCompte::after{content:" ▸";font-size:15px;color:var(--muted)}
+.nomCompte.ouvert::after{content:" ▾"}
+.detailCompte{margin-top:6px;padding:8px 10px;background:var(--card);border:1px solid var(--line);border-radius:6px}
+#comptesLignes td.act .lien{display:block;margin-left:auto}
+details.nouveau{margin-top:12px}
+details.nouveau > summary{cursor:pointer;font-weight:700;font-size:15px;padding:8px 0;color:var(--ink)}
 .codes{background:#fff;border:1px solid var(--line-strong);border-left:3px solid var(--seed);padding:10px 12px;margin-top:10px;font-size:14px;line-height:1.7}
 .codes code{font-family:var(--display);font-size:18px;letter-spacing:.03em}
 footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;font-size:12px;color:var(--muted)}
@@ -126,7 +135,8 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
       <p class="msg" id="nomExplMsg" hidden></p>
     </form>
     <table><tbody id="comptesLignes"></tbody></table>
-    <form id="formCompte" style="margin-top:12px">
+    <details class="nouveau" id="nouveauCompte"><summary>＋ Créer un compte</summary>
+    <form id="formCompte" style="margin-top:6px">
       <div class="field"><label for="ncNom">Nouveau compte — prénom et nom</label><input type="text" id="ncNom" maxlength="80" placeholder="Valentine Martin" required></div>
       <div class="field"><label for="ncId">Identifiant de connexion</label><input type="text" id="ncId" maxlength="40" autocapitalize="none" spellcheck="false" placeholder="valentine" required></div>
       <div class="field"><label for="ncRole">Rôle</label>
@@ -141,6 +151,7 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
       <button type="submit" class="bouton">Créer le compte</button>
       <p class="msg erreur" id="ncErreur" hidden></p>
     </form>
+    </details>
     <div id="comptesCodes"></div>
     <div style="margin-top:16px;padding-top:12px;border-top:1px solid #D6E0DA">
       <button type="button" class="bouton" id="sauvegarder">💾 Sauvegarder toutes les données</button>
@@ -172,7 +183,7 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
 </section>
 
 <!-- ======== les applis ======== -->
-<section>
+<section id="blocApplis">
   <h2>Les applis</h2>
   <div class="tuiles">
     <a class="tuile" href="dose-de-semis/" data-appli="dose">
@@ -241,6 +252,9 @@ function codes(boite, titre, lignes){
 }
 
 function dessiner(){
+  // Connecté : les applis d'abord, le compte en dessous (sauf mot de passe provisoire à changer)
+  const applis=$("blocApplis");
+  if(moi && !moi.doitChanger) $("blocConnexion").before(applis); else $("blocAdmin").after(applis);
   $("blocConnexion").hidden = !!moi;
   $("blocCompte").hidden = !moi;
   if(!moi) document.querySelectorAll(".tuile[data-appli]").forEach(t=>t.hidden=false);
@@ -250,8 +264,10 @@ function dessiner(){
   $("ouvrirComptes").hidden = moi.compte.role!=="chef";
   const acces = moi.compte.role==="chef" || !moi.droits || !moi.droits.acces ? null : moi.droits.acces;
   document.querySelectorAll(".tuile[data-appli]").forEach(t=>{ t.hidden = !!acces && !acces[t.dataset.appli]; });
-  const admin = !!moi.superAdmin && !$("blocAdmin").dataset.vu;
-  $("blocAdmin").hidden = !moi.superAdmin;
+  // Cadre « Exploitations extérieures » caché pour l'instant (Julien, 24/11/2026) : passer à true pour le revoir
+  const montrerAdmin = false;
+  const admin = montrerAdmin && !!moi.superAdmin && !$("blocAdmin").dataset.vu;
+  $("blocAdmin").hidden = !(montrerAdmin && moi.superAdmin);
   if(admin){ $("blocAdmin").dataset.vu="1"; dessinerExploitations(); }
   $("mdpIdentifiant").value = moi.compte.identifiant;
   // Mot de passe provisoire : on demande d'en choisir un tout de suite
@@ -314,6 +330,12 @@ function cases(boite, liste, valeurs, change){
     l.append(i, " "+lib); boite.appendChild(l);
   });
 }
+// Comme le serveur : une appli ou un droit ajouté après coup est ouvert à ceux qui n'en disent rien
+const NOUVEAUX = {entretien:true};
+const lire = (o, k) => k in o ? !!o[k] : !!NOUVEAUX[k];
+const accesDe = c => Object.fromEntries(APPLIS.map(([k])=>[k, c.droits.acces && typeof c.droits.acces==="object" ? lire(c.droits.acces,k) : true]));
+const droitsDe = c => Object.fromEntries(DROITS.map(([k])=>[k, lire(c.droits,k)]));
+const COMPTES_OUVERTS = new Set();
 const lireCases = boite => Object.fromEntries([...boite.querySelectorAll("input")].map(i=>[i.value, i.checked]));
 cases($("ncAcces"), APPLIS, Object.fromEntries(APPLIS.map(([k])=>[k,true])));
 cases($("ncDroits"), DROITS, DROITS_DEFAUT);
@@ -328,17 +350,30 @@ async function dessinerComptes(){
     tr.querySelector("small").textContent = c.identifiant+" · "+(c.role==="chef" ? "chef d'exploitation" : "salarié")+(c.doit_changer && c.actif ? " · mot de passe provisoire" : "");
     const act=tr.lastChild;
     if(c.role==="salarie" && c.actif){
+      // Les cases restent repliées : on touche le nom pour les ouvrir
+      const nom=tr.querySelector("span"), detail=document.createElement("div");
+      nom.className="nomCompte"; nom.setAttribute("role","button"); nom.tabIndex=0;
+      const resume=()=>{
+        const ac=accesDe(c), dr=droitsDe(c), a=APPLIS.filter(([k])=>ac[k]).length, n=DROITS.filter(([k])=>dr[k]).map(([,l])=>l);
+        return "Ouvre "+a+" appli"+(a>1?"s":"")+" sur "+APPLIS.length+" · "+(n.length ? "note : "+n.join(", ") : "consulte seulement");
+      };
+      const res=document.createElement("small"); res.textContent=resume();
       const enregistrer = async (droits, i) => {
-        try{ await appel("PATCH","/api/comptes/"+c.id,{droits}); c.droits=droits; }
+        try{ await appel("PATCH","/api/comptes/"+c.id,{droits}); c.droits=droits; res.textContent=resume(); }
         catch(e){ i.checked=!i.checked; alert(e.message); }
       };
       const t1=document.createElement("small"); t1.textContent="Ouvre :"; t1.style.marginTop="6px";
       const b1=document.createElement("div"); b1.className="droits";
-      cases(b1, APPLIS, c.droits.acces||{}, (k,i)=>enregistrer({...c.droits, acces:{...c.droits.acces, [k]:i.checked}}, i));
+      cases(b1, APPLIS, accesDe(c), (k,i)=>enregistrer({...droitsDe(c), acces:{...accesDe(c), [k]:i.checked}}, i));
       const t2=document.createElement("small"); t2.textContent="Peut noter ou modifier :"; t2.style.marginTop="4px";
       const b2=document.createElement("div"); b2.className="droits";
-      cases(b2, DROITS, c.droits, (k,i)=>enregistrer({...c.droits, [k]:i.checked}, i));
-      tr.firstChild.append(t1, b1, t2, b2);
+      cases(b2, DROITS, droitsDe(c), (k,i)=>enregistrer({...droitsDe(c), acces:accesDe(c), [k]:i.checked}, i));
+      detail.className="detailCompte"; detail.append(t1, b1, t2, b2);
+      const ouvrir=v=>{ detail.hidden=!v; nom.classList.toggle("ouvert", v); res.hidden=v; v ? COMPTES_OUVERTS.add(c.id) : COMPTES_OUVERTS.delete(c.id); };
+      ouvrir(COMPTES_OUVERTS.has(c.id));
+      nom.addEventListener("click", ()=>ouvrir(detail.hidden));
+      nom.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); ouvrir(detail.hidden); } });
+      tr.firstChild.append(res, detail);
     }
     if(c.id!==moi.compte.id){
       const r=document.createElement("button"); r.type="button"; r.className="lien"; r.textContent="Nouveau mot de passe";
@@ -374,6 +409,7 @@ $("formCompte").addEventListener("submit", async e=>{
     $("ncNom").value=""; $("ncId").value=""; delete $("ncId").dataset.touche; $("ncRole").value="salarie"; $("ncDroitsBloc").hidden=false;
     cases($("ncAcces"), APPLIS, Object.fromEntries(APPLIS.map(([k])=>[k,true]))); cases($("ncDroits"), DROITS, DROITS_DEFAUT);
     codes("comptesCodes", n.nom, [["Identifiant",n.identifiant],["Mot de passe provisoire",n.motDePasse]]);
+    $("nouveauCompte").open=false;
     dessinerComptes();
   }catch(err){ message("ncErreur", err.message, "erreur"); }
 });
