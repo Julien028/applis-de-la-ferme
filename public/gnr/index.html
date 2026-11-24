@@ -153,7 +153,7 @@ function dessiner(){
   $("cartePlein").hidden = !peut("gnr");
   remplirEngins($("pEngin"), actifs);
   $("pasDEngin").hidden = !!actifs.length; $("formPlein").hidden = !actifs.length;
-  $("pasDEngin").textContent = chef() ? "Ajoutez d'abord vos tracteurs, en bas de la page." : "Le chef d'exploitation n'a pas encore créé la liste des tracteurs.";
+  $("pasDEngin").textContent = adminSite() ? "Ajoutez d'abord vos tracteurs, en bas de la page." : "L'administrateur n'a pas encore créé la liste des tracteurs.";
   if(!$("pJour").value) $("pJour").value=aujourdhui();
   majCompteurSuggere();
   // cuve
@@ -301,8 +301,8 @@ $("jOk").addEventListener("click", async ()=>{
 
 /* ============ TRACTEURS ============ */
 function dessinerEngins(){
-  $("carteEngins").hidden = !chef();
-  if(!chef()) return;
+  $("carteEngins").hidden = !adminSite();
+  if(!adminSite()) return;
   gererEngins($("listeEngins"), donnees.engins, charger);
 }
 $("ajoutEngin").addEventListener("click", async ()=>{

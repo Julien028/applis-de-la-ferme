@@ -448,7 +448,7 @@ export async function api(request, env, url) {
     if (p.length === 1 && methode === 'GET') {
       const annee = /^\d{4}$/.test(url.searchParams.get('annee') || '') ? url.searchParams.get('annee') : String(new Date().getUTCFullYear());
       const du = annee + '-01-01', au = annee + '-12-31';
-      const engins = (await env.DB.prepare('SELECT id, nom, plaque, serie, actif FROM engins WHERE exploitation_id = ? ORDER BY actif DESC, nom').bind(E).all()).results;
+      const engins = (await env.DB.prepare('SELECT id, nom, plaque, serie, actif, ordre, (SELECT COUNT(*) FROM gnr_pleins g WHERE g.engin_id = engins.id) AS nb_pleins, (SELECT COUNT(*) FROM heures_engins h WHERE h.engin_id = engins.id) AS nb_sorties FROM engins WHERE exploitation_id = ? ORDER BY actif DESC, ordre IS NULL, ordre, nom').bind(E).all()).results;
       const pleins = (await env.DB.prepare(
         `SELECT g.id, g.engin_id, g.jour, g.litres, g.compteur, g.travail, g.index_pompe, g.saisi_par AS saisi_par_id, c.nom AS saisi_par
            FROM gnr_pleins g LEFT JOIN comptes c ON c.id = g.saisi_par
@@ -538,6 +538,27 @@ export async function api(request, env, url) {
       await env.DB.prepare('DELETE FROM gnr_livraisons WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).run();
       return json({ ok: true });
     }
+    // La liste des tracteurs : l'administrateur du site seulement (Julien, 24/11/2026)
+    if (p[1] === 'engins' && !moi.super_admin) return erreur(403, 'Réservé à l\'administrateur du site.');
+    // Classement choisi : la liste complète des ids, dans l'ordre voulu
+    if (p[1] === 'engins' && p[2] === 'ordre' && methode === 'PATCH') {
+      const ids = Array.isArray(corps.ids) ? corps.ids.map(Number).filter(Number.isInteger).slice(0, 500) : [];
+      if (!ids.length) return erreur(400, 'Liste vide.');
+      await env.DB.batch(ids.map((id, i) => env.DB.prepare('UPDATE engins SET ordre = ? WHERE id = ? AND exploitation_id = ?').bind(i + 1, id, E)));
+      return json({ ok: true });
+    }
+    if (p[1] === 'engins' && p.length === 3 && methode === 'DELETE') {
+      const en = await env.DB.prepare('SELECT * FROM engins WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).first();
+      if (!en) return erreur(404, 'Engin introuvable.');
+      if (String(corps.confirmation || '').trim().toLowerCase() !== en.nom.trim().toLowerCase())
+        return erreur(400, 'Pour supprimer, retapez exactement le nom du tracteur.');
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM gnr_pleins WHERE engin_id = ? AND exploitation_id = ?').bind(en.id, E),
+        env.DB.prepare('DELETE FROM heures_engins WHERE engin_id = ? AND exploitation_id = ?').bind(en.id, E),
+        env.DB.prepare('DELETE FROM engins WHERE id = ?').bind(en.id),
+      ]);
+      return json({ ok: true });
+    }
     if (p[1] === 'engins' && p.length === 2 && methode === 'POST') {
       const nom = texte(corps.nom, TAILLE_MAX_NOM);
       if (!nom) return erreur(400, 'Donnez un nom à l\'engin.');
@@ -578,7 +599,7 @@ export async function api(request, env, url) {
     const nb = v => { const t = String(v ?? '').trim(); if (t === '') return null; const n = Math.round(Number(t.replace(',', '.')) * 100) / 100; return isFinite(n) ? n : NaN; };
     if (p.length === 1 && methode === 'GET') {
       const annee = /^\d{4}$/.test(url.searchParams.get('annee') || '') ? url.searchParams.get('annee') : String(new Date().getUTCFullYear());
-      const engins = (await env.DB.prepare('SELECT id, nom, plaque, serie, actif FROM engins WHERE exploitation_id = ? ORDER BY actif DESC, nom').bind(E).all()).results;
+      const engins = (await env.DB.prepare('SELECT id, nom, plaque, serie, actif, ordre, (SELECT COUNT(*) FROM gnr_pleins g WHERE g.engin_id = engins.id) AS nb_pleins, (SELECT COUNT(*) FROM heures_engins h WHERE h.engin_id = engins.id) AS nb_sorties FROM engins WHERE exploitation_id = ? ORDER BY actif DESC, ordre IS NULL, ordre, nom').bind(E).all()).results;
       const sorties = (await env.DB.prepare(
         `SELECT h.id, h.engin_id, h.jour, h.debut, h.fin, h.heures, h.pour_qui, h.travail, h.saisi_par AS saisi_par_id, c.nom AS saisi_par
            FROM heures_engins h LEFT JOIN comptes c ON c.id = h.saisi_par

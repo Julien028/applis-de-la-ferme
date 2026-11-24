@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS engins (
   plaque TEXT,                        -- immatriculation, pour reconnaître deux engins pareils
   serie TEXT,                         -- numéro de série, facultatif
   actif INTEGER NOT NULL DEFAULT 1,
+  ordre INTEGER,                      -- classement choisi (vide = alphabétique)
   cree_le TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS engins_exploitation ON engins (exploitation_id);

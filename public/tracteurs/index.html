@@ -109,7 +109,7 @@ function dessiner(){
   $("carteSortie").hidden = !peut("heures");
   remplirEngins($("sEngin"), actifs);
   $("pasDEngin").hidden = !!actifs.length; $("formSortie").hidden = !actifs.length;
-  $("pasDEngin").textContent = chef() ? "Ajoutez d'abord vos tracteurs, en bas de la page." : "Le chef d'exploitation n'a pas encore créé la liste des tracteurs.";
+  $("pasDEngin").textContent = adminSite() ? "Ajoutez d'abord vos tracteurs, en bas de la page." : "L'administrateur n'a pas encore créé la liste des tracteurs.";
   if(!$("sJour").value) $("sJour").value=aujourdhui();
   const dl=$("lieux"); dl.innerHTML=""; [...new Set([...d.lieux, "Bretonvilliers", "Dimancheville"])].forEach(l=>{ const o=document.createElement("option"); o.value=l; dl.appendChild(o); });
   majDebutSuggere(); majCalcul();
@@ -156,8 +156,8 @@ function dessiner(){
     }
     j.appendChild(tr);
   });
-  $("carteEngins").hidden = !chef();
-  if(chef()) gererEngins($("listeEngins"), d.engins, charger);
+  $("carteEngins").hidden = !adminSite();
+  if(adminSite()) gererEngins($("listeEngins"), d.engins, charger);
 }
 
 function majDebutSuggere(){
