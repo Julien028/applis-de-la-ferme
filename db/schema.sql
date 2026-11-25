@@ -211,6 +211,7 @@ CREATE TABLE IF NOT EXISTS phyto_produits (
   cmr TEXT,                           -- « CMR 2 » si concerné
   fournisseur TEXT,                   -- chez qui on le commande (bon de commande par fournisseur)
   amm TEXT,                           -- n° d'AMM (même AMM = produits similaires)
+  amm_ref TEXT,                       -- AMM du produit de référence (génériques, E-Phy) : même référence = similaires
   bidon REAL,                         -- taille du bidon / sac (arrondi de la commande)
   groupe TEXT,                        -- produits similaires reliés à la main (même valeur = même groupe)
   modifie_par INTEGER REFERENCES comptes(id),

@@ -35,3 +35,4 @@ CREATE TABLE IF NOT EXISTS phyto_campagnes (
 -- ALTER TABLE phyto_produits ADD COLUMN amm TEXT;
 -- ALTER TABLE phyto_produits ADD COLUMN groupe TEXT;
 -- ALTER TABLE phyto_produits ADD COLUMN bidon REAL;
+-- ALTER TABLE phyto_produits ADD COLUMN amm_ref TEXT;

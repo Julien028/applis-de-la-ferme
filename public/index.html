@@ -337,11 +337,11 @@ function cases(boite, liste, valeurs, change){
 // Comme le serveur : une appli ou un droit ajouté après coup est ouvert à ceux qui n'en disent rien
 const NOUVEAUX = {entretien:true};
 const lire = (o, k) => k in o ? !!o[k] : !!NOUVEAUX[k];
-const accesDe = c => Object.fromEntries(APPLIS.map(([k])=>[k, c.droits.acces && typeof c.droits.acces==="object" ? lire(c.droits.acces,k) : true]));
+const accesDe = c => Object.fromEntries(APPLIS.map(([k])=>[k, c.droits.acces && typeof c.droits.acces==="object" ? lire(c.droits.acces,k) : k!=="phyto"]));
 const droitsDe = c => Object.fromEntries(DROITS.map(([k])=>[k, lire(c.droits,k)]));
 const COMPTES_OUVERTS = new Set();
 const lireCases = boite => Object.fromEntries([...boite.querySelectorAll("input")].map(i=>[i.value, i.checked]));
-cases($("ncAcces"), APPLIS, Object.fromEntries(APPLIS.map(([k])=>[k,true])));
+cases($("ncAcces"), APPLIS, Object.fromEntries(APPLIS.map(([k])=>[k,k!=="phyto"])));
 cases($("ncDroits"), DROITS, DROITS_DEFAUT);
 async function dessinerComptes(){
   const corps=$("comptesLignes"); corps.innerHTML="";
@@ -411,7 +411,7 @@ $("formCompte").addEventListener("submit", async e=>{
     const droits={...lireCases($("ncDroits")), acces:lireCases($("ncAcces"))};
     const n=await appel("POST","/api/comptes",{nom:$("ncNom").value, identifiant:$("ncId").value, role:$("ncRole").value, droits});
     $("ncNom").value=""; $("ncId").value=""; delete $("ncId").dataset.touche; $("ncRole").value="salarie"; $("ncDroitsBloc").hidden=false;
-    cases($("ncAcces"), APPLIS, Object.fromEntries(APPLIS.map(([k])=>[k,true]))); cases($("ncDroits"), DROITS, DROITS_DEFAUT);
+    cases($("ncAcces"), APPLIS, Object.fromEntries(APPLIS.map(([k])=>[k,k!=="phyto"]))); cases($("ncDroits"), DROITS, DROITS_DEFAUT);
     codes("comptesCodes", n.nom, [["Identifiant",n.identifiant],["Mot de passe provisoire",n.motDePasse]]);
     $("nouveauCompte").open=false;
     dessinerComptes();

@@ -31,7 +31,21 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
 .simliste li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--grille)}
 .simliste li .sim{font-size:.95rem;flex:1;text-align:left}
 .simliste small{color:var(--muted)}
+.simtout{font-size:.8rem;color:var(--muted)}
+.stock li.eclaire{animation:eclaire 2.2s ease-out}
+@keyframes eclaire{0%,40%{background:#FFF1CC}100%{background:transparent}}
 .lier{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
+.ctl-cmd{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px}
+.ctl-cmd select{width:auto;min-width:130px;padding:7px 30px 7px 10px;font-size:.88rem;border-radius:10px;background-position:right 8px center}
+.ctl-cmd .recup{display:flex;align-items:center;gap:5px;margin:0;font-size:.88rem;color:var(--ink);font-weight:700;cursor:pointer}
+.ctl-cmd .recup input{width:22px;height:22px;accent-color:var(--ok)}
+.recep{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--accent-clair);border-radius:10px;padding:8px}
+.recep input[type=text]{width:90px;text-align:right;padding:8px}
+.recep input[type=date]{width:150px;padding:8px}
+.recep .principal{padding:9px 12px;font-size:.9rem}
+.recu{flex-basis:100%;display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--ok);font-weight:700}
+.tab td small.imprime-four{display:none}
+@media print{ .tab td small.imprime-four{display:block} }
 .prod label{margin:0 0 3px;font-size:.72rem}
 .croixg{width:40px;height:44px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--muted);font-size:1.1rem;cursor:pointer}
 .info{font-size:.8rem;color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
@@ -92,7 +106,7 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
     <!-- ============ ASSOLEMENT ============ -->
     <div class="card" id="vueAssol" hidden>
       <h2>Assolement <span id="aTitre"></span></h2>
-      <label for="debut">Début de campagne <span class="leger">(un produit retiré avant cette date ne compte pas dans le stock)</span></label>
+      <label for="debut">Début de campagne <span class="leger">(1er septembre ; un produit retiré avant cette date ne compte pas dans le stock)</span></label>
       <input type="date" id="debut">
       <h3>Cultures</h3>
       <ul class="lignes" id="cultures"></ul>
@@ -126,7 +140,11 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
       <h2>À commander — campagne <span id="cTitre"></span></h2>
       <p class="hint pas-imprimer" style="margin-top:-4px">Besoin = dose × surface × % traité, pour toutes les cultures. Stock utilisable = stock du local, sans les produits retirés avant le <span id="cDebut"></span>. À commander = besoin − stock utilisable, arrondi au bidon (sinon à 5, 10 ou 20).</p>
       <label class="pas-imprimer" style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="avecSim" checked style="width:20px;height:20px"> Compter aussi le stock des produits similaires</label>
-      <label class="pas-imprimer" style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:0"><input type="checkbox" id="seulCmd" style="width:20px;height:20px"> Seulement ce qu'il faut commander</label>
+      <div class="filtres pas-imprimer" style="grid-template-columns:1fr 1fr;margin-top:6px">
+        <select id="filtreCmd" aria-label="Quels produits"><option value="">Tout le programme</option><option value="reste" selected>Reste à commander / récupérer</option><option value="recu">Déjà récupéré</option></select>
+        <select id="filtreFour" aria-label="Fournisseur"></select>
+      </div>
+      <p class="hint pas-imprimer">Pour chaque produit : choisissez le fournisseur, puis cochez « Récupéré » à l'arrivée — la quantité reçue s'ajoute au stock.</p>
       <div class="defile"><table class="tab" id="tabCmd"></table></div>
       <div class="ligne-boutons pas-imprimer">
         <button class="principal" id="copierCmd" type="button">📋 Copier pour Excel</button>
@@ -158,7 +176,6 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
           <div><label for="fpStatut">Statut</label><select id="fpStatut"><option value="autorise">Autorisé</option><option value="retire">Retiré</option><option value="engrais">Engrais</option><option value="nonphyto">Pas un phyto</option></select></div>
           <div><label for="fpFin">Fin d'utilisation <span class="leger">(si retiré)</span></label><input type="date" id="fpFin"></div>
           <div><label for="fpCmr">CMR</label><select id="fpCmr"><option value="">Non</option><option>CMR 2</option><option>CMR 1</option></select></div>
-          <div><label for="fpFour">Fournisseur</label><input type="text" id="fpFour" maxlength="60" list="fournisseurs"></div>
           <div><label for="fpBidon">Bidon / sac <span class="leger">(pour arrondir)</span></label><input type="text" id="fpBidon" inputmode="decimal" placeholder="ex. 5, 10, 20"></div>
           <div><label for="fpAmm">N° AMM</label><input type="text" id="fpAmm" maxlength="20" inputmode="numeric" placeholder="ex. 2100143"></div>
         </div>
@@ -200,20 +217,30 @@ function indexer(){
   const unir = (a,b) => { const x=trouve(a), y=trouve(b); if(x!==y) pere.set(x,y); };
   const vus = new Map();
   D.produits.forEach(p=>{
-    if(p.amm){ const k="a:"+String(p.amm).replace(/\s/g,""); if(vus.has(k)) unir(p, vus.get(k)); else vus.set(k,p); }
+    if(p.amm || p.amm_ref){ const k="a:"+String(p.amm_ref||p.amm).replace(/\s/g,""); if(vus.has(k)) unir(p, vus.get(k)); else vus.set(k,p); }
     if(p.groupe){ const k="g:"+cle(p.groupe); if(vus.has(k)) unir(p, vus.get(k)); else vus.set(k,p); }
   });
   racine = new Map(D.produits.map(p=>[p, trouve(p)]));
 }
 const similaires = p => p ? D.produits.filter(x=>x!==p && racine.get(x)===racine.get(p)) : [];
-const memeAmm = (a,b) => a.amm && b.amm && String(a.amm).replace(/\s/g,"")===String(b.amm).replace(/\s/g,"");
-function ouvrirFiche(p){ montrer("Stock"); $("recherche").value=""; dessinerStock(); editer(p); }
-// « ≈ Kayak : 15 L » cliquable, sous un produit
+const memeAmm = (a,b) => { const k=p=>String(p.amm_ref||p.amm||"").replace(/\s/g,""); return !!k(a) && k(a)===k(b); };
+// Va à la ligne du produit dans la feuille de stock, et l'éclaire un instant
+function allerA(p){
+  if(vue!=="Stock") montrer("Stock");
+  if(!$("st-"+p.id)){ $("recherche").value=""; $("filtreCat").value=""; dessinerStock(); }
+  const li=$("st-"+p.id); if(!li) return;
+  li.scrollIntoView({behavior:"smooth", block:"center"}); li.classList.remove("eclaire"); void li.offsetWidth; li.classList.add("eclaire");
+}
+// « (même produit : Unix Max 20 L) » cliquable, sous un produit
 function liensSimilaires(boite, nom){
-  similaires(produit(nom)).forEach(x=>{
-    const b=el("button","sim","≈ "+x.nom+" : "+nb(x.q)+" "+x.u); b.type="button"; b.title="Produit similaire"+(memeAmm(x,produit(nom))?" (même AMM)":"")+" — ouvrir sa fiche";
-    b.addEventListener("click", ()=>ouvrirFiche(x)); boite.appendChild(b);
+  const p=produit(nom), l=similaires(p); if(!l.length) return;
+  const sp=el("span","simtout","(même produit : ");
+  l.forEach((x,i)=>{
+    if(i) sp.appendChild(document.createTextNode(" · "));
+    const b=el("button","sim",x.nom+" "+nb(x.q)+" "+x.u); b.type="button"; b.title="Produit similaire"+(memeAmm(x,p)?" (même AMM)":"")+" — aller à sa ligne dans le stock";
+    b.addEventListener("click", ()=>allerA(x)); sp.appendChild(b);
   });
+  sp.appendChild(document.createTextNode(")")); boite.appendChild(sp);
 }
 const produit = nom => parNom.get(cle(nom));
 const debutCampagne = () => (C && C.debut) || aujourdhui();
@@ -247,7 +274,7 @@ async function charger(){
   indexer();
   const voulue = (C && C.campagne) || lireChoix("phyto.campagne");
   C = D.campagnes.find(k=>k.campagne===voulue) || D.campagnes[0] || null;
-  if(!C){ const an = String(new Date().getFullYear() + (new Date().getMonth()>=7 ? 1 : 0)); C = {campagne:an, debut:an+"-02-01", donnees:{cultures:[]}, modifie_le:undefined, neuve:true}; D.campagnes.push(C); }
+  if(!C){ const an = String(new Date().getFullYear() + (new Date().getMonth()>=7 ? 1 : 0)); C = {campagne:an, debut:(Number(an)-1)+"-09-01", donnees:{cultures:[]}, modifie_le:undefined, neuve:true}; D.campagnes.push(C); }
   tout();
 }
 function tout(){
@@ -296,7 +323,7 @@ $("nouvelleCampagne").addEventListener("click", ()=>{
   if(C && C.donnees.cultures.length && confirm("Reprendre l'assolement et les programmes de la campagne "+C.campagne+" pour démarrer ?\n(OK : copier · Annuler : partir de zéro)"))
     donnees = JSON.parse(JSON.stringify(C.donnees));
   const an = /^\d{4}$/.test(n) ? n : String(new Date().getFullYear()+1);
-  C = {campagne:n, debut:an+"-02-01", donnees, modifie_le:undefined, neuve:true}; D.campagnes.push(C);
+  C = {campagne:n, debut:(Number(an)-1)+"-09-01", donnees, modifie_le:undefined, neuve:true}; D.campagnes.push(C);
   garderChoix("phyto.campagne", n); tout(); enregistrer();
 });
 
@@ -437,21 +464,47 @@ function calculer(){
     return {...b, membres, avec, reel, util, cmd, arrondi: arrondir(cmd, b.p, b.u)};
   }).sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{numeric:true}));
 }
+/* Commande : fournisseur choisi produit par produit, et réception (« récupéré ») qui remplit le stock.
+   Gardé dans la campagne : donnees.commande[clé] = {fournisseur, recus:[{q, u, date, produit}]} */
+const FOURNISSEURS = ["SSC","Agryco","Axéréal","Souflet"];
+const fournisseursListe = () => [...new Set([...(C.donnees.fournisseurs||FOURNISSEURS), ...Object.values(C.donnees.commande||{}).map(c=>c.fournisseur).filter(Boolean)])];
+const cleCmd = x => x.p ? "p:"+cle(x.p.nom) : "n:"+cle(x.nom)+"|"+x.u;
+const infoCmd = x => { C.donnees.commande = C.donnees.commande || {}; return C.donnees.commande[cleCmd(x)] || (C.donnees.commande[cleCmd(x)] = {fournisseur:"", recus:[]}); };
+const lireCmd = x => (C.donnees.commande||{})[cleCmd(x)] || {fournisseur:"", recus:[]};
+const totalRecu = x => (lireCmd(x).recus||[]).reduce((s,r)=>s+(convertir(r.q, r.u||x.u, x.u)??0),0);
+function filtrerCmd(lignes){
+  const f=$("filtreCmd").value, four=$("filtreFour").value;
+  return lignes.filter(x=>{
+    if(four && (lireCmd(x).fournisseur||"")!==(four==="-"?"":four)) return false;
+    if(f==="reste") return x.cmd>0;
+    if(f==="recu") return (lireCmd(x).recus||[]).length>0;
+    return true;
+  });
+}
+function remplirFiltreFour(){
+  const s=$("filtreFour"), v=s.value; s.innerHTML="";
+  [["","Tous les fournisseurs"],...fournisseursListe().map(f=>[f,f]),["-","Sans fournisseur"]].forEach(([k,l])=>{ const o=el("option",null,l); o.value=k; s.appendChild(o); });
+  s.value=[...s.options].some(o=>o.value===v)?v:"";
+}
 function dessinerCmd(){
   $("cTitre").textContent = C.campagne; $("cDebut").textContent = dateFr(debutCampagne());
-  const lignes = calculer(), seul = $("seulCmd").checked, t=$("tabCmd"); t.innerHTML="";
+  remplirFiltreFour();
+  const lignes = calculer(), vis = filtrerCmd(lignes), t=$("tabCmd");
   t.innerHTML = "<tr><th>Produit</th><th>À commander</th><th>Besoin</th><th>Stock réel</th><th>Utilisable</th></tr>";
-  const vis = lignes.filter(x=>!seul || x.cmd>0);
-  if(!vis.length){ const tr=el("tr"), td=el("td","vide", lignes.length ? "Rien à commander : le stock couvre le programme." : "Aucun produit au programme pour l'instant."); td.colSpan=5; tr.appendChild(td); t.appendChild(tr); }
+  if(!vis.length){ const tr=el("tr"), td=el("td","vide", !lignes.length ? "Aucun produit au programme pour l'instant." : $("filtreCmd").value==="reste" ? "Plus rien à commander ni à récupérer." : "Aucun produit pour ce choix."); td.colSpan=5; tr.appendChild(td); t.appendChild(tr); }
   vis.forEach(x=>{
     const tr=el("tr"), n=el("td","nom"); n.appendChild(el("b",null,x.nom));
-    const i=el("div","info"); badges(i, x.nom, true); if(x.autreUnite) i.appendChild(el("span","badge b-unite","unité ≠ stock")); if(x.p && x.p.fournisseur) i.appendChild(el("span",null,x.p.fournisseur));
+    const i=el("div","info"); badges(i, x.nom, true); if(x.autreUnite) i.appendChild(el("span","badge b-unite","unité ≠ stock"));
     n.appendChild(i);
     const autres=[...x.noms].filter(v=>!x.p||v!==x.p.nom); if(autres.length) n.appendChild(el("small",null,"au programme aussi sous : "+autres.join(", ")));
     if(x.avec.length) n.appendChild(el("small",null,"stock compté avec : "+x.avec.join(", ")));
     else if(x.p && !x.groupe){ const si=el("div","info"); liensSimilaires(si, x.p.nom); if(si.children.length) n.appendChild(si); }
     n.appendChild(el("small",null,[...x.cultures].join(", ")));
-    tr.append(n, (()=>{ const td=el("td", x.cmd>0?"cmd":"zero", x.cmd>0 ? nb(x.arrondi)+" "+x.u : "0"); if(x.cmd>0 && Math.abs(x.arrondi-x.cmd)>0.004) td.appendChild(el("small",null,"juste : "+nb(x.cmd))); return td; })(), el("td",null,nb(x.besoin)+" "+x.u), el("td",null,x.p?nb(x.reel)+" "+x.u:"—"), el("td",null,x.p?nb(x.util)+" "+x.u:"—"));
+    n.appendChild(controlesCmd(x));
+    const td=el("td", x.cmd>0?"cmd":"zero", x.cmd>0 ? nb(x.arrondi)+" "+x.u : "0");
+    if(x.cmd>0 && Math.abs(x.arrondi-x.cmd)>0.004) td.appendChild(el("small",null,"juste : "+nb(x.cmd)));
+    const four=lireCmd(x).fournisseur; if(four) td.appendChild(el("small","imprime-four",four));
+    tr.append(n, td, el("td",null,nb(x.besoin)+" "+x.u), el("td",null,x.p?nb(x.reel)+" "+x.u:"—"), el("td",null,x.p?nb(x.util)+" "+x.u:"—"));
     t.appendChild(tr);
   });
   // Stock en local, non prévu au programme
@@ -462,14 +515,68 @@ function dessinerCmd(){
   hors.forEach(p=>{ const tr=el("tr"), n=el("td","nom"); n.appendChild(el("span",null,p.nom)); const i=el("div","info"); badges(i,p.nom); if(p.fam) i.appendChild(el("span",null,p.fam)); n.appendChild(i);
     tr.append(n, el("td",null,nb(p.q)+" "+p.u), el("td",null,nb(utilisable(p))+" "+p.u)); h.appendChild(tr); });
 }
-$("seulCmd").addEventListener("change", dessinerCmd);
+// Sous chaque produit : le fournisseur choisi, la case « récupéré » et les réceptions déjà notées
+function controlesCmd(x){
+  const bloc=el("div","ctl-cmd pas-imprimer"), c=lireCmd(x);
+  const s=el("select"); s.setAttribute("aria-label","Fournisseur de "+x.nom);
+  [["","Fournisseur…"],...fournisseursListe().map(f=>[f,f]),["+","＋ Autre fournisseur…"]].forEach(([k,l])=>{ const o=el("option",null,l); o.value=k; s.appendChild(o); });
+  s.value=c.fournisseur||""; s.disabled=!ecrit();
+  s.addEventListener("change", ()=>{
+    let v=s.value;
+    if(v==="+"){ v=(prompt("Nom du fournisseur :")||"").trim(); if(!v){ s.value=c.fournisseur||""; return; } C.donnees.fournisseurs=[...new Set([...(C.donnees.fournisseurs||FOURNISSEURS), v])]; }
+    infoCmd(x).fournisseur=v; modifie(); dessinerCmd();
+  });
+  const lab=el("label","recup"), cb=el("input"); cb.type="checkbox"; cb.disabled=!ecrit(); cb.checked=(c.recus||[]).length>0 && x.cmd<=0;
+  lab.append(cb, document.createTextNode(" Récupéré"));
+  bloc.append(s, lab);
+  const form=el("div","recep"); form.hidden=true;
+  const q=el("input"); q.type="text"; q.inputMode="decimal"; q.value=nb(x.cmd>0?x.arrondi:0,3); q.setAttribute("aria-label","Quantité reçue");
+  const d=el("input"); d.type="date"; d.value=aujourdhui(); d.setAttribute("aria-label","Date de réception");
+  const ok=el("button","principal","Ajouter au stock"); ok.type="button";
+  const non=el("button","lien","Annuler"); non.type="button";
+  form.append(el("span",null,"Reçu :"), q, el("span",null,x.u), d, ok, non);
+  cb.addEventListener("change", ()=>{ if(cb.checked){ form.hidden=false; q.focus(); q.select(); } else { cb.checked=true; } });
+  non.addEventListener("click", ()=>{ form.hidden=true; cb.checked=(c.recus||[]).length>0 && x.cmd<=0; });
+  ok.addEventListener("click", async ()=>{
+    const v=lireNb(q.value); if(!v || v<=0) return alert("Quantité reçue invalide.");
+    ok.disabled=true;
+    try{
+      let p=x.p;
+      if(!p){ // pas encore dans le stock : on l'y crée avec ce qui est arrivé
+        p=await appel("POST","/api/phyto/produits",{nom:x.nom, q:v, u:x.u==="g"?"kg":x.u, cat:"Phyto"}); D.produits.push(p);
+      } else {
+        const r=await appel("PATCH","/api/phyto/produits/"+p.id,{q:Math.round((p.q+(convertir(v,x.u,p.u)??v))*1000)/1000}); Object.assign(p,r);
+      }
+      infoCmd(x).recus.push({q:v, u:x.u, date:d.value||aujourdhui(), produit:p.id}); indexer(); garder("phyto",D); clearTimeout(minuteur); minuteur=null; await enregistrer(); dessinerCmd();
+      message("cmdMsg", nb(v)+" "+x.u+" de « "+p.nom+" » ajoutés au stock.","ok");
+    }catch(e){ alert(e.message); ok.disabled=false; }
+  });
+  bloc.appendChild(form);
+  (c.recus||[]).forEach((r,k)=>{
+    const ligne=el("div","recu"); ligne.appendChild(el("span",null,"✓ "+nb(r.q)+" "+(r.u||x.u)+" reçu"+(r.date?" le "+dateFr(r.date):"")));
+    if(ecrit()){ const z=el("button","croix","✕"); z.type="button"; z.title="Annuler cette réception";
+      z.addEventListener("click", async ()=>{
+        const p=D.produits.find(y=>y.id===r.produit);
+        if(!confirm("Annuler la réception de "+nb(r.q)+" "+(r.u||x.u)+" ?"+(p?" Elle est retirée du stock de « "+p.nom+" ».":""))) return;
+        try{ if(p){ const n=Math.max(0, Math.round((p.q-(convertir(r.q, r.u||x.u, p.u)??r.q))*1000)/1000); Object.assign(p, await appel("PATCH","/api/phyto/produits/"+p.id,{q:n})); }
+          infoCmd(x).recus.splice(k,1); indexer(); garder("phyto",D); clearTimeout(minuteur); minuteur=null; await enregistrer(); dessinerCmd(); }
+        catch(e){ alert(e.message); }
+      });
+      ligne.appendChild(z); }
+    bloc.appendChild(ligne);
+  });
+  return bloc;
+}
+$("filtreCmd").addEventListener("change", dessinerCmd);
+$("filtreFour").addEventListener("change", dessinerCmd);
 $("avecSim").addEventListener("change", dessinerCmd);
 function tableauCmd(sep){
   const nbx = x => String(Math.round(x*100)/100).replace(".",",");
-  const l = [["Produit","Fournisseur","Unité","À commander (arrondi)","À commander (juste)","Besoin","Stock réel","Stock utilisable","Remarque","Cultures"]];
-  calculer().filter(x=>!$("seulCmd").checked || x.cmd>0).forEach(x=>{
+  const l = [["Fournisseur","Produit","Unité","À commander (arrondi)","À commander (juste)","Besoin","Stock réel","Stock utilisable","Déjà reçu","Remarque","Cultures"]];
+  filtrerCmd(calculer()).sort((a,b)=>(lireCmd(a).fournisseur||"~").localeCompare(lireCmd(b).fournisseur||"~")||a.nom.localeCompare(b.nom,"fr",{numeric:true})).forEach(x=>{
     const rq=[]; if(!x.p) rq.push("pas en stock"); if(x.p && x.p.cmr) rq.push(x.p.cmr); if(x.p && x.p.statut==="retire") rq.push(x.p.fin ? "fin d'utilisation le "+dateFr(x.p.fin) : "retiré"); if(x.autreUnite) rq.push("unité différente du stock"); if(x.avec.length) rq.push("stock compté avec : "+x.avec.join(", "));
-    l.push([x.nom, x.p&&x.p.fournisseur||"", x.u, nbx(x.arrondi), nbx(x.cmd), nbx(x.besoin), x.p?nbx(x.reel):"", x.p?nbx(x.util):"", rq.join(", "), [...x.cultures].join(", ")]);
+    const recu=totalRecu(x);
+    l.push([lireCmd(x).fournisseur||"", x.nom, x.u, nbx(x.arrondi), nbx(x.cmd), nbx(x.besoin), x.p?nbx(x.reel):"", x.p?nbx(x.util):"", recu?nbx(recu):"", rq.join(", "), [...x.cultures].join(", ")]);
   });
   return l.map(r=>r.map(v=>sep===";"?csv(v):String(v).replace(/[\t\n]/g," ")).join(sep));
 }
@@ -489,9 +596,9 @@ function dessinerStock(){
   const l = D.produits.filter(p=>(!cat||p.cat===cat) && (!q || cle(p.nom).includes(q) || cle(p.fam).includes(q)));
   $("nbStock").textContent = l.length+" produit(s)"+(l.length!==D.produits.length?" sur "+D.produits.length:"")+" · touchez un nom pour sa fiche";
   l.forEach(p=>{
-    const li=el("li"), n=el("div","n"), b=el("button",null,p.nom); b.type="button";
+    const li=el("li"), n=el("div","n"), b=el("button",null,p.nom); b.type="button"; li.id="st-"+p.id;
     b.addEventListener("click", ()=>editer(p));
-    const i=el("div","info"); badges(i,p.nom); i.appendChild(el("span",null,[p.fam, p.fournisseur].filter(Boolean).join(" · "))); liensSimilaires(i, p.nom);
+    const i=el("div","info"); badges(i,p.nom); i.appendChild(el("span",null,[p.fam, p.amm?"AMM "+p.amm:""].filter(Boolean).join(" · "))); liensSimilaires(i, p.nom);
     n.append(b,i);
     const inp=el("input"); inp.type="text"; inp.inputMode="decimal"; inp.value=nb(p.q,3); inp.disabled=!ecrit(); inp.setAttribute("aria-label","Quantité de "+p.nom);
     inp.addEventListener("change", async ()=>{
@@ -510,7 +617,7 @@ function editer(p){
   enEdition = p || null;
   const v = p || {nom:"", q:0, u:"L", cat:"Phyto", fam:"", statut:"autorise", fin:"", cmr:"", fournisseur:"", amm:""};
   $("fpTitre").textContent = p ? "Fiche : "+p.nom : "Ajouter un produit";
-  $("fpNom").value=v.nom; $("fpQ").value=nb(v.q,3); $("fpU").value=v.u; $("fpCat").value=v.cat; $("fpFam").value=v.fam||""; $("fpStatut").value=v.statut; $("fpFin").value=v.fin||""; $("fpCmr").value=v.cmr||""; $("fpFour").value=v.fournisseur||""; $("fpAmm").value=v.amm||""; $("fpBidon").value=v.bidon!=null?nb(v.bidon,3):""; dessinerSimilaires();
+  $("fpNom").value=v.nom; $("fpQ").value=nb(v.q,3); $("fpU").value=v.u; $("fpCat").value=v.cat; $("fpFam").value=v.fam||""; $("fpStatut").value=v.statut; $("fpFin").value=v.fin||""; $("fpCmr").value=v.cmr||""; $("fpAmm").value=v.amm||""; $("fpBidon").value=v.bidon!=null?nb(v.bidon,3):""; dessinerSimilaires();
   $("fpOk").textContent = p ? "Enregistrer" : "Ajouter"; $("fpAnnuler").hidden = !p; $("fpSuppr").hidden = !(p && chef());
   message("fpMsg","");
   if(p) $("ficheProduit").scrollIntoView({behavior:"smooth", block:"start"});
@@ -540,7 +647,7 @@ $("fpLierOk").addEventListener("click", async ()=>{
   catch(e){ alert(e.message); }
 });
 $("fpOk").addEventListener("click", async ()=>{
-  const c = {nom:$("fpNom").value, q:$("fpQ").value, u:$("fpU").value, cat:$("fpCat").value, fam:$("fpFam").value, statut:$("fpStatut").value, fin:$("fpFin").value||null, cmr:$("fpCmr").value, fournisseur:$("fpFour").value, amm:$("fpAmm").value, bidon:$("fpBidon").value};
+  const c = {nom:$("fpNom").value, q:$("fpQ").value, u:$("fpU").value, cat:$("fpCat").value, fam:$("fpFam").value, statut:$("fpStatut").value, fin:$("fpFin").value||null, cmr:$("fpCmr").value, amm:$("fpAmm").value, bidon:$("fpBidon").value};
   try{
     if(enEdition){
       const ancien = enEdition.nom, r = await appel("PATCH","/api/phyto/produits/"+enEdition.id, c); Object.assign(enEdition, r);

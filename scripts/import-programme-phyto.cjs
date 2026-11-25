@@ -1,7 +1,7 @@
 // Programme et commande phyto : reprend un « Programme Phyto Rxxxx.xlsx » (feuilles Quantité et Programme)
 // en une campagne de l'appli, et relie les produits que Julien a regroupés lui-même (« Unix max/Kayak »).
 //   node scripts/import-programme-phyto.cjs <programme.xlsx> <campagne> <id exploitation> <id compte> <stock.json> sortie.sql
-// Les surfaces sont celles écrites dans le fichier (ligne 4 de la feuille Quantité), telles quelles.
+// La campagne N démarre le 1er septembre N-1. Les surfaces sont celles écrites dans le fichier (ligne 4 de la feuille Quantité), telles quelles.
 // Un nom du fichier absent du stock reste un nom libre (« pas en stock ») ; dans un groupe « A/B », un nom absent
 // est ajouté au stock à 0 pour garder le nom commercial, et relié aux autres.
 "use strict";
@@ -56,6 +56,8 @@ const ALIAS = {
 };
 const stock = JSON.parse(fs.readFileSync(stockJson, "utf8")).items;
 const parNorm = new Map(stock.map(p => [norm(p.nom), p]));
+// Noms corrigés d'après la liste E-Phy (orthographe du bidon)
+const RENOM = { trikkaexpert: "Trika Expert", meddaxmax: "Medax Max" };
 const duStock = nom => parNorm.get(norm(nom)) || (ALIAS[norm(nom)] && parNorm.get(norm(ALIAS[norm(nom)])));
 
 const F = feuilles(xlsx);
@@ -82,7 +84,7 @@ const cultures = Object.fromEntries(COLS.map(([c]) => [c, []]));
 const nouveaux = new Map(), groupes = [], libres = new Set(), alias = new Set();
 for (const r of Object.keys(Q).map(Number).filter(r => r >= 7).sort((a, b) => a - b)) {
   const l = Q[r]; if (l[0]) famille = String(l[0]).trim(); const nomXls = l[1]; if (!nomXls || typeof nomXls !== "string") continue;
-  const parts = nomXls.split("/").map(s => s.trim()).filter(Boolean);
+  const parts = nomXls.split("/").map(s => s.trim()).filter(Boolean).map(n => RENOM[norm(n)] || n);
   const trouves = parts.map(n => { const p = duStock(n); if (p && norm(p.nom) !== norm(n)) alias.add(n + " → " + p.nom); return { n, p }; });
   const enStock = trouves.filter(t => t.p);
   // Groupe « A/B » : les noms absents du stock y entrent à 0, puis tous sont reliés
@@ -108,7 +110,7 @@ for (const x of nouveaux.values())
 for (const g of groupes)
   out.push(`UPDATE phyto_produits SET groupe = ${sql(g[0])} WHERE exploitation_id = ${+expl} AND nom IN (${g.map(sql).join(", ")}) COLLATE NOCASE;`);
 const donnees = { cultures: COLS.map(([c], i) => ({ id: "c" + campagne + "-" + i, nom: c, surface: surfaces[c] || null, lignes: cultures[c] })) };
-out.push(`INSERT INTO phyto_campagnes (exploitation_id, campagne, debut, donnees, modifie_par) VALUES (${+expl}, ${sql(campagne)}, ${sql(campagne + "-02-01")}, ${sql(JSON.stringify(donnees))}, ${+compte})
+out.push(`INSERT INTO phyto_campagnes (exploitation_id, campagne, debut, donnees, modifie_par) VALUES (${+expl}, ${sql(campagne)}, ${sql((Number(campagne) - 1) + "-09-01")}, ${sql(JSON.stringify(donnees))}, ${+compte})
   ON CONFLICT (exploitation_id, campagne) DO UPDATE SET debut = excluded.debut, donnees = excluded.donnees, modifie_par = excluded.modifie_par, modifie_le = datetime('now');`);
 fs.writeFileSync(sortie, out.join("\n") + "\n");
 console.log(`Campagne ${campagne} : ${donnees.cultures.length} cultures, ${donnees.cultures.reduce((s, c) => s + c.lignes.length, 0)} lignes.`);

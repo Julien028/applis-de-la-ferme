@@ -27,21 +27,23 @@ const NOUVEAUX = { entretien: true };
 // Chaque droit de modification dépend de l'accès à son appli
 const APPLI_DU_DROIT = { pluie: 'pluie', gnr: 'gnr', heures: 'tracteurs', entretien: 'entretien', pmg: 'dose', semences: 'dose', enrouleurs: 'irrigation', phyto: 'phyto' };
 const tout = liste => Object.fromEntries(liste.map(k => [k, true]));
+// Accès d'un salarié quand son compte ne dit rien : tout, sauf le phyto (fermé aux salariés, Julien 25/11/2026)
+const ACCES_SALARIE = () => ({ ...tout(APPLIS), phyto: false });
 // masque : un droit de modification ne vaut que si l'appli est ouverte (faux pour la liste du chef, qui coche tout)
 function lireDroits(brut, masque = true) {
   let d = {};
   try { d = JSON.parse(brut || '{}') || {}; } catch {}
   const lire = (o, k) => k in o ? !!o[k] : !!NOUVEAUX[k];
-  const acces = d.acces && typeof d.acces === 'object' ? Object.fromEntries(APPLIS.map(k => [k, lire(d.acces, k)])) : tout(APPLIS);
+  const acces = d.acces && typeof d.acces === 'object' ? Object.fromEntries(APPLIS.map(k => [k, lire(d.acces, k)])) : ACCES_SALARIE();
   return { ...Object.fromEntries(DROITS.map(k => [k, lire(d, k) && (!masque || acces[APPLI_DU_DROIT[k]])])), acces };
 }
 const droitsDe = m => m.role === 'chef' ? { ...tout(DROITS), acces: tout(APPLIS) } : lireDroits(m.droits);
 const peut = (m, droit) => !!droitsDe(m)[droit];
 const voit = (m, appli) => !!droitsDe(m).acces[appli];
-const DROITS_PAR_DEFAUT = { pluie: true, gnr: true, heures: true, entretien: true, acces: tout(APPLIS) };
+const DROITS_PAR_DEFAUT = { pluie: true, gnr: true, heures: true, entretien: true, acces: ACCES_SALARIE() };
 function droitsDepuis(corps, defaut) {
   if (!corps || typeof corps !== 'object') return JSON.stringify(defaut);
-  const acces = corps.acces && typeof corps.acces === 'object' ? Object.fromEntries(APPLIS.map(k => [k, !!corps.acces[k]])) : tout(APPLIS);
+  const acces = corps.acces && typeof corps.acces === 'object' ? Object.fromEntries(APPLIS.map(k => [k, !!corps.acces[k]])) : ACCES_SALARIE();
   return JSON.stringify({ ...Object.fromEntries(DROITS.map(k => [k, !!corps[k]])), acces });
 }
 const TAILLE_MAX_NOM = 60;
@@ -739,7 +741,7 @@ export async function api(request, env, url) {
     const dateOk = j => /^\d{4}-\d{2}-\d{2}$/.test(j || '') && !isNaN(Date.parse(j + 'T00:00:00Z'));
     const quantite = v => { const n = Math.round(Number(String(v ?? '').replace(',', '.').replace(/\s/g, '')) * 1000) / 1000; return isFinite(n) && n >= 0 && n <= 10000000 ? n : null; };
     const UNITES = ['L', 'kg', 't', 'dose'], STATUTS = ['autorise', 'retire', 'engrais', 'nonphyto'];
-    const PRODUIT = 'SELECT p.id, p.nom, p.q, p.u, p.fam, p.cat, p.statut, p.fin, p.cmr, p.fournisseur, p.amm, p.groupe, p.bidon, p.modifie_le, c.nom AS modifie_par FROM phyto_produits p LEFT JOIN comptes c ON c.id = p.modifie_par';
+    const PRODUIT = 'SELECT p.id, p.nom, p.q, p.u, p.fam, p.cat, p.statut, p.fin, p.cmr, p.fournisseur, p.amm, p.amm_ref, p.groupe, p.bidon, p.modifie_le, c.nom AS modifie_par FROM phyto_produits p LEFT JOIN comptes c ON c.id = p.modifie_par';
     if (p.length === 1 && methode === 'GET') {
       const produits = (await env.DB.prepare(PRODUIT + ' WHERE p.exploitation_id = ? ORDER BY p.nom COLLATE NOCASE').bind(E).all()).results;
       const campagnes = (await env.DB.prepare(
