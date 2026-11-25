@@ -7,7 +7,8 @@
 "use strict";
 const fs = require("fs"), zlib = require("zlib");
 // 7e argument facultatif : surfaces de la campagne (Geofolia), en JSON {"Blé tendre": 64.03, …}, à la place de celles du fichier
-const [xlsx, campagne, expl, compte, stockJson, sortie, surfacesJson] = process.argv.slice(2);
+// 8e argument facultatif : stock de départ figé (sortie de stock-geofolia.cjs), à la place du stock actuel du local
+const [xlsx, campagne, expl, compte, stockJson, sortie, surfacesJson, stockFigeJson] = process.argv.slice(2);
 if (!sortie) { console.error("Usage : node scripts/import-programme-phyto.cjs programme.xlsx 2026 1 1 stock.json sortie.sql"); process.exit(1); }
 
 /* ---- lecture du .xlsx (zip + XML), sans dépendance ---- */
@@ -109,7 +110,14 @@ for (const x of nouveaux.values())
   out.push(`INSERT OR IGNORE INTO phyto_produits (exploitation_id, nom, q, u, fam, cat, statut, modifie_par) VALUES (${+expl}, ${sql(x.nom)}, 0, ${sql(x.u)}, ${sql(x.fam)}, ${sql(x.cat)}, 'autorise', ${+compte});`);
 for (const g of groupes)
   out.push(`UPDATE phyto_produits SET groupe = ${sql(g[0])} WHERE exploitation_id = ${+expl} AND nom IN (${g.map(sql).join(", ")}) COLLATE NOCASE;`);
-const donnees = { cultures: COLS.map(([c], i) => ({ id: "c" + campagne + "-" + i, nom: c, surface: surfaces[c] || null, lignes: cultures[c] })) };
+const cleApp = n => String(n || "").replace(/\s+/g, " ").trim().toLowerCase();
+let stockFige = null;
+if (stockFigeJson) {
+  const sf = JSON.parse(fs.readFileSync(stockFigeJson, "utf8"));
+  stockFige = { date: sf.date, source: sf.source, q: {} };
+  for (const x of sf.items) { const p = duStock(x.nom); stockFige.q[cleApp(p ? p.nom : x.nom)] = { q: x.q, u: x.u }; }
+}
+const donnees = { ...(stockFige ? { stockFige } : {}), cultures: COLS.map(([c], i) => ({ id: "c" + campagne + "-" + i, nom: c, surface: surfaces[c] || null, lignes: cultures[c] })) };
 out.push(`INSERT INTO phyto_campagnes (exploitation_id, campagne, debut, donnees, modifie_par) VALUES (${+expl}, ${sql(campagne)}, ${sql((Number(campagne) - 1) + "-09-01")}, ${sql(JSON.stringify(donnees))}, ${+compte})
   ON CONFLICT (exploitation_id, campagne) DO UPDATE SET debut = excluded.debut, donnees = excluded.donnees, modifie_par = excluded.modifie_par, modifie_le = datetime('now');`);
 fs.writeFileSync(sortie, out.join("\n") + "\n");

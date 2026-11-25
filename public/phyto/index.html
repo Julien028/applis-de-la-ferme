@@ -108,6 +108,7 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
       <h2>Assolement <span id="aTitre"></span></h2>
       <label for="debut">Début de campagne <span class="leger">(1er septembre ; un produit retiré avant cette date ne compte pas dans le stock)</span></label>
       <input type="date" id="debut">
+      <p class="hint" id="stockDepart"></p>
       <h3>Cultures</h3>
       <ul class="lignes" id="cultures"></ul>
       <div class="total"><span>Total</span><span id="totalHa"></span></div>
@@ -138,6 +139,7 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
     <!-- ============ À COMMANDER ============ -->
     <div class="card" id="vueCmd" hidden>
       <h2>À commander — campagne <span id="cTitre"></span></h2>
+      <p class="msg ok" id="cStock" style="margin:-4px 0 6px;font-weight:700"></p>
       <p class="hint pas-imprimer" style="margin-top:-4px">Besoin = dose × surface × % traité, pour toutes les cultures. Stock utilisable = stock du local, sans les produits retirés avant le <span id="cDebut"></span>. À commander = besoin − stock utilisable, arrondi au bidon (sinon à 5, 10 ou 20).</p>
       <label class="pas-imprimer" style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="avecSim" checked style="width:20px;height:20px"> Compter aussi le stock des produits similaires</label>
       <div class="filtres pas-imprimer" style="grid-template-columns:1fr 1fr;margin-top:6px">
@@ -245,10 +247,17 @@ function liensSimilaires(boite, nom){
 const produit = nom => parNom.get(cle(nom));
 const debutCampagne = () => (C && C.debut) || aujourdhui();
 // Stock qu'on peut encore utiliser au début de la campagne
+// Stock de départ : celui du local, ou celui figé à une date pour la campagne (ex. récolte 2026 → stock au 31/12/2025)
+const stockFige = () => C && C.donnees.stockFige && C.donnees.stockFige.q ? C.donnees.stockFige : null;
+function qDe(p){
+  const f=stockFige(); if(!f) return p.q;
+  const x=f.q[cle(p.nom)]; if(!x) return 0;
+  return convertir(x.q, x.u||p.u, p.u) ?? x.q;
+}
 function utilisable(p){
   if(!p) return 0;
-  if(p.statut==="retire") return p.fin && p.fin >= debutCampagne() ? p.q : 0;
-  return p.q;
+  if(p.statut==="retire") return p.fin && p.fin >= debutCampagne() ? qDe(p) : 0;
+  return qDe(p);
 }
 function badges(boite, nom, absentSiManque){
   const p = produit(nom);
@@ -321,7 +330,7 @@ $("nouvelleCampagne").addEventListener("click", ()=>{
   if(D.campagnes.some(k=>k.campagne===n)) return alert("La campagne "+n+" existe déjà.");
   let donnees = {cultures:[]};
   if(C && C.donnees.cultures.length && confirm("Reprendre l'assolement et les programmes de la campagne "+C.campagne+" pour démarrer ?\n(OK : copier · Annuler : partir de zéro)"))
-    donnees = JSON.parse(JSON.stringify(C.donnees));
+  { donnees = JSON.parse(JSON.stringify(C.donnees)); delete donnees.stockFige; delete donnees.commande; }
   const an = /^\d{4}$/.test(n) ? n : String(new Date().getFullYear()+1);
   C = {campagne:n, debut:(Number(an)-1)+"-09-01", donnees, modifie_le:undefined, neuve:true}; D.campagnes.push(C);
   garderChoix("phyto.campagne", n); tout(); enregistrer();
@@ -338,7 +347,9 @@ document.querySelectorAll(".vues button").forEach(b=>b.addEventListener("click",
 
 /* ---------- assolement ---------- */
 function totalHa(){ return C.donnees.cultures.reduce((s,c)=>s+(Number(c.surface)||0),0); }
+function texteStock(){ const f=stockFige(); return f ? "Stock de départ : stock au "+dateFr(f.date)+(f.source?" ("+f.source+")":"")+", et non le stock actuel du local." : "Stock de départ : le stock actuel du local (onglet Stock)."; }
 function dessinerAssol(){
+  $("stockDepart").textContent = texteStock();
   $("aTitre").textContent = C.campagne; $("debut").value = C.debut||""; $("debut").disabled = !ecrit();
   const ul=$("cultures"); ul.innerHTML="";
   if(!C.donnees.cultures.length) ul.appendChild(el("li","vide","Aucune culture pour l'instant."));
@@ -459,7 +470,7 @@ function calculer(){
     // Stock du produit, plus celui de ses similaires si la case est cochée (convertis dans la même unité)
     const membres = b.p ? (b.groupe ? [b.p, ...similaires(b.p)] : [b.p]) : [];
     let reel = 0, util = 0; const avec = [];
-    membres.forEach(m=>{ const r=convertir(m.q, m.u, b.p.u), v=convertir(utilisable(m), m.u, b.p.u); if(r==null) return; reel += r; util += v; if(m!==b.p && m.q>0) avec.push(m.nom+" "+nb(m.q)+" "+m.u); });
+    membres.forEach(m=>{ const qm=qDe(m), r=convertir(qm, m.u, b.p.u), v=convertir(utilisable(m), m.u, b.p.u); if(r==null) return; reel += r; util += v; if(m!==b.p && qm>0) avec.push(m.nom+" "+nb(qm)+" "+m.u); });
     const cmd = Math.max(0, b.besoin - util);
     return {...b, membres, avec, reel, util, cmd, arrondi: arrondir(cmd, b.p, b.u)};
   }).sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{numeric:true}));
@@ -487,6 +498,7 @@ function remplirFiltreFour(){
   s.value=[...s.options].some(o=>o.value===v)?v:"";
 }
 function dessinerCmd(){
+  $("cStock").textContent = texteStock();
   $("cTitre").textContent = C.campagne; $("cDebut").textContent = dateFr(debutCampagne());
   remplirFiltreFour();
   const lignes = calculer(), vis = filtrerCmd(lignes), t=$("tabCmd");
@@ -509,11 +521,11 @@ function dessinerCmd(){
   });
   // Stock en local, non prévu au programme
   const prevus = new Set(lignes.flatMap(x=>x.membres.map(m=>m.id)));
-  const hors = D.produits.filter(p=>p.q>0 && !prevus.has(p.id)).sort((a,b)=>a.cat.localeCompare(b.cat)||a.nom.localeCompare(b.nom,"fr",{numeric:true}));
+  const hors = D.produits.filter(p=>qDe(p)>0 && !prevus.has(p.id)).sort((a,b)=>a.cat.localeCompare(b.cat)||a.nom.localeCompare(b.nom,"fr",{numeric:true}));
   const h=$("tabHors"); h.innerHTML="<tr><th>Produit</th><th>Stock</th><th>Utilisable</th></tr>";
   if(!hors.length){ const tr=el("tr"), td=el("td","vide","Tout le stock est prévu au programme."); td.colSpan=3; tr.appendChild(td); h.appendChild(tr); }
   hors.forEach(p=>{ const tr=el("tr"), n=el("td","nom"); n.appendChild(el("span",null,p.nom)); const i=el("div","info"); badges(i,p.nom); if(p.fam) i.appendChild(el("span",null,p.fam)); n.appendChild(i);
-    tr.append(n, el("td",null,nb(p.q)+" "+p.u), el("td",null,nb(utilisable(p))+" "+p.u)); h.appendChild(tr); });
+    tr.append(n, el("td",null,nb(qDe(p))+" "+p.u), el("td",null,nb(utilisable(p))+" "+p.u)); h.appendChild(tr); });
 }
 // Sous chaque produit : le fournisseur choisi, la case « récupéré » et les réceptions déjà notées
 function controlesCmd(x){
