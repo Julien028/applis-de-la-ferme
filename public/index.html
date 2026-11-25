@@ -212,7 +212,7 @@ footer{margin-top:28px;border-top:1px solid var(--line-strong);padding-top:12px;
     </a>
     <a class="tuile" href="phyto/" data-appli="phyto">
       <div class="vide" aria-hidden="true">🧪</div>
-      <div><div class="t">Programme et commande phyto</div><div class="d">Stock du local, assolement, programme par culture et ce qu'il faut commander.</div></div>
+      <div><div class="t">Programme phyto</div><div class="d">Le programme, les stocks et les commandes.</div></div>
     </a>
   </div>
 </section>
@@ -322,7 +322,7 @@ $("formMdp").addEventListener("submit", async e=>{
 });
 
 // ----- comptes de l'exploitation (chef) -----
-const APPLIS = [["dose","Dose de semis"],["irrigation","Irrigation"],["pluie","Pluviométrie"],["gnr","GNR"],["tracteurs","Heures tracteurs"],["entretien","Entretien"],["phyto","Phyto"]];
+const APPLIS = [["dose","Dose de semis"],["irrigation","Irrigation"],["pluie","Pluviométrie"],["gnr","GNR"],["tracteurs","Heures tracteurs"],["entretien","Entretien"],["phyto","Programme phyto"]];
 const DROITS = [["pluie","Pluie"],["gnr","Pleins GNR"],["heures","Heures tracteurs"],["entretien","Entretien"],["pmg","PMG"],["semences","Semences"],["enrouleurs","Enrouleurs"],["phyto","Programmes phyto et stock"]];
 const DROITS_DEFAUT = {pluie:true, gnr:true, heures:true, entretien:true};
 // Des cases à cocher : liste [clé, libellé], valeurs, et ce qu'on fait au changement
