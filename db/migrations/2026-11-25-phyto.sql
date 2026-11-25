@@ -29,3 +29,9 @@ CREATE TABLE IF NOT EXISTS phyto_campagnes (
   modifie_le TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (exploitation_id, campagne)
 );
+
+-- Ajouts du 25/11/2026 (si les tables existent déjà sans ces colonnes)
+-- ALTER TABLE phyto_produits ADD COLUMN fournisseur TEXT;
+-- ALTER TABLE phyto_produits ADD COLUMN amm TEXT;
+-- ALTER TABLE phyto_produits ADD COLUMN groupe TEXT;
+-- ALTER TABLE phyto_produits ADD COLUMN bidon REAL;

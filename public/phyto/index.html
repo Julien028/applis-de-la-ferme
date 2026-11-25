@@ -24,7 +24,14 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
 .cult{display:grid;grid-template-columns:1fr 110px 40px;gap:8px;align-items:center}
 .tete-prod{display:flex;gap:8px}
 .tete-prod input{flex:1}
-.prod{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:end;margin-top:6px}
+.prod{display:grid;grid-template-columns:1.5fr 1fr .9fr .8fr;gap:6px;align-items:end;margin-top:6px}
+.prod input,.prod select{padding:10px 8px;font-size:1rem}
+.sim{background:none;border:0;padding:0;font:inherit;font-size:.8rem;color:var(--accent-fonce);font-weight:700;text-decoration:underline;cursor:pointer}
+.simliste{list-style:none;margin:4px 0 0;padding:0}
+.simliste li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--grille)}
+.simliste li .sim{font-size:.95rem;flex:1;text-align:left}
+.simliste small{color:var(--muted)}
+.lier{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
 .prod label{margin:0 0 3px;font-size:.72rem}
 .croixg{width:40px;height:44px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--muted);font-size:1.1rem;cursor:pointer}
 .info{font-size:.8rem;color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
@@ -111,14 +118,15 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
           <div class="ligne-boutons"><button class="principal" id="copierOk" type="button">Copier</button><button class="lien" id="copierNon" type="button">Annuler</button></div>
         </div>
       </div>
-      <datalist id="listeProduits"></datalist>
+      <datalist id="listeProduits"></datalist><datalist id="listeStades"></datalist>
     </div>
 
     <!-- ============ À COMMANDER ============ -->
     <div class="card" id="vueCmd" hidden>
       <h2>À commander — campagne <span id="cTitre"></span></h2>
-      <p class="hint pas-imprimer" style="margin-top:-4px">Besoin = dose × surface × % traité, pour toutes les cultures. Stock utilisable = stock du local, sans les produits retirés avant le <span id="cDebut"></span>. À commander = besoin − stock utilisable.</p>
-      <label class="pas-imprimer" style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="seulCmd" style="width:20px;height:20px"> Seulement ce qu'il faut commander</label>
+      <p class="hint pas-imprimer" style="margin-top:-4px">Besoin = dose × surface × % traité, pour toutes les cultures. Stock utilisable = stock du local, sans les produits retirés avant le <span id="cDebut"></span>. À commander = besoin − stock utilisable, arrondi au bidon (sinon à 5, 10 ou 20).</p>
+      <label class="pas-imprimer" style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="avecSim" checked style="width:20px;height:20px"> Compter aussi le stock des produits similaires</label>
+      <label class="pas-imprimer" style="display:flex;align-items:center;gap:8px;font-weight:600;margin-top:0"><input type="checkbox" id="seulCmd" style="width:20px;height:20px"> Seulement ce qu'il faut commander</label>
       <div class="defile"><table class="tab" id="tabCmd"></table></div>
       <div class="ligne-boutons pas-imprimer">
         <button class="principal" id="copierCmd" type="button">📋 Copier pour Excel</button>
@@ -144,13 +152,21 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
         <label for="fpNom">Nom commercial (comme sur le bidon, comme dans Geofolia)</label><input type="text" id="fpNom" maxlength="80">
         <div class="grille2">
           <div><label for="fpQ">Quantité au local</label><input type="text" id="fpQ" inputmode="decimal"></div>
-          <div><label for="fpU">Unité</label><select id="fpU"><option>L</option><option>kg</option><option>t</option></select></div>
+          <div><label for="fpU">Unité</label><select id="fpU"><option>L</option><option>kg</option><option>t</option><option>dose</option></select></div>
           <div><label for="fpCat">Catégorie</label><select id="fpCat"><option>Phyto</option><option>Engrais</option></select></div>
           <div><label for="fpFam">Famille</label><input type="text" id="fpFam" maxlength="40" list="familles" placeholder="Herbicides…"></div>
           <div><label for="fpStatut">Statut</label><select id="fpStatut"><option value="autorise">Autorisé</option><option value="retire">Retiré</option><option value="engrais">Engrais</option><option value="nonphyto">Pas un phyto</option></select></div>
           <div><label for="fpFin">Fin d'utilisation <span class="leger">(si retiré)</span></label><input type="date" id="fpFin"></div>
           <div><label for="fpCmr">CMR</label><select id="fpCmr"><option value="">Non</option><option>CMR 2</option><option>CMR 1</option></select></div>
           <div><label for="fpFour">Fournisseur</label><input type="text" id="fpFour" maxlength="60" list="fournisseurs"></div>
+          <div><label for="fpBidon">Bidon / sac <span class="leger">(pour arrondir)</span></label><input type="text" id="fpBidon" inputmode="decimal" placeholder="ex. 5, 10, 20"></div>
+          <div><label for="fpAmm">N° AMM</label><input type="text" id="fpAmm" maxlength="20" inputmode="numeric" placeholder="ex. 2100143"></div>
+        </div>
+        <div id="fpSimBloc" hidden>
+          <h3>Produits similaires</h3>
+          <ul class="simliste" id="fpSim"></ul>
+          <div class="lier"><input type="text" id="fpLier" list="listeProduits" placeholder="Relier à un produit similaire…" autocomplete="off"><button class="secondaire" id="fpLierOk" type="button">Relier</button></div>
+          <p class="hint">Chacun garde son nom commercial et son stock. Deux produits qui ont le même n° AMM sont reliés d'office ; les autres, c'est vous qui les reliez.</p>
         </div>
         <div class="ligne-boutons"><button class="principal" id="fpOk" type="button">Ajouter</button><button class="lien" id="fpAnnuler" type="button" hidden>Annuler</button><button class="lien danger" id="fpSuppr" type="button" hidden>Supprimer du stock</button></div>
         <p class="msg" id="fpMsg" hidden></p>
@@ -175,7 +191,30 @@ const ecrit = () => !!(D && D.ecrit);
 
 /* ---------- produits du stock ---------- */
 let parNom = new Map();
-function indexer(){ parNom = new Map(D.produits.map(p=>[cle(p.nom), p])); }
+let racine = new Map();
+function indexer(){
+  parNom = new Map(D.produits.map(p=>[cle(p.nom), p]));
+  // Groupes de produits similaires : même n° AMM, ou même « groupe » (relié à la main)
+  const pere = new Map(D.produits.map(p=>[p, p]));
+  const trouve = p => { while(pere.get(p)!==p){ pere.set(p, pere.get(pere.get(p))); p=pere.get(p); } return p; };
+  const unir = (a,b) => { const x=trouve(a), y=trouve(b); if(x!==y) pere.set(x,y); };
+  const vus = new Map();
+  D.produits.forEach(p=>{
+    if(p.amm){ const k="a:"+String(p.amm).replace(/\s/g,""); if(vus.has(k)) unir(p, vus.get(k)); else vus.set(k,p); }
+    if(p.groupe){ const k="g:"+cle(p.groupe); if(vus.has(k)) unir(p, vus.get(k)); else vus.set(k,p); }
+  });
+  racine = new Map(D.produits.map(p=>[p, trouve(p)]));
+}
+const similaires = p => p ? D.produits.filter(x=>x!==p && racine.get(x)===racine.get(p)) : [];
+const memeAmm = (a,b) => a.amm && b.amm && String(a.amm).replace(/\s/g,"")===String(b.amm).replace(/\s/g,"");
+function ouvrirFiche(p){ montrer("Stock"); $("recherche").value=""; dessinerStock(); editer(p); }
+// « ≈ Kayak : 15 L » cliquable, sous un produit
+function liensSimilaires(boite, nom){
+  similaires(produit(nom)).forEach(x=>{
+    const b=el("button","sim","≈ "+x.nom+" : "+nb(x.q)+" "+x.u); b.type="button"; b.title="Produit similaire"+(memeAmm(x,produit(nom))?" (même AMM)":"")+" — ouvrir sa fiche";
+    b.addEventListener("click", ()=>ouvrirFiche(x)); boite.appendChild(b);
+  });
+}
 const produit = nom => parNom.get(cle(nom));
 const debutCampagne = () => (C && C.debut) || aujourdhui();
 // Stock qu'on peut encore utiliser au début de la campagne
@@ -310,6 +349,7 @@ function dessinerProg(){
 const cultureCourante = () => C.donnees.cultures.find(c=>c.id===cultureIci);
 function dessinerLignes(){
   const c = cultureCourante(), ul=$("produits"); ul.innerHTML="";
+  const st=$("listeStades"); st.innerHTML=""; [...new Set(["Semis","Prélevée","Post-levée","Reprise végétation","Epi 1 cm","1 nœud","2 nœuds","DF","Floraison","Traitement plant"].concat(D.campagnes.flatMap(k=>k.donnees.cultures.flatMap(cu=>(cu.lignes||[]).map(x=>x.stade).filter(Boolean)))))].forEach(v=>{ const o=el("option"); o.value=v; st.appendChild(o); });
   c.lignes = c.lignes || [];
   if(!c.lignes.length) ul.appendChild(el("li","vide","Aucun produit dans ce programme."));
   c.lignes.forEach((l,i)=>{
@@ -317,11 +357,12 @@ function dessinerLignes(){
     const nom=el("input"); nom.type="text"; nom.setAttribute("list","listeProduits"); nom.maxLength=80; nom.value=l.produit||""; nom.placeholder="Produit (liste du stock ou nom libre)"; nom.setAttribute("aria-label","Produit");
     const g=el("div","prod");
     const champ=(lib, input, cls)=>{ const d=el("div",cls); const lb=el("label",null,lib); d.append(lb,input); return d; };
+    const stade=el("input"); stade.type="text"; stade.maxLength=40; stade.value=l.stade||""; stade.setAttribute("list","listeStades"); stade.placeholder="ex. Epi 1 cm";
     const dose=el("input"); dose.type="text"; dose.inputMode="decimal"; dose.value=l.dose!=null?nb(l.dose,4):"";
-    const u=el("select"); ["L","kg","t","g"].forEach(x=>u.appendChild(el("option",null,x))); u.value=l.u||"L";
+    const u=el("select"); ["L","kg","t","g","dose"].forEach(x=>u.appendChild(el("option",null,x))); u.value=l.u||"L";
     const pct=el("input"); pct.type="text"; pct.inputMode="decimal"; pct.value=l.pct!=null?nb(l.pct,1):"100";
     const x=el("button","croixg","✕"); x.type="button"; x.title="Retirer";
-    g.append(champ("Dose / ha",dose), champ("Unité",u), champ("% surface",pct));
+    g.append(champ("Stade",stade), champ("Dose / ha",dose), champ("Unité",u), champ("% surf.",pct));
     const tete=el("div","tete-prod"); tete.append(nom, x);
     const info=el("div","info");
     const maj=()=>{
@@ -330,14 +371,16 @@ function dessinerLignes(){
       if(p && convertir(1, l.u||"L", p.u)==null) info.appendChild(el("span","badge b-unite","unité ≠ stock ("+p.u+")"));
       if(l.dose && c.surface){ info.appendChild(el("span",null,"→ "+nb(l.dose*c.surface*(l.pct??100)/100)+" "+(l.u||"L")+" pour "+nb(c.surface*(l.pct??100)/100)+" ha")); }
       if(p) info.appendChild(el("span",null,"· stock "+nb(p.q)+" "+p.u));
+      liensSimilaires(info, l.produit);
     };
     nom.addEventListener("change", ()=>{ l.produit=nom.value.replace(/\s+/g," ").trim(); const p=produit(l.produit); if(p){ l.produit=p.nom; nom.value=p.nom; if(p.u!=="t"){ l.u=p.u; u.value=p.u; } else if(!l.u||l.u==="L"){ l.u="kg"; u.value="kg"; } } maj(); modifie(); });
     nom.addEventListener("input", ()=>{ l.produit=nom.value.replace(/\s+/g," ").trim(); modifie(); });
+    stade.addEventListener("input", ()=>{ l.stade=stade.value.trim(); modifie(); });
     dose.addEventListener("input", ()=>{ l.dose=lireNb(dose.value); maj(); modifie(); });
     u.addEventListener("change", ()=>{ l.u=u.value; maj(); modifie(); });
     pct.addEventListener("input", ()=>{ const v=lireNb(pct.value); l.pct = v==null ? 100 : v; maj(); modifie(); });
     x.addEventListener("click", ()=>{ c.lignes.splice(i,1); modifie(); dessinerLignes(); });
-    [nom,dose,u,pct,x].forEach(e=>e.disabled=!ecrit());
+    [nom,stade,dose,u,pct,x].forEach(e=>e.disabled=!ecrit());
     maj(); li.append(tete,g,info); ul.appendChild(li);
   });
 }
@@ -361,21 +404,37 @@ $("copierOk").addEventListener("click", ()=>{
 });
 
 /* ---------- à commander ---------- */
+// Arrondi de la commande : au bidon du produit s'il est noté, sinon à 5 (jusqu'à 50), 10 (jusqu'à 200) ou 20 ; pas d'arrondi pour les engrais de fond et annuels, les tonnes, les doses ni au-delà de 1 000 (vrac)
+function arrondir(q, p, u){
+  if(q<=0) return 0;
+  const b = p && p.bidon ? convertir(p.bidon, p.u, u) : null;
+  if(b) return Math.ceil(q/b - 1e-9)*b;
+  if(u==='t' || u==='dose' || q>1000 || (p && /^(Engrais de fond|Engrais annuels|Amendements)/.test(p.fam||''))) return q;
+  const pas = q<=50 ? 5 : q<=200 ? 10 : 20;
+  return Math.ceil(q/pas - 1e-9)*pas;
+}
 function calculer(){
   const besoins = new Map();   // clé → {nom, u, besoin, p, alerte, cultures:Set}
   C.donnees.cultures.forEach(c=>(c.lignes||[]).forEach(l=>{
     if(!cle(l.produit) || !l.dose || !c.surface) return;
     const q = l.dose * c.surface * (l.pct??100) / 100, u = l.u||"L";
     const p = produit(l.produit);
-    let k = cle(l.produit), uu = u, qq = q;
-    if(p){ const v = convertir(q, u, p.u); if(v==null) k += "|"+u; else { uu = p.u; qq = v; } }
+    const groupe = p && $("avecSim").checked && similaires(p).length;
+    const base = groupe ? "g:"+racine.get(p).id : cle(l.produit);
+    let k = base, uu = u, qq = q;
+    const ref = groupe && besoins.has(base) ? besoins.get(base).p : p;   // l'unité du 1er produit du groupe
+    if(ref){ const v = convertir(q, u, ref.u); if(v==null) k += "|"+u; else { uu = ref.u; qq = v; } }
     else k += "|"+u;
-    const b = besoins.get(k) || {nom: p ? p.nom : l.produit, u: uu, besoin:0, p: (p && k===cle(l.produit)) ? p : null, autreUnite: !!p && k!==cle(l.produit), cultures:new Set()};
-    b.besoin += qq; b.cultures.add(c.nom||"?"); besoins.set(k, b);
+    const b = besoins.get(k) || {nom: ref ? ref.nom : l.produit, u: uu, besoin:0, p: (ref && k===base) ? ref : null, autreUnite: !!ref && k!==base, cultures:new Set(), noms:new Set(), groupe:!!groupe};
+    b.besoin += qq; b.cultures.add(c.nom||"?"); if(p) b.noms.add(p.nom); besoins.set(k, b);
   }));
   return [...besoins.values()].map(b=>{
-    const reel = b.p ? b.p.q : 0, util = b.p ? utilisable(b.p) : 0;
-    return {...b, reel, util, cmd: Math.max(0, b.besoin - util)};
+    // Stock du produit, plus celui de ses similaires si la case est cochée (convertis dans la même unité)
+    const membres = b.p ? (b.groupe ? [b.p, ...similaires(b.p)] : [b.p]) : [];
+    let reel = 0, util = 0; const avec = [];
+    membres.forEach(m=>{ const r=convertir(m.q, m.u, b.p.u), v=convertir(utilisable(m), m.u, b.p.u); if(r==null) return; reel += r; util += v; if(m!==b.p && m.q>0) avec.push(m.nom+" "+nb(m.q)+" "+m.u); });
+    const cmd = Math.max(0, b.besoin - util);
+    return {...b, membres, avec, reel, util, cmd, arrondi: arrondir(cmd, b.p, b.u)};
   }).sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{numeric:true}));
 }
 function dessinerCmd(){
@@ -387,12 +446,16 @@ function dessinerCmd(){
   vis.forEach(x=>{
     const tr=el("tr"), n=el("td","nom"); n.appendChild(el("b",null,x.nom));
     const i=el("div","info"); badges(i, x.nom, true); if(x.autreUnite) i.appendChild(el("span","badge b-unite","unité ≠ stock")); if(x.p && x.p.fournisseur) i.appendChild(el("span",null,x.p.fournisseur));
-    n.appendChild(i); n.appendChild(el("small",null,[...x.cultures].join(", ")));
-    tr.append(n, el("td", x.cmd>0?"cmd":"zero", x.cmd>0 ? nb(x.cmd)+" "+x.u : "0"), el("td",null,nb(x.besoin)+" "+x.u), el("td",null,x.p?nb(x.reel)+" "+x.u:"—"), el("td",null,x.p?nb(x.util)+" "+x.u:"—"));
+    n.appendChild(i);
+    const autres=[...x.noms].filter(v=>!x.p||v!==x.p.nom); if(autres.length) n.appendChild(el("small",null,"au programme aussi sous : "+autres.join(", ")));
+    if(x.avec.length) n.appendChild(el("small",null,"stock compté avec : "+x.avec.join(", ")));
+    else if(x.p && !x.groupe){ const si=el("div","info"); liensSimilaires(si, x.p.nom); if(si.children.length) n.appendChild(si); }
+    n.appendChild(el("small",null,[...x.cultures].join(", ")));
+    tr.append(n, (()=>{ const td=el("td", x.cmd>0?"cmd":"zero", x.cmd>0 ? nb(x.arrondi)+" "+x.u : "0"); if(x.cmd>0 && Math.abs(x.arrondi-x.cmd)>0.004) td.appendChild(el("small",null,"juste : "+nb(x.cmd))); return td; })(), el("td",null,nb(x.besoin)+" "+x.u), el("td",null,x.p?nb(x.reel)+" "+x.u:"—"), el("td",null,x.p?nb(x.util)+" "+x.u:"—"));
     t.appendChild(tr);
   });
   // Stock en local, non prévu au programme
-  const prevus = new Set(lignes.filter(x=>x.p).map(x=>x.p.id));
+  const prevus = new Set(lignes.flatMap(x=>x.membres.map(m=>m.id)));
   const hors = D.produits.filter(p=>p.q>0 && !prevus.has(p.id)).sort((a,b)=>a.cat.localeCompare(b.cat)||a.nom.localeCompare(b.nom,"fr",{numeric:true}));
   const h=$("tabHors"); h.innerHTML="<tr><th>Produit</th><th>Stock</th><th>Utilisable</th></tr>";
   if(!hors.length){ const tr=el("tr"), td=el("td","vide","Tout le stock est prévu au programme."); td.colSpan=3; tr.appendChild(td); h.appendChild(tr); }
@@ -400,12 +463,13 @@ function dessinerCmd(){
     tr.append(n, el("td",null,nb(p.q)+" "+p.u), el("td",null,nb(utilisable(p))+" "+p.u)); h.appendChild(tr); });
 }
 $("seulCmd").addEventListener("change", dessinerCmd);
+$("avecSim").addEventListener("change", dessinerCmd);
 function tableauCmd(sep){
   const nbx = x => String(Math.round(x*100)/100).replace(".",",");
-  const l = [["Produit","Fournisseur","Unité","Besoin","Stock réel","Stock utilisable","À commander","Remarque","Cultures"]];
+  const l = [["Produit","Fournisseur","Unité","À commander (arrondi)","À commander (juste)","Besoin","Stock réel","Stock utilisable","Remarque","Cultures"]];
   calculer().filter(x=>!$("seulCmd").checked || x.cmd>0).forEach(x=>{
-    const rq=[]; if(!x.p) rq.push("pas en stock"); if(x.p && x.p.cmr) rq.push(x.p.cmr); if(x.p && x.p.statut==="retire") rq.push(x.p.fin ? "fin d'utilisation le "+dateFr(x.p.fin) : "retiré"); if(x.autreUnite) rq.push("unité différente du stock");
-    l.push([x.nom, x.p&&x.p.fournisseur||"", x.u, nbx(x.besoin), x.p?nbx(x.reel):"", x.p?nbx(x.util):"", nbx(x.cmd), rq.join(", "), [...x.cultures].join(", ")]);
+    const rq=[]; if(!x.p) rq.push("pas en stock"); if(x.p && x.p.cmr) rq.push(x.p.cmr); if(x.p && x.p.statut==="retire") rq.push(x.p.fin ? "fin d'utilisation le "+dateFr(x.p.fin) : "retiré"); if(x.autreUnite) rq.push("unité différente du stock"); if(x.avec.length) rq.push("stock compté avec : "+x.avec.join(", "));
+    l.push([x.nom, x.p&&x.p.fournisseur||"", x.u, nbx(x.arrondi), nbx(x.cmd), nbx(x.besoin), x.p?nbx(x.reel):"", x.p?nbx(x.util):"", rq.join(", "), [...x.cultures].join(", ")]);
   });
   return l.map(r=>r.map(v=>sep===";"?csv(v):String(v).replace(/[\t\n]/g," ")).join(sep));
 }
@@ -427,7 +491,7 @@ function dessinerStock(){
   l.forEach(p=>{
     const li=el("li"), n=el("div","n"), b=el("button",null,p.nom); b.type="button";
     b.addEventListener("click", ()=>editer(p));
-    const i=el("div","info"); badges(i,p.nom); i.appendChild(el("span",null,[p.fam, p.fournisseur].filter(Boolean).join(" · ")));
+    const i=el("div","info"); badges(i,p.nom); i.appendChild(el("span",null,[p.fam, p.fournisseur].filter(Boolean).join(" · "))); liensSimilaires(i, p.nom);
     n.append(b,i);
     const inp=el("input"); inp.type="text"; inp.inputMode="decimal"; inp.value=nb(p.q,3); inp.disabled=!ecrit(); inp.setAttribute("aria-label","Quantité de "+p.nom);
     inp.addEventListener("change", async ()=>{
@@ -444,16 +508,39 @@ $("filtreCat").addEventListener("change", dessinerStock);
 function editer(p){
   if(!ecrit()) return;
   enEdition = p || null;
-  const v = p || {nom:"", q:0, u:"L", cat:"Phyto", fam:"", statut:"autorise", fin:"", cmr:"", fournisseur:""};
+  const v = p || {nom:"", q:0, u:"L", cat:"Phyto", fam:"", statut:"autorise", fin:"", cmr:"", fournisseur:"", amm:""};
   $("fpTitre").textContent = p ? "Fiche : "+p.nom : "Ajouter un produit";
-  $("fpNom").value=v.nom; $("fpQ").value=nb(v.q,3); $("fpU").value=v.u; $("fpCat").value=v.cat; $("fpFam").value=v.fam||""; $("fpStatut").value=v.statut; $("fpFin").value=v.fin||""; $("fpCmr").value=v.cmr||""; $("fpFour").value=v.fournisseur||"";
+  $("fpNom").value=v.nom; $("fpQ").value=nb(v.q,3); $("fpU").value=v.u; $("fpCat").value=v.cat; $("fpFam").value=v.fam||""; $("fpStatut").value=v.statut; $("fpFin").value=v.fin||""; $("fpCmr").value=v.cmr||""; $("fpFour").value=v.fournisseur||""; $("fpAmm").value=v.amm||""; $("fpBidon").value=v.bidon!=null?nb(v.bidon,3):""; dessinerSimilaires();
   $("fpOk").textContent = p ? "Enregistrer" : "Ajouter"; $("fpAnnuler").hidden = !p; $("fpSuppr").hidden = !(p && chef());
   message("fpMsg","");
   if(p) $("ficheProduit").scrollIntoView({behavior:"smooth", block:"start"});
 }
 $("fpAnnuler").addEventListener("click", ()=>editer(null));
+function dessinerSimilaires(){
+  const p=enEdition; $("fpSimBloc").hidden=!p; if(!p) return;
+  const ul=$("fpSim"); ul.innerHTML="";
+  const l=similaires(p);
+  if(!l.length) ul.appendChild(el("li","vide","Aucun pour l'instant."));
+  l.forEach(x=>{
+    const li=el("li"), b=el("button","sim",x.nom); b.type="button"; b.addEventListener("click", ()=>editer(x));
+    li.append(b, el("small",null,nb(x.q)+" "+x.u+(memeAmm(x,p)?" · même AMM":"")));
+    if(!memeAmm(x,p) && x.groupe && ecrit()){ const d=el("button","lien","Délier"); d.type="button";
+      d.addEventListener("click", async ()=>{ try{ Object.assign(x, await appel("PATCH","/api/phyto/produits/"+x.id,{groupe:null})); if(similaires(p).length===0 && p.groupe){} indexer(); garder("phyto",D); dessinerSimilaires(); }catch(e){ alert(e.message); } });
+      li.appendChild(d); }
+    ul.appendChild(li);
+  });
+}
+$("fpLierOk").addEventListener("click", async ()=>{
+  const p=enEdition, c=produit($("fpLier").value);
+  if(!p) return; if(!c) return alert("Choisissez un produit du stock."); if(c===p) return;
+  // Le groupe prend le nom d'un groupe existant, sinon celui du produit choisi ; tout le monde le rejoint
+  const g = c.groupe || p.groupe || c.nom, anciens = new Set([p.groupe, c.groupe].filter(Boolean));
+  const aChanger = D.produits.filter(x=>x===p || x===c || (x.groupe && anciens.has(x.groupe))).filter(x=>x.groupe!==g);
+  try{ for(const x of aChanger) Object.assign(x, await appel("PATCH","/api/phyto/produits/"+x.id,{groupe:g})); indexer(); garder("phyto",D); $("fpLier").value=""; dessinerSimilaires(); message("fpMsg","« "+p.nom+" » et « "+c.nom+" » sont reliés.","ok"); }
+  catch(e){ alert(e.message); }
+});
 $("fpOk").addEventListener("click", async ()=>{
-  const c = {nom:$("fpNom").value, q:$("fpQ").value, u:$("fpU").value, cat:$("fpCat").value, fam:$("fpFam").value, statut:$("fpStatut").value, fin:$("fpFin").value||null, cmr:$("fpCmr").value, fournisseur:$("fpFour").value};
+  const c = {nom:$("fpNom").value, q:$("fpQ").value, u:$("fpU").value, cat:$("fpCat").value, fam:$("fpFam").value, statut:$("fpStatut").value, fin:$("fpFin").value||null, cmr:$("fpCmr").value, fournisseur:$("fpFour").value, amm:$("fpAmm").value, bidon:$("fpBidon").value};
   try{
     if(enEdition){
       const ancien = enEdition.nom, r = await appel("PATCH","/api/phyto/produits/"+enEdition.id, c); Object.assign(enEdition, r);

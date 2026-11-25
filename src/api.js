@@ -738,8 +738,8 @@ export async function api(request, env, url) {
     const ecrit = peut(moi, 'phyto');
     const dateOk = j => /^\d{4}-\d{2}-\d{2}$/.test(j || '') && !isNaN(Date.parse(j + 'T00:00:00Z'));
     const quantite = v => { const n = Math.round(Number(String(v ?? '').replace(',', '.').replace(/\s/g, '')) * 1000) / 1000; return isFinite(n) && n >= 0 && n <= 10000000 ? n : null; };
-    const UNITES = ['L', 'kg', 't'], STATUTS = ['autorise', 'retire', 'engrais', 'nonphyto'];
-    const PRODUIT = 'SELECT p.id, p.nom, p.q, p.u, p.fam, p.cat, p.statut, p.fin, p.cmr, p.fournisseur, p.modifie_le, c.nom AS modifie_par FROM phyto_produits p LEFT JOIN comptes c ON c.id = p.modifie_par';
+    const UNITES = ['L', 'kg', 't', 'dose'], STATUTS = ['autorise', 'retire', 'engrais', 'nonphyto'];
+    const PRODUIT = 'SELECT p.id, p.nom, p.q, p.u, p.fam, p.cat, p.statut, p.fin, p.cmr, p.fournisseur, p.amm, p.groupe, p.bidon, p.modifie_le, c.nom AS modifie_par FROM phyto_produits p LEFT JOIN comptes c ON c.id = p.modifie_par';
     if (p.length === 1 && methode === 'GET') {
       const produits = (await env.DB.prepare(PRODUIT + ' WHERE p.exploitation_id = ? ORDER BY p.nom COLLATE NOCASE').bind(E).all()).results;
       const campagnes = (await env.DB.prepare(
@@ -783,14 +783,14 @@ export async function api(request, env, url) {
       const cat = v('cat') === 'Engrais' ? 'Engrais' : 'Phyto';
       const statut = STATUTS.includes(v('statut')) ? v('statut') : (cat === 'Engrais' ? 'engrais' : 'autorise');
       const fin = v('fin') ? (dateOk(v('fin')) ? v('fin') : false) : null; if (fin === false) return 'Date de fin d\'utilisation invalide.';
-      return { nom, q, u, cat, statut, fin, fam: texte(v('fam'), 40) || null, cmr: texte(v('cmr'), 20) || null, fournisseur: texte(v('fournisseur'), 60) || null };
+      return { nom, q, u, cat, statut, fin, fam: texte(v('fam'), 40) || null, cmr: texte(v('cmr'), 20) || null, fournisseur: texte(v('fournisseur'), 60) || null, amm: texte(v('amm'), 20) || null, groupe: texte(v('groupe'), 80) || null, bidon: v('bidon') == null || String(v('bidon')).trim() === '' ? null : quantite(v('bidon')) };
     };
     if (p[1] === 'produits' && p.length === 2 && methode === 'POST') {
       const x = lireProduit(corps); if (typeof x === 'string') return erreur(400, x);
       if (await env.DB.prepare('SELECT id FROM phyto_produits WHERE exploitation_id = ? AND nom = ? COLLATE NOCASE').bind(E, x.nom).first())
         return erreur(409, '« ' + x.nom + ' » est déjà dans le stock.');
-      const r = await env.DB.prepare('INSERT INTO phyto_produits (exploitation_id, nom, q, u, fam, cat, statut, fin, cmr, fournisseur, modifie_par) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
-        .bind(E, x.nom, x.q, x.u, x.fam, x.cat, x.statut, x.fin, x.cmr, x.fournisseur, moi.id).first();
+      const r = await env.DB.prepare('INSERT INTO phyto_produits (exploitation_id, nom, q, u, fam, cat, statut, fin, cmr, fournisseur, amm, groupe, bidon, modifie_par) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .bind(E, x.nom, x.q, x.u, x.fam, x.cat, x.statut, x.fin, x.cmr, x.fournisseur, x.amm, x.groupe, x.bidon || null, moi.id).first();
       return json(await env.DB.prepare(PRODUIT + ' WHERE p.id = ?').bind(r.id).first(), 201);
     }
     if (p[1] === 'produits' && p.length === 3 && (methode === 'PATCH' || methode === 'DELETE')) {
@@ -804,8 +804,8 @@ export async function api(request, env, url) {
       const x = lireProduit(corps, av); if (typeof x === 'string') return erreur(400, x);
       if (x.nom.toLowerCase() !== av.nom.toLowerCase() && await env.DB.prepare('SELECT id FROM phyto_produits WHERE exploitation_id = ? AND nom = ? COLLATE NOCASE AND id <> ?').bind(E, x.nom, av.id).first())
         return erreur(409, '« ' + x.nom + ' » est déjà dans le stock.');
-      await env.DB.prepare("UPDATE phyto_produits SET nom = ?, q = ?, u = ?, fam = ?, cat = ?, statut = ?, fin = ?, cmr = ?, fournisseur = ?, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?")
-        .bind(x.nom, x.q, x.u, x.fam, x.cat, x.statut, x.fin, x.cmr, x.fournisseur, moi.id, av.id).run();
+      await env.DB.prepare("UPDATE phyto_produits SET nom = ?, q = ?, u = ?, fam = ?, cat = ?, statut = ?, fin = ?, cmr = ?, fournisseur = ?, amm = ?, groupe = ?, bidon = ?, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?")
+        .bind(x.nom, x.q, x.u, x.fam, x.cat, x.statut, x.fin, x.cmr, x.fournisseur, x.amm, x.groupe, x.bidon || null, moi.id, av.id).run();
       return json(await env.DB.prepare(PRODUIT + ' WHERE p.id = ?').bind(av.id).first());
     }
     return erreur(405, 'Méthode non prise en charge.');

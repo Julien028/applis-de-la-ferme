@@ -203,13 +203,16 @@ CREATE TABLE IF NOT EXISTS phyto_produits (
   exploitation_id INTEGER NOT NULL REFERENCES exploitations(id),
   nom TEXT NOT NULL,
   q REAL NOT NULL DEFAULT 0,          -- quantité au local
-  u TEXT NOT NULL DEFAULT 'L',        -- L, kg ou t
+  u TEXT NOT NULL DEFAULT 'L',        -- L, kg, t ou dose
   fam TEXT,                           -- Herbicides, Fongicides, Engrais de fond…
   cat TEXT NOT NULL DEFAULT 'Phyto',  -- Phyto ou Engrais
   statut TEXT NOT NULL DEFAULT 'autorise', -- autorise, retire, engrais, nonphyto
   fin TEXT,                           -- date de fin d'utilisation (produit retiré), AAAA-MM-JJ
   cmr TEXT,                           -- « CMR 2 » si concerné
   fournisseur TEXT,                   -- chez qui on le commande (bon de commande par fournisseur)
+  amm TEXT,                           -- n° d'AMM (même AMM = produits similaires)
+  bidon REAL,                         -- taille du bidon / sac (arrondi de la commande)
+  groupe TEXT,                        -- produits similaires reliés à la main (même valeur = même groupe)
   modifie_par INTEGER REFERENCES comptes(id),
   modifie_le TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (exploitation_id, nom)
