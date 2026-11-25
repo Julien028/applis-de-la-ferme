@@ -37,6 +37,55 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
 .simtout{font-size:.8rem;color:var(--muted)}
 .stock li.eclaire{animation:eclaire 2.2s ease-out}
 @keyframes eclaire{0%,40%{background:#FFF1CC}100%{background:transparent}}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:0 0 10px}
+.modes button{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:8px;font:inherit;font-size:.88rem;font-weight:700;cursor:pointer;color:var(--ink)}
+.modes button.ici{background:var(--accent-clair);border-color:var(--accent);color:var(--accent-fonce)}
+.petite-case{display:flex!important;align-items:center;gap:8px;font-weight:600;font-size:.85rem;margin:8px 0 0}
+.petite-case input{width:20px;height:20px;flex:none}
+.barre-prog{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}
+.barre-prog .secondaire{padding:9px 14px}
+/* lecture : un tableau propre */
+table.lecture{font-size:.95rem}
+table.lecture th{text-align:left;background:var(--accent-clair);color:var(--accent-fonce);padding:8px 6px}
+table.lecture td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--grille);vertical-align:middle}
+table.lecture td.stade{font-weight:700;color:var(--accent-fonce);background:#FAF8FC;border-right:1px solid var(--grille);width:28%;vertical-align:top}
+table.lecture tr.nouveau-stade td{border-top:2px solid var(--line)}
+table.lecture td.pnom span{font-weight:600}
+table.lecture td.pnom small{display:inline;margin-left:4px;color:var(--muted)}
+table.lecture td.dose,table.lecture td.tot{text-align:right;white-space:nowrap}
+table.lecture td.tot{font-weight:700;color:var(--accent-fonce)}
+table.lecture th:nth-child(3),table.lecture th:nth-child(4){text-align:right}
+/* modification : des cases façon tableur */
+table.edition{border-collapse:collapse}
+table.edition th{text-align:left;padding:6px 4px;background:var(--accent-clair);color:var(--accent-fonce)}
+table.edition td{border:1px solid var(--line);padding:0;vertical-align:top;background:#fff}
+table.edition input,table.edition select{border:0;border-radius:0;padding:9px 6px;font-size:.95rem;background-color:transparent}
+table.edition input:focus,table.edition select:focus{outline:2px solid var(--accent);outline-offset:-2px}
+table.edition select{padding-right:20px;background-position:right 4px center;min-width:56px}
+table.edition td:nth-child(1) input{width:84px}
+table.edition td.pnom{min-width:128px}
+table.edition td.pnom .info{padding:0 6px 4px}
+table.edition td:nth-child(3) input{width:64px;text-align:right}
+table.edition td:nth-child(5) input{width:52px;text-align:right}
+table.edition td.tot{white-space:nowrap;text-align:right;font-weight:700;color:var(--accent-fonce);padding:9px 6px;font-size:.85rem;background:var(--fond,#F6F4EF)}
+table.edition td:last-child{border:0;background:transparent;padding-top:6px}
+table.general th small{display:block;font-weight:400;text-transform:none;letter-spacing:0}
+table.general td.zero{color:var(--muted)}
+table.general td.pnom{min-width:120px}
+table.general th:first-child,table.general td:first-child{position:sticky;left:0;background:#fff;z-index:1;box-shadow:1px 0 0 var(--grille)}
+table.general th:first-child{background:var(--card)}
+.reglages-cmd{margin-top:6px}.reglages-cmd summary{cursor:pointer;color:var(--muted);font-size:.85rem}
+#tabCmd td.nom{min-width:0}
+#tabCmd th{padding:6px 3px}
+#tabCmd td{padding:7px 3px}
+.four{display:flex;align-items:center;gap:6px;margin-top:5px}
+.four .lib{font-size:.75rem;color:var(--muted)}
+.four select{width:auto;min-width:100px;padding:6px 24px 6px 8px;font-size:.85rem;border-radius:8px;background-position:right 6px center}
+.tab td.recu-td{text-align:center}.tab td.recu-td input{width:24px;height:24px;accent-color:var(--ok)}
+.tab td.recu-td .recu{justify-content:center;font-size:.75rem;white-space:nowrap}
+.tab tr.recep-tr td{border-bottom:2px solid var(--accent)}
+.four .imprime-four{display:none}
+@media print{ .four select{display:none} .four .imprime-four{display:inline} }
 .lier{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px}
 .ctl-cmd{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px}
 .ctl-cmd select{width:auto;min-width:130px;padding:7px 30px 7px 10px;font-size:.88rem;border-radius:10px;background-position:right 8px center}
@@ -121,11 +170,18 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
     <!-- ============ PROGRAMMES ============ -->
     <div class="card" id="vueProg" hidden>
       <h2>Programmes</h2>
+      <div class="modes" id="modesProg"><button type="button" data-mode="culture">Par culture</button><button type="button" data-mode="general">Tableau général</button></div>
       <p class="vide" id="pasDeCulture" hidden>Ajoutez d'abord les cultures dans l'onglet « Assolement ».</p>
+      <div id="generalBloc" hidden>
+        <p class="hint" style="margin-top:0">Dose par hectare de chaque produit, par culture (toutes les passes additionnées), et quantité totale pour la campagne.</p>
+        <div class="defile"><table class="tab general" id="tabGeneral"></table></div>
+      </div>
       <div id="progBloc">
         <label for="culture" style="margin-top:0">Culture</label>
         <select id="culture"></select>
-        <ul class="lignes" id="produits"></ul>
+        <div class="barre-prog"><p class="hint" id="totalProg" style="margin:0"></p><button class="secondaire" id="editerProg" type="button">✎ Modifier</button></div>
+        <div class="defile"><table class="tab prog" id="tabProg"></table></div>
+        <label class="petite-case"><input type="checkbox" id="colPct"> Colonne « % de la surface traitée »</label>
         <div class="ligne-boutons">
           <button class="principal" id="ajoutProduit" type="button">＋ Ajouter un produit</button>
           <button class="secondaire" id="copier" type="button">Copier le programme d'une autre culture</button>
@@ -143,13 +199,17 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
     <div class="card" id="vueCmd" hidden>
       <h2>À commander — campagne <span id="cTitre"></span></h2>
       <p class="msg ok" id="cStock" style="margin:-4px 0 6px;font-weight:700"></p>
-      <p class="hint pas-imprimer" style="margin-top:-4px">Besoin = dose × surface × % traité, pour toutes les cultures. Stock utilisable = stock du local, sans les produits retirés avant le <span id="cDebut"></span>. À commander = besoin − stock utilisable, arrondi au bidon (sinon à 5, 10 ou 20).</p>
-      <label class="pas-imprimer" style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="avecSim" checked style="width:20px;height:20px"> Compter aussi le stock des produits similaires</label>
+      <span id="cDebut" hidden></span>
+
       <div class="filtres pas-imprimer" style="grid-template-columns:1fr 1fr;margin-top:6px">
         <select id="filtreCmd" aria-label="Quels produits"><option value="">Tout le programme</option><option value="reste" selected>Reste à commander / récupérer</option><option value="recu">Déjà récupéré</option></select>
         <select id="filtreFour" aria-label="Fournisseur"></select>
       </div>
-      <p class="hint pas-imprimer">Pour chaque produit : choisissez le fournisseur, puis cochez « Récupéré » à l'arrivée — la quantité reçue s'ajoute au stock.</p>
+      <label class="petite-case pas-imprimer"><input type="checkbox" id="detailCmd"> Voir le détail (besoin, stock, cultures)</label>
+      <details class="pas-imprimer reglages-cmd"><summary>Comment c'est calculé</summary>
+        <p class="hint">Besoin = dose × surface × % traité, pour toutes les cultures. Stock utilisable = stock de départ, sans les produits retirés avant le début de campagne. À commander = besoin − stock utilisable, arrondi au bidon (sinon à 5, 10 ou 20). Cochez « Reçu » à l'arrivée : la quantité reçue s'ajoute au stock.</p>
+        <label class="petite-case"><input type="checkbox" id="avecSim" checked> Compter aussi le stock des produits similaires (même AMM ou reliés)</label>
+      </details>
       <div class="defile"><table class="tab" id="tabCmd"></table></div>
       <div class="ligne-boutons pas-imprimer">
         <button class="principal" id="copierCmd" type="button">📋 Copier pour Excel</button>
@@ -397,34 +457,54 @@ function dessinerProg(){
   if(!cs.some(c=>c.id===cultureIci)) cultureIci = cs[0].id;
   s.value = cultureIci;
   dessinerLignes();
-  $("ajoutProduit").hidden = $("copier").hidden = !ecrit();
+  montrerModeProg(modeProg);
 }
 const cultureCourante = () => C.donnees.cultures.find(c=>c.id===cultureIci);
+let editionProg = false;
+function dessinerLecture(c, t){
+  t.className="tab prog lecture";
+  const tete=el("tr"); ["Stade","Produit","Dose/ha","Total"].forEach(h=>tete.appendChild(el("th",null,h))); t.appendChild(tete);
+  if(!c.lignes.length){ const tr=el("tr"), td=el("td","vide","Aucun produit dans ce programme."+(ecrit()?" Touchez « ✎ Modifier » pour en ajouter.":"")); td.colSpan=4; tr.appendChild(td); t.appendChild(tr); return; }
+  // Un stade vide continue le stade d'au-dessus, comme dans le tableau Excel
+  let tdStade=null, n=0;
+  c.lignes.forEach((l,i)=>{
+    const tr=el("tr");
+    if(l.stade || !tdStade){ tdStade=el("td","stade",l.stade||""); tdStade.rowSpan=1; tr.appendChild(tdStade); if(i) tr.classList.add("nouveau-stade"); }
+    else tdStade.rowSpan++;
+    const nom=el("td","pnom"); nom.appendChild(el("span",null,l.produit||"—"));
+    const pct=(l.pct??100)!==100 ? " ("+nb(l.pct)+" %)" : ""; if(pct) nom.appendChild(el("small",null,"sur"+pct));
+    const i2=el("div","info"); badges(i2, l.produit, true); if(i2.children.length) nom.appendChild(i2);
+    tr.append(nom, el("td","dose", l.dose!=null ? nb(l.dose,3)+" "+(l.u||"L") : ""), el("td","tot", l.dose && c.surface ? nb(l.dose*c.surface*(l.pct??100)/100,1)+" "+(l.u||"L") : ""));
+    t.appendChild(tr); n++;
+  });
+}
 function dessinerLignes(){
-  const c = cultureCourante(), ul=$("produits"); ul.innerHTML="";
+  const c = cultureCourante(), t=$("tabProg"); t.innerHTML="";
+  c.lignes = c.lignes || [];
+  $("editerProg").hidden = !ecrit(); $("editerProg").textContent = editionProg ? "✓ Terminé" : "✎ Modifier";
+  $("ajoutProduit").hidden = $("copier").hidden = !(ecrit() && editionProg); $("colPct").parentNode.hidden = !editionProg;
+  $("totalProg").textContent = c.surface ? (c.nom||"")+" : "+nb(c.surface)+" ha" : "Pas de surface pour cette culture dans l'assolement.";
+  if(!editionProg) return dessinerLecture(c, t);
+  t.className="tab prog edition";
   const st=$("listeStades"); st.innerHTML=""; [...new Set(["Semis","Prélevée","Post-levée","Reprise végétation","Epi 1 cm","1 nœud","2 nœuds","DF","Floraison","Traitement plant"].concat(D.campagnes.flatMap(k=>k.donnees.cultures.flatMap(cu=>(cu.lignes||[]).map(x=>x.stade).filter(Boolean)))))].forEach(v=>{ const o=el("option"); o.value=v; st.appendChild(o); });
   c.lignes = c.lignes || [];
-  if(!c.lignes.length) ul.appendChild(el("li","vide","Aucun produit dans ce programme."));
+  const avecPct = $("colPct").checked || c.lignes.some(l=>(l.pct??100)!==100);
+  $("colPct").checked = avecPct;
+  const tete=el("tr"); ["Stade","Produit","Dose/ha","Unité"].concat(avecPct?["% surf."]:[]).concat(["Total",""]).forEach(h=>tete.appendChild(el("th",null,h))); t.appendChild(tete);
+  if(!c.lignes.length){ const tr=el("tr"), td=el("td","vide","Aucun produit dans ce programme."); td.colSpan=7; tr.appendChild(td); t.appendChild(tr); }
   c.lignes.forEach((l,i)=>{
-    const li=el("li");
-    const nom=el("input"); nom.type="text"; nom.setAttribute("list","listeProduits"); nom.maxLength=80; nom.value=l.produit||""; nom.placeholder="Produit (liste du stock ou nom libre)"; nom.setAttribute("aria-label","Produit");
-    const g=el("div","prod");
-    const champ=(lib, input, cls)=>{ const d=el("div",cls); const lb=el("label",null,lib); d.append(lb,input); return d; };
-    const stade=el("input"); stade.type="text"; stade.maxLength=40; stade.value=l.stade||""; stade.setAttribute("list","listeStades"); stade.placeholder="ex. Epi 1 cm";
-    const dose=el("input"); dose.type="text"; dose.inputMode="decimal"; dose.value=l.dose!=null?nb(l.dose,4):"";
-    const u=el("select"); ["L","kg","t","g","dose"].forEach(x=>u.appendChild(el("option",null,x))); u.value=l.u||"L";
-    const pct=el("input"); pct.type="text"; pct.inputMode="decimal"; pct.value=l.pct!=null?nb(l.pct,1):"100";
-    const x=el("button","croixg","✕"); x.type="button"; x.title="Retirer";
-    g.append(champ("Stade",stade), champ("Dose / ha",dose), champ("Unité",u), champ("% surf.",pct));
-    const tete=el("div","tete-prod"); tete.append(nom, x);
-    const info=el("div","info");
+    const tr=el("tr");
+    const stade=el("input"); stade.type="text"; stade.maxLength=40; stade.value=l.stade||""; stade.setAttribute("list","listeStades"); stade.setAttribute("aria-label","Stade");
+    const nom=el("input"); nom.type="text"; nom.setAttribute("list","listeProduits"); nom.maxLength=80; nom.value=l.produit||""; nom.setAttribute("aria-label","Produit");
+    const dose=el("input"); dose.type="text"; dose.inputMode="decimal"; dose.value=l.dose!=null?nb(l.dose,4):""; dose.setAttribute("aria-label","Dose par hectare");
+    const u=el("select"); ["L","kg","t","g","dose"].forEach(x=>u.appendChild(el("option",null,x))); u.value=l.u||"L"; u.setAttribute("aria-label","Unité");
+    const pct=el("input"); pct.type="text"; pct.inputMode="decimal"; pct.value=l.pct!=null?nb(l.pct,1):"100"; pct.setAttribute("aria-label","% de la surface");
+    const x=el("button","croix","✕"); x.type="button"; x.title="Retirer la ligne";
+    const tot=el("td","tot"), info=el("div","info");
     const maj=()=>{
+      tot.textContent = l.dose && c.surface ? nb(l.dose*c.surface*(l.pct??100)/100,1)+" "+(l.u||"L") : "";
       info.innerHTML=""; badges(info, l.produit, true);
-      const p=produit(l.produit);
-      if(p && convertir(1, l.u||"L", p.u)==null) info.appendChild(el("span","badge b-unite","unité ≠ stock ("+p.u+")"));
-      if(l.dose && c.surface){ info.appendChild(el("span",null,"→ "+nb(l.dose*c.surface*(l.pct??100)/100)+" "+(l.u||"L")+" pour "+nb(c.surface*(l.pct??100)/100)+" ha")); }
-      if(p) info.appendChild(el("span",null,"· stock "+nb(p.q)+" "+p.u));
-      liensSimilaires(info, l.produit);
+      const p=produit(l.produit); if(p && convertir(1, l.u||"L", p.u)==null) info.appendChild(el("span","badge b-unite","unité ≠ stock"));
     };
     nom.addEventListener("change", ()=>{ l.produit=nom.value.replace(/\s+/g," ").trim(); const p=produit(l.produit); if(p){ l.produit=p.nom; nom.value=p.nom; if(p.u!=="t"){ l.u=p.u; u.value=p.u; } else if(!l.u||l.u==="L"){ l.u="kg"; u.value="kg"; } } maj(); modifie(); });
     nom.addEventListener("input", ()=>{ l.produit=nom.value.replace(/\s+/g," ").trim(); modifie(); });
@@ -432,13 +512,42 @@ function dessinerLignes(){
     dose.addEventListener("input", ()=>{ l.dose=lireNb(dose.value); maj(); modifie(); });
     u.addEventListener("change", ()=>{ l.u=u.value; maj(); modifie(); });
     pct.addEventListener("input", ()=>{ const v=lireNb(pct.value); l.pct = v==null ? 100 : v; maj(); modifie(); });
-    x.addEventListener("click", ()=>{ c.lignes.splice(i,1); modifie(); dessinerLignes(); });
+    x.addEventListener("click", ()=>{ if(l.produit && !confirm("Retirer « "+l.produit+" » du programme ?")) return; c.lignes.splice(i,1); modifie(); dessinerLignes(); });
     [nom,stade,dose,u,pct,x].forEach(e=>e.disabled=!ecrit());
-    maj(); li.append(tete,g,info); ul.appendChild(li);
+    const tdNom=el("td","pnom"); tdNom.append(nom, info);
+    const cell=e=>{ const td=el("td"); td.appendChild(e); return td; };
+    tr.append(cell(stade), tdNom, cell(dose), cell(u)); if(avecPct) tr.appendChild(cell(pct)); tr.append(tot, cell(x));
+    maj(); t.appendChild(tr);
   });
 }
+$("colPct").addEventListener("change", dessinerLignes);
+$("editerProg").addEventListener("click", ()=>{ editionProg=!editionProg; dessinerLignes(); });
+// Tableau général : produits × cultures (dose/ha), comme la feuille « Quantité »
+function dessinerGeneral(){
+  const cs=C.donnees.cultures.filter(c=>c.surface || (c.lignes||[]).length), t=$("tabGeneral"); t.innerHTML="";
+  const tete=el("tr"); tete.appendChild(el("th",null,"Produit"));
+  cs.forEach(c=>{ const th=el("th"); th.append(document.createTextNode(c.nom||"?"), el("small",null,c.surface?nb(c.surface)+" ha":"—")); tete.appendChild(th); });
+  tete.appendChild(el("th",null,"Total")); t.appendChild(tete);
+  const prod=new Map();
+  cs.forEach((c,j)=>(c.lignes||[]).forEach(l=>{ if(!cle(l.produit)||!l.dose) return; const k=cle(l.produit)+"|"+(l.u||"L");
+    const x=prod.get(k)||{nom:l.produit, u:l.u||"L", doses:cs.map(()=>0), total:0}; x.doses[j]+=l.dose; x.total+=l.dose*(c.surface||0)*(l.pct??100)/100; prod.set(k,x); }));
+  [...prod.values()].sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{numeric:true})).forEach(x=>{
+    const tr=el("tr"), n=el("td","pnom"); n.appendChild(el("b",null,x.nom)); const i=el("div","info"); badges(i,x.nom,true); n.appendChild(i); tr.appendChild(n);
+    x.doses.forEach(d=>tr.appendChild(el("td",d?null:"zero",d?nb(d,3):"")));
+    tr.appendChild(el("td","fort",nb(x.total,1)+" "+x.u)); t.appendChild(tr);
+  });
+  if(!prod.size){ const tr=el("tr"), td=el("td","vide","Aucun produit au programme."); td.colSpan=cs.length+2; tr.appendChild(td); t.appendChild(tr); }
+}
+let modeProg = lireChoix("phyto.modeProg") || "culture";
+function montrerModeProg(m){
+  modeProg=m; garderChoix("phyto.modeProg", m);
+  document.querySelectorAll("#modesProg button").forEach(b=>b.classList.toggle("ici", b.dataset.mode===m));
+  $("progBloc").hidden = m!=="culture" || !C.donnees.cultures.length; $("generalBloc").hidden = m!=="general";
+  if(m==="general") dessinerGeneral();
+}
+document.querySelectorAll("#modesProg button").forEach(b=>b.addEventListener("click", ()=>{ montrerModeProg(b.dataset.mode); if(b.dataset.mode==="culture") dessinerProg(); }));
 $("culture").addEventListener("change", ()=>{ cultureIci=$("culture").value; garderChoix("phyto.culture", cultureIci); dessinerLignes(); $("copierBloc").hidden=true; });
-$("ajoutProduit").addEventListener("click", ()=>{ const c=cultureCourante(); c.lignes.push({produit:"", dose:null, u:"L", pct:100}); modifie(); dessinerLignes(); const l=$("produits").querySelectorAll(".tete-prod input"); l[l.length-1].focus(); });
+$("ajoutProduit").addEventListener("click", ()=>{ editionProg=true; const c=cultureCourante(); c.lignes.push({produit:"", dose:null, u:"L", pct:100}); modifie(); dessinerLignes(); const l=$("tabProg").querySelectorAll("td.pnom input"); if(l.length) l[l.length-1].focus(); });
 $("copier").addEventListener("click", ()=>{
   const s=$("copierDe"); s.innerHTML="";
   D.campagnes.slice().sort((a,b)=>b.campagne.localeCompare(a.campagne)).forEach(k=>k.donnees.cultures.forEach(c=>{
@@ -516,84 +625,83 @@ function dessinerCmd(){
   $("cStock").textContent = texteStock();
   $("cTitre").textContent = C.campagne; $("cDebut").textContent = dateFr(debutCampagne());
   remplirFiltreFour();
+  const detail = $("detailCmd").checked;
   const lignes = calculer(), vis = filtrerCmd(lignes), t=$("tabCmd");
-  t.innerHTML = "<tr><th>Produit</th><th>À commander</th><th>Besoin</th><th>Stock réel</th><th>Utilisable</th></tr>";
-  if(!vis.length){ const tr=el("tr"), td=el("td","vide", !lignes.length ? "Aucun produit au programme pour l'instant." : $("filtreCmd").value==="reste" ? "Plus rien à commander ni à récupérer." : "Aucun produit pour ce choix."); td.colSpan=5; tr.appendChild(td); t.appendChild(tr); }
+  t.innerHTML = "<tr><th>Produit</th><th>À commander</th>"+(detail?"<th>Besoin</th><th>Stock</th><th>Utilisable</th>":"")+"<th>Reçu</th></tr>";
+  const nCol = detail ? 6 : 3;
+  if(!vis.length){ const tr=el("tr"), td=el("td","vide", !lignes.length ? "Aucun produit au programme pour l'instant." : $("filtreCmd").value==="reste" ? "Plus rien à commander ni à récupérer." : "Aucun produit pour ce choix."); td.colSpan=nCol; tr.appendChild(td); t.appendChild(tr); }
   vis.forEach(x=>{
-    const tr=el("tr"), n=el("td","nom"); n.appendChild(el("b",null,x.nom));
-    const i=el("div","info"); badges(i, x.nom, true); if(x.autreUnite) i.appendChild(el("span","badge b-unite","unité ≠ stock"));
-    n.appendChild(i);
-    const autres=[...x.noms].filter(v=>!x.p||v!==x.p.nom); if(autres.length) n.appendChild(el("small",null,"au programme aussi sous : "+autres.join(", ")));
-    if(x.avec.length) n.appendChild(el("small",null,"stock compté avec : "+x.avec.join(", ")));
-    else if(x.p && !x.groupe){ const si=el("div","info"); liensSimilaires(si, x.p.nom); if(si.children.length) n.appendChild(si); }
-    n.appendChild(el("small",null,[...x.cultures].join(", ")));
-    n.appendChild(controlesCmd(x));
+    const c=lireCmd(x), tr=el("tr"), n=el("td","nom");
+    n.appendChild(el("b",null,x.nom));
+    const i=el("div","info"); badges(i, x.nom, true); if(x.autreUnite) i.appendChild(el("span","badge b-unite","unité ≠ stock")); if(i.children.length) n.appendChild(i);
+    if(detail){
+      const autres=[...x.noms].filter(v=>!x.p||v!==x.p.nom); if(autres.length) n.appendChild(el("small",null,"aussi sous : "+autres.join(", ")));
+      if(x.avec.length) n.appendChild(el("small",null,"stock compté avec : "+x.avec.join(", ")));
+      n.appendChild(el("small",null,[...x.cultures].join(", ")));
+    }
     const td=el("td", x.cmd>0?"cmd":"zero", x.cmd>0 ? nb(x.arrondi)+" "+x.u : "0");
-    if(x.cmd>0 && Math.abs(x.arrondi-x.cmd)>0.004) td.appendChild(el("small",null,"juste : "+nb(x.cmd)));
-    const four=lireCmd(x).fournisseur; if(four) td.appendChild(el("small","imprime-four",four));
-    tr.append(n, td, el("td",null,nb(x.besoin)+" "+x.u), el("td",null,x.p?nb(x.reel)+" "+x.u:"—"), el("td",null,x.p?nb(x.util)+" "+x.u:"—"));
+    if(detail && x.cmd>0 && Math.abs(x.arrondi-x.cmd)>0.004) td.appendChild(el("small",null,"juste : "+nb(x.cmd)));
+    tr.append(n, td);
+    if(detail) tr.append(el("td",null,nb(x.besoin)+" "+x.u), el("td",null,x.p?nb(x.reel)+" "+x.u:"—"), el("td",null,x.p?nb(x.util)+" "+x.u:"—"));
+    // Fournisseur
+    const tf=el("div","four"), s=el("select"); s.setAttribute("aria-label","Fournisseur de "+x.nom);
+    [["","—"],...fournisseursListe().map(f=>[f,f]),["+","＋ Autre…"]].forEach(([k,l])=>{ const o=el("option",null,l); o.value=k; s.appendChild(o); });
+    s.value=c.fournisseur||""; s.disabled=!ecrit();
+    s.addEventListener("change", ()=>{
+      let v=s.value;
+      if(v==="+"){ v=(prompt("Nom du fournisseur :")||"").trim(); if(!v){ s.value=c.fournisseur||""; return; } C.donnees.fournisseurs=[...new Set([...(C.donnees.fournisseurs||FOURNISSEURS), v])]; }
+      infoCmd(x).fournisseur=v; modifie(); dessinerCmd();
+    });
+    tf.append(el("span","lib","Chez :"), s, el("span","imprime-four",c.fournisseur||"")); n.appendChild(tf);
+    // Reçu
+    const tc=el("td","recu-td"), cb=el("input"); cb.type="checkbox"; cb.disabled=!ecrit(); cb.checked=(c.recus||[]).length>0 && x.cmd<=0; cb.setAttribute("aria-label","Récupéré : "+x.nom);
+    tc.appendChild(cb);
+    (c.recus||[]).forEach((r,k)=>{
+      const ligne=el("div","recu"); ligne.appendChild(el("span",null,nb(r.q)+" "+(r.u||x.u)+(r.date?" · "+dateFr(r.date).slice(0,5):"")));
+      if(ecrit()){ const z=el("button","croix","✕"); z.type="button"; z.title="Annuler cette réception"; z.addEventListener("click", ()=>annulerRecu(x, r, k)); ligne.appendChild(z); }
+      tc.appendChild(ligne);
+    });
+    tr.appendChild(tc);
     t.appendChild(tr);
+    // Ligne de réception, sous le produit, quand on coche
+    const tr2=el("tr","recep-tr"); tr2.hidden=true; const td2=el("td"); td2.colSpan=nCol; tr2.appendChild(td2);
+    const form=el("div","recep");
+    const q=el("input"); q.type="text"; q.inputMode="decimal"; q.value=nb(x.cmd>0?x.arrondi:0,3); q.setAttribute("aria-label","Quantité reçue");
+    const d=el("input"); d.type="date"; d.value=aujourdhui(); d.setAttribute("aria-label","Date de réception");
+    const ok=el("button","principal","Ajouter au stock"); ok.type="button";
+    const non=el("button","lien","Annuler"); non.type="button";
+    form.append(el("span",null,"Reçu :"), q, el("span",null,x.u), d, ok, non); td2.appendChild(form); t.appendChild(tr2);
+    cb.addEventListener("change", ()=>{ if(cb.checked){ tr2.hidden=false; q.focus(); q.select(); } else cb.checked=true; });
+    non.addEventListener("click", ()=>{ tr2.hidden=true; cb.checked=(c.recus||[]).length>0 && x.cmd<=0; });
+    ok.addEventListener("click", ()=>recevoir(x, q, d, ok));
   });
   // Stock en local, non prévu au programme
   const prevus = new Set(lignes.flatMap(x=>x.membres.map(m=>m.id)));
   const hors = D.produits.filter(p=>qDe(p)>0 && !prevus.has(p.id)).sort((a,b)=>a.cat.localeCompare(b.cat)||a.nom.localeCompare(b.nom,"fr",{numeric:true}));
   const h=$("tabHors"); h.innerHTML="<tr><th>Produit</th><th>Stock</th><th>Utilisable</th></tr>";
   if(!hors.length){ const tr=el("tr"), td=el("td","vide","Tout le stock est prévu au programme."); td.colSpan=3; tr.appendChild(td); h.appendChild(tr); }
-  hors.forEach(p=>{ const tr=el("tr"), n=el("td","nom"); n.appendChild(el("span",null,p.nom)); const i=el("div","info"); badges(i,p.nom); if(p.fam) i.appendChild(el("span",null,p.fam)); n.appendChild(i);
+  hors.forEach(p=>{ const tr=el("tr"), n=el("td","nom"); n.appendChild(el("span",null,p.nom)); const i=el("div","info"); badges(i,p.nom); if(i.children.length) n.appendChild(i);
     tr.append(n, el("td",null,nb(qDe(p))+" "+p.u), el("td",null,nb(utilisable(p))+" "+p.u)); h.appendChild(tr); });
 }
-// Sous chaque produit : le fournisseur choisi, la case « récupéré » et les réceptions déjà notées
-function controlesCmd(x){
-  const bloc=el("div","ctl-cmd pas-imprimer"), c=lireCmd(x);
-  const s=el("select"); s.setAttribute("aria-label","Fournisseur de "+x.nom);
-  [["","Fournisseur…"],...fournisseursListe().map(f=>[f,f]),["+","＋ Autre fournisseur…"]].forEach(([k,l])=>{ const o=el("option",null,l); o.value=k; s.appendChild(o); });
-  s.value=c.fournisseur||""; s.disabled=!ecrit();
-  s.addEventListener("change", ()=>{
-    let v=s.value;
-    if(v==="+"){ v=(prompt("Nom du fournisseur :")||"").trim(); if(!v){ s.value=c.fournisseur||""; return; } C.donnees.fournisseurs=[...new Set([...(C.donnees.fournisseurs||FOURNISSEURS), v])]; }
-    infoCmd(x).fournisseur=v; modifie(); dessinerCmd();
-  });
-  const lab=el("label","recup"), cb=el("input"); cb.type="checkbox"; cb.disabled=!ecrit(); cb.checked=(c.recus||[]).length>0 && x.cmd<=0;
-  lab.append(cb, document.createTextNode(" Récupéré"));
-  bloc.append(s, lab);
-  const form=el("div","recep"); form.hidden=true;
-  const q=el("input"); q.type="text"; q.inputMode="decimal"; q.value=nb(x.cmd>0?x.arrondi:0,3); q.setAttribute("aria-label","Quantité reçue");
-  const d=el("input"); d.type="date"; d.value=aujourdhui(); d.setAttribute("aria-label","Date de réception");
-  const ok=el("button","principal","Ajouter au stock"); ok.type="button";
-  const non=el("button","lien","Annuler"); non.type="button";
-  form.append(el("span",null,"Reçu :"), q, el("span",null,x.u), d, ok, non);
-  cb.addEventListener("change", ()=>{ if(cb.checked){ form.hidden=false; q.focus(); q.select(); } else { cb.checked=true; } });
-  non.addEventListener("click", ()=>{ form.hidden=true; cb.checked=(c.recus||[]).length>0 && x.cmd<=0; });
-  ok.addEventListener("click", async ()=>{
-    const v=lireNb(q.value); if(!v || v<=0) return alert("Quantité reçue invalide.");
-    ok.disabled=true;
-    try{
-      let p=x.p;
-      if(!p){ // pas encore dans le stock : on l'y crée avec ce qui est arrivé
-        p=await appel("POST","/api/phyto/produits",{nom:x.nom, q:v, u:x.u==="g"?"kg":x.u, cat:"Phyto"}); D.produits.push(p);
-      } else {
-        const r=await appel("PATCH","/api/phyto/produits/"+p.id,{q:Math.round((p.q+(convertir(v,x.u,p.u)??v))*1000)/1000}); Object.assign(p,r);
-      }
-      infoCmd(x).recus.push({q:v, u:x.u, date:d.value||aujourdhui(), produit:p.id}); indexer(); garder("phyto",D); clearTimeout(minuteur); minuteur=null; await enregistrer(); dessinerCmd();
-      message("cmdMsg", nb(v)+" "+x.u+" de « "+p.nom+" » ajoutés au stock.","ok");
-    }catch(e){ alert(e.message); ok.disabled=false; }
-  });
-  bloc.appendChild(form);
-  (c.recus||[]).forEach((r,k)=>{
-    const ligne=el("div","recu"); ligne.appendChild(el("span",null,"✓ "+nb(r.q)+" "+(r.u||x.u)+" reçu"+(r.date?" le "+dateFr(r.date):"")));
-    if(ecrit()){ const z=el("button","croix","✕"); z.type="button"; z.title="Annuler cette réception";
-      z.addEventListener("click", async ()=>{
-        const p=D.produits.find(y=>y.id===r.produit);
-        if(!confirm("Annuler la réception de "+nb(r.q)+" "+(r.u||x.u)+" ?"+(p?" Elle est retirée du stock de « "+p.nom+" ».":""))) return;
-        try{ if(p){ const n=Math.max(0, Math.round((p.q-(convertir(r.q, r.u||x.u, p.u)??r.q))*1000)/1000); Object.assign(p, await appel("PATCH","/api/phyto/produits/"+p.id,{q:n})); }
-          infoCmd(x).recus.splice(k,1); indexer(); garder("phyto",D); clearTimeout(minuteur); minuteur=null; await enregistrer(); dessinerCmd(); }
-        catch(e){ alert(e.message); }
-      });
-      ligne.appendChild(z); }
-    bloc.appendChild(ligne);
-  });
-  return bloc;
+async function recevoir(x, q, d, ok){
+  const v=lireNb(q.value); if(!v || v<=0) return alert("Quantité reçue invalide.");
+  ok.disabled=true;
+  try{
+    let p=x.p;
+    if(!p){ p=await appel("POST","/api/phyto/produits",{nom:x.nom, q:v, u:x.u==="g"?"kg":x.u, cat:"Phyto"}); D.produits.push(p); }
+    else { const r=await appel("PATCH","/api/phyto/produits/"+p.id,{q:Math.round((p.q+(convertir(v,x.u,p.u)??v))*1000)/1000}); Object.assign(p,r); }
+    infoCmd(x).recus.push({q:v, u:x.u, date:d.value||aujourdhui(), produit:p.id}); indexer(); garder("phyto",D); clearTimeout(minuteur); minuteur=null; await enregistrer(); dessinerCmd();
+    message("cmdMsg", nb(v)+" "+x.u+" de « "+p.nom+" » ajoutés au stock.","ok");
+  }catch(e){ alert(e.message); ok.disabled=false; }
 }
+async function annulerRecu(x, r, k){
+  const p=D.produits.find(y=>y.id===r.produit);
+  if(!confirm("Annuler la réception de "+nb(r.q)+" "+(r.u||x.u)+" ?"+(p?" Elle est retirée du stock de « "+p.nom+" ».":""))) return;
+  try{ if(p){ const n=Math.max(0, Math.round((p.q-(convertir(r.q, r.u||x.u, p.u)??r.q))*1000)/1000); Object.assign(p, await appel("PATCH","/api/phyto/produits/"+p.id,{q:n})); }
+    infoCmd(x).recus.splice(k,1); indexer(); garder("phyto",D); clearTimeout(minuteur); minuteur=null; await enregistrer(); dessinerCmd(); }
+  catch(e){ alert(e.message); }
+}
+$("detailCmd").addEventListener("change", dessinerCmd);
 $("filtreCmd").addEventListener("change", dessinerCmd);
 $("filtreFour").addEventListener("change", dessinerCmd);
 $("avecSim").addEventListener("change", dessinerCmd);
