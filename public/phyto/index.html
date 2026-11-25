@@ -31,6 +31,9 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
 .simliste li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--grille)}
 .simliste li .sim{font-size:.95rem;flex:1;text-align:left}
 .simliste small{color:var(--muted)}
+.ephy label{display:flex;gap:10px;align-items:flex-start;margin:0;font-weight:400;color:var(--ink);cursor:pointer}
+.ephy input{width:22px;height:22px;flex:none;margin-top:2px}
+.ephy small{display:block;color:var(--muted);font-size:.8rem}
 .simtout{font-size:.8rem;color:var(--muted)}
 .stock li.eclaire{animation:eclaire 2.2s ease-out}
 @keyframes eclaire{0%,40%{background:#FFF1CC}100%{background:transparent}}
@@ -190,6 +193,18 @@ body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;
         <div class="ligne-boutons"><button class="principal" id="fpOk" type="button">Ajouter</button><button class="lien" id="fpAnnuler" type="button" hidden>Annuler</button><button class="lien danger" id="fpSuppr" type="button" hidden>Supprimer du stock</button></div>
         <p class="msg" id="fpMsg" hidden></p>
         <datalist id="familles"></datalist><datalist id="fournisseurs"></datalist>
+      </div>
+      <div class="panneau" id="ephyBloc">
+        <h3>Liste du ministère (E-Phy)</h3>
+        <p class="hint" id="ephyDerniere" style="margin-top:0"></p>
+        <button class="secondaire" id="ephyLancer" type="button">🔄 Mettre à jour depuis la liste du ministère</button>
+        <p class="hint">Va chercher la dernière liste officielle (Anses, data.gouv.fr) : n° AMM, produits de même AMM, produits retirés et dates de fin d'utilisation. Vous voyez les changements avant de les appliquer.</p>
+        <p class="msg" id="ephyMsg" hidden></p>
+        <div id="ephyResultat" hidden>
+          <p class="hint">Liste : <span id="ephyVersion"></span></p>
+          <ul class="lignes ephy" id="ephyListe"></ul>
+          <div class="ligne-boutons"><button class="principal" id="ephyAppliquer" type="button">Appliquer les changements cochés</button></div>
+        </div>
       </div>
     </div>
   </div>
@@ -621,6 +636,7 @@ function dessinerStock(){
     li.append(n, inp, el("span","u",p.u)); ul.appendChild(li);
   });
   $("ficheProduit").hidden = !ecrit();
+  dessinerEphy();
 }
 $("recherche").addEventListener("input", dessinerStock);
 $("filtreCat").addEventListener("change", dessinerStock);
@@ -678,6 +694,107 @@ $("fpSuppr").addEventListener("click", async ()=>{
   try{ await appel("DELETE","/api/phyto/produits/"+p.id); D.produits=D.produits.filter(x=>x!==p); indexer(); garder("phyto",D); editer(null); tout(); }
   catch(e){ message("fpMsg", e.message, "erreur"); }
 });
+
+/* ---------- liste du ministère (E-Phy, Anses) ----------
+   Le navigateur télécharge la dernière liste sur data.gouv.fr, la compare au stock, et propose les changements :
+   n° AMM, AMM de référence (génériques), produit retiré et date de fin d'utilisation. Rien n'est changé sans « Appliquer ». */
+const EPHY_JEU = "https://www.data.gouv.fr/api/1/datasets/575e9fac88ee38072a640390/";
+const normE = s => String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,"");
+const isoE = d => /^\d{2}\/\d{2}\/\d{4}$/.test(d||"") ? d.slice(6)+"-"+d.slice(3,5)+"-"+d.slice(0,2) : null;
+// Dézippe seulement les fichiers voulus (le zip E-Phy est un zip classique, compressé « deflate »)
+async function dezipE(buf, voulus){
+  const dv=new DataView(buf), u8=new Uint8Array(buf), out={};
+  let fin=buf.byteLength-22; while(fin>0 && dv.getUint32(fin,true)!==0x06054b50) fin--;
+  let p=dv.getUint32(fin+16,true); const n=dv.getUint16(fin+10,true);
+  for(let i=0;i<n;i++){
+    const meth=dv.getUint16(p+10,true), taille=dv.getUint32(p+20,true), ln=dv.getUint16(p+28,true), lx=dv.getUint16(p+30,true), lc=dv.getUint16(p+32,true), loc=dv.getUint32(p+42,true);
+    const nom=new TextDecoder().decode(u8.subarray(p+46,p+46+ln));
+    const cle=voulus.find(v=>nom.toLowerCase().endsWith(v));
+    if(cle){
+      const d=loc+30+dv.getUint16(loc+26,true)+dv.getUint16(loc+28,true), brut=u8.subarray(d,d+taille);
+      out[cle] = meth===8 ? await new Response(new Blob([brut]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text() : new TextDecoder().decode(brut);
+    }
+    p+=46+ln+lx+lc;
+  }
+  return out;
+}
+const lignesE = t => { const l=t.replace(/^﻿/,"").split(/\r?\n/).filter(Boolean); const en=l[0].split(";").map(s=>s.trim()); return l.slice(1).map(x=>{ const c=x.split(";"); return Object.fromEntries(en.map((k,i)=>[k,(c[i]||"").trim()])); }); };
+let propositionsE = [];
+async function comparerEphy(){
+  if(!("DecompressionStream" in window)) return message("ephyMsg","Ce navigateur est trop ancien pour lire la liste du ministère. Essayez sur l'ordinateur.","erreur");
+  $("ephyLancer").disabled=true; $("ephyResultat").hidden=true;
+  try{
+    message("ephyMsg","Recherche de la dernière liste…");
+    const jeu=await (await fetch(EPHY_JEU)).json();
+    const res=jeu.resources.find(r=>/csv/i.test(r.title)&&/utf-?8/i.test(r.title)&&/zip/i.test(r.format||r.url));
+    if(!res) throw new Error("Liste introuvable sur data.gouv.fr.");
+    const version=res.title.replace(/\.zip$/i,"")+" ("+dateFr(String(res.last_modified||"").slice(0,10))+")";
+    message("ephyMsg","Téléchargement de la liste du ministère (4 Mo)…");
+    const buf=await (await fetch(res.url)).arrayBuffer();
+    message("ephyMsg","Lecture…");
+    const f=await dezipE(buf, ["produits_utf8.csv","permis_de_commerce_parallele_utf8.csv","produits_usages_utf8.csv"]);
+    if(!f["produits_utf8.csv"]) throw new Error("Fichier des produits absent du zip.");
+    const index=new Map(), ajouter=(nom,x)=>{ const k=normE(nom); if(!k) return; (index.get(k)||index.set(k,[]).get(k)).push(x); };
+    lignesE(f["produits_utf8.csv"]).forEach(p=>{
+      const x={amm:p["numero AMM"], ref:p["Numéro AMM du produit de référence"]||"", nom:p["nom produit"], etat:p["Etat d’autorisation"]||"", retrait:isoE(p["Date de retrait du produit"])};
+      ajouter(x.nom,x); (p["seconds noms commerciaux"]||"").split("|").forEach(s=>ajouter(s.trim(),{...x, second:s.trim()}));
+    });
+    if(f["permis_de_commerce_parallele_utf8.csv"]) lignesE(f["permis_de_commerce_parallele_utf8.csv"]).forEach(p=>ajouter(p["Nom du produit"],{amm:p["N° Permis"], ref:p["N° AMM de référence français"]||"", nom:p["Nom du produit"], etat:p["Etat d’autorisation"]||"", retrait:null, pcp:true}));
+    // Choix du produit E-Phy pour chaque produit du stock (autorisé d'abord)
+    const choix=new Map();
+    D.produits.filter(p=>p.cat!=="Engrais").forEach(p=>{
+      let c=index.get(normE(p.nom))||[];
+      if(!c.length) c=index.get(normE(p.nom.replace(/\b(fs|sc|ec|od|wg|sg|cs|ew|me|se|sl|ema)\b/ig,"")))||[];
+      if(!c.length) return;
+      const auto=c.filter(x=>/AUTORIS/i.test(x.etat));
+      choix.set(p, (auto.length?auto:c).slice().sort((a,b)=>String(b.retrait||"9999").localeCompare(String(a.retrait||"9999")))[0]);
+    });
+    // Date de fin d'utilisation des produits retirés : la plus tardive de leurs usages
+    const finUtil=new Map(), retires=new Set([...choix.values()].filter(x=>/RETIR/i.test(x.etat)).map(x=>x.amm));
+    if(f["produits_usages_utf8.csv"]) f["produits_usages_utf8.csv"].split(/\r?\n/).forEach(l=>{
+      const a=l.slice(0,l.indexOf(";")); if(!retires.has(a)) return;
+      const d=isoE(l.split(";")[13]); if(d && (!finUtil.get(a) || d>finUtil.get(a))) finUtil.set(a,d);
+    });
+    propositionsE=[];
+    let sans=0;
+    D.produits.filter(p=>p.cat!=="Engrais").forEach(p=>{
+      const x=choix.get(p); if(!x){ sans++; return; }
+      const m={id:p.id, p, x, changes:[]}, ref=x.ref||null;
+      if((p.amm||"")!==x.amm){ m.amm=x.amm; m.changes.push("AMM "+(p.amm||"—")+" → "+x.amm); }
+      if((p.amm_ref||null)!==ref){ m.amm_ref=ref; m.changes.push(ref ? "produit de référence AMM "+ref : "plus de produit de référence"); }
+      if(/RETIR/i.test(x.etat)){
+        const fin=finUtil.get(x.amm)||null;
+        if(p.statut!=="retire"){ m.statut="retire"; m.fin=fin; m.changes.push("retiré"+(fin?", fin d'utilisation le "+dateFr(fin):"")); }
+        else if(fin && fin!==p.fin){ m.fin=fin; m.changes.push("fin d'utilisation "+(p.fin?dateFr(p.fin):"—")+" → "+dateFr(fin)); }
+      } else if(/AUTORIS/i.test(x.etat) && p.statut==="retire"){ m.statut="autorise"; m.fin=null; m.changes.push("de nouveau autorisé (le stock le disait retiré)"); }
+      if(m.changes.length) propositionsE.push(m);
+    });
+    $("ephyVersion").textContent=version;
+    const ul=$("ephyListe"); ul.innerHTML="";
+    propositionsE.forEach(m=>{
+      const li=el("li"), lab=el("label"), cb=el("input"); cb.type="checkbox"; cb.checked=true; cb.dataset.id=m.id;
+      const t=el("span"); t.append(el("b",null,m.p.nom), el("small",null,m.changes.join(" · ")+" — E-Phy : "+m.x.nom+(m.x.second?" (« "+m.x.second+" »)":"")));
+      lab.append(cb,t); li.appendChild(lab); ul.appendChild(li);
+    });
+    $("ephyResultat").hidden=false; $("ephyAppliquer").hidden=!propositionsE.length;
+    message("ephyMsg", (propositionsE.length ? propositionsE.length+" changement(s) proposé(s). Décochez ce qui ne va pas, puis « Appliquer »." : "Tout est déjà à jour.")+" "+choix.size+" produits retrouvés"+(sans?", "+sans+" introuvables dans la liste (laissés tels quels)":"")+".", "ok");
+  }catch(e){ message("ephyMsg","⚠ "+(e.message||"La liste n'a pas pu être lue.")+" Réessayez plus tard.","erreur"); }
+  finally{ $("ephyLancer").disabled=false; }
+}
+$("ephyLancer").addEventListener("click", comparerEphy);
+$("ephyAppliquer").addEventListener("click", async ()=>{
+  const ids=new Set([...$("ephyListe").querySelectorAll("input:checked")].map(i=>Number(i.dataset.id)));
+  const maj=propositionsE.filter(m=>ids.has(m.id)).map(m=>{ const o={id:m.id}; ["amm","amm_ref","statut","fin"].forEach(k=>{ if(k in m) o[k]=m[k]; }); return o; });
+  if(!maj.length) return;
+  $("ephyAppliquer").disabled=true;
+  try{ await appel("POST","/api/phyto/ephy",{maj, version:$("ephyVersion").textContent}); $("ephyResultat").hidden=true; await charger(); montrer("Stock"); message("ephyMsg", maj.length+" produit(s) mis à jour d'après la liste du ministère.","ok"); }
+  catch(e){ message("ephyMsg", e.message, "erreur"); }
+  finally{ $("ephyAppliquer").disabled=false; }
+});
+function dessinerEphy(){
+  $("ephyBloc").hidden=!ecrit();
+  const i=D.ephy; $("ephyDerniere").textContent = i ? "Dernière mise à jour le "+dateFr(String(i.le).slice(0,10))+(i.par?" par "+i.par:"")+(i.version?" — "+i.version:"")+"." : "Jamais faite depuis l'appli (AMM repris le 25/11/2026, liste du 24/11/2026).";
+}
 
 demarrer("phyto", charger);
 </script>

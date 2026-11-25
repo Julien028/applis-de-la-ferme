@@ -748,7 +748,8 @@ export async function api(request, env, url) {
         `SELECT k.campagne, k.debut, k.donnees, k.modifie_le, c.nom AS modifie_par FROM phyto_campagnes k LEFT JOIN comptes c ON c.id = k.modifie_par
           WHERE k.exploitation_id = ? ORDER BY k.campagne DESC`).bind(E).all()).results
         .map(k => { let d = { cultures: [] }; try { d = JSON.parse(k.donnees); } catch {} return { ...k, donnees: d }; });
-      return json({ produits, campagnes, ecrit });
+      const ephy = await env.DB.prepare("SELECT valeur FROM reglages WHERE exploitation_id = ? AND cle = 'phyto_ephy'").bind(E).first();
+      return json({ produits, campagnes, ecrit, ephy: ephy ? JSON.parse(ephy.valeur) : null });
     }
     if (!ecrit) return erreur(403, 'Votre compte peut consulter les programmes phyto, pas les modifier.');
     // Une campagne entière (assolement + programmes). « avant » = la version chargée, pour ne pas écraser
@@ -774,6 +775,26 @@ export async function api(request, env, url) {
       if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
       await env.DB.prepare('DELETE FROM phyto_campagnes WHERE exploitation_id = ? AND campagne = ?').bind(E, texte(decodeURIComponent(p[2]), 20)).run();
       return json({ ok: true });
+    }
+    // Mise à jour depuis la liste du ministère (E-Phy) : l'appli télécharge et compare, Julien coche, on applique ici
+    if (p[1] === 'ephy' && p.length === 2 && methode === 'POST') {
+      const maj = Array.isArray(corps.maj) ? corps.maj.slice(0, 500) : [];
+      const requetes = [];
+      for (const m of maj) {
+        const av = await env.DB.prepare('SELECT * FROM phyto_produits WHERE id = ? AND exploitation_id = ?').bind(Number(m.id), E).first();
+        if (!av) continue;
+        const amm = m.amm === undefined ? av.amm : (texte(m.amm, 20) || null);
+        const ammRef = m.amm_ref === undefined ? av.amm_ref : (texte(m.amm_ref, 20) || null);
+        const statut = m.statut === undefined ? av.statut : (STATUTS.includes(m.statut) ? m.statut : av.statut);
+        const fin = m.fin === undefined ? av.fin : (m.fin ? (dateOk(m.fin) ? m.fin : av.fin) : null);
+        requetes.push(env.DB.prepare("UPDATE phyto_produits SET amm = ?, amm_ref = ?, statut = ?, fin = ?, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?")
+          .bind(amm, ammRef, statut, fin, moi.id, av.id));
+      }
+      const info = JSON.stringify({ le: new Date().toISOString(), version: texte(corps.version, 80), par: moi.nom, n: requetes.length });
+      requetes.push(env.DB.prepare(`INSERT INTO reglages (exploitation_id, cle, valeur, modifie_par) VALUES (?, 'phyto_ephy', ?, ?)
+        ON CONFLICT (exploitation_id, cle) DO UPDATE SET valeur = excluded.valeur, modifie_par = excluded.modifie_par, modifie_le = datetime('now')`).bind(E, info, moi.id));
+      await env.DB.batch(requetes);
+      return json({ ok: true, n: requetes.length - 1 });
     }
     // Produits du stock
     const lireProduit = (c, avant = {}) => {
