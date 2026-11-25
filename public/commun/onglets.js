@@ -10,7 +10,6 @@
     ["gnr",        "/gnr/",                  "GNR",           "⛽"],
     ["tracteurs",  "/tracteurs/",            "Heures",        "🚜"],
     ["entretien",  "/entretien/",            "Entretien",     "🔧"],
-    ["phyto",      "/phyto/",                "Phyto",         "🧪"],
   ];
   let moi = null;
   try{ moi = JSON.parse(localStorage.getItem("applis.moi")); }catch(e){}
