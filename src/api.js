@@ -18,13 +18,14 @@ const CLES_REGLAGES = ['enrouleurs', 'largVille']; // irrigation enrouleur
 const TAILLE_MAX_REGLAGE = 50000;
 // Ce qu'un salarié peut modifier, coché par le chef (le chef peut tout)
 // Ce qu'il peut modifier (cases du chef)…
-export const DROITS = ['pluie', 'gnr', 'heures', 'entretien', 'pmg', 'semences', 'enrouleurs'];
+export const DROITS = ['pluie', 'gnr', 'heures', 'entretien', 'pmg', 'semences', 'enrouleurs', 'phyto'];
 // … et les applis qu'il peut ouvrir (31/10/2026). Absent = toutes (comptes plus anciens).
-export const APPLIS = ['dose', 'irrigation', 'pluie', 'gnr', 'tracteurs', 'entretien'];
+export const APPLIS = ['dose', 'irrigation', 'pluie', 'gnr', 'tracteurs', 'entretien', 'phyto'];
 // Applis et droits ajoutés après coup : ouverts / cochés pour les comptes qui n'en disent rien
+// (phyto, 25/11/2026 : fermé tant que le chef ne coche pas la case)
 const NOUVEAUX = { entretien: true };
 // Chaque droit de modification dépend de l'accès à son appli
-const APPLI_DU_DROIT = { pluie: 'pluie', gnr: 'gnr', heures: 'tracteurs', entretien: 'entretien', pmg: 'dose', semences: 'dose', enrouleurs: 'irrigation' };
+const APPLI_DU_DROIT = { pluie: 'pluie', gnr: 'gnr', heures: 'tracteurs', entretien: 'entretien', pmg: 'dose', semences: 'dose', enrouleurs: 'irrigation', phyto: 'phyto' };
 const tout = liste => Object.fromEntries(liste.map(k => [k, true]));
 // masque : un droit de modification ne vaut que si l'appli est ouverte (faux pour la liste du chef, qui coche tout)
 function lireDroits(brut, masque = true) {
@@ -215,6 +216,8 @@ export async function api(request, env, url) {
       heures_engins: await tout('SELECT * FROM heures_engins WHERE exploitation_id = ?'),
       materiel: await tout('SELECT * FROM materiel WHERE exploitation_id = ?'),
       entretiens: await tout('SELECT * FROM entretiens WHERE exploitation_id = ?'),
+      phyto_produits: await tout('SELECT * FROM phyto_produits WHERE exploitation_id = ?'),
+      phyto_campagnes: await tout('SELECT * FROM phyto_campagnes WHERE exploitation_id = ?'),
     });
   }
 
@@ -272,6 +275,7 @@ export async function api(request, env, url) {
   if ((p[0] === 'pluviometres' || p[0] === 'pluie') && !voit(moi, 'pluie')) return erreur(403, 'Vous n\'avez pas accès à la pluviométrie.');
   if (p[0] === 'gnr' && !voit(moi, 'gnr') && !(chef)) return erreur(403, 'Vous n\'avez pas accès au suivi du GNR.');
   if (p[0] === 'tracteurs' && !voit(moi, 'tracteurs')) return erreur(403, 'Vous n\'avez pas accès aux heures des tracteurs.');
+  if (p[0] === 'phyto' && !voit(moi, 'phyto')) return erreur(403, 'Vous n\'avez pas accès aux programmes phyto.');
   if (p[0] === 'entretien' && !voit(moi, 'entretien')) return erreur(403, 'Vous n\'avez pas accès à l\'entretien du matériel.');
 
   if (p[0] === 'semences') {
@@ -728,6 +732,85 @@ export async function api(request, env, url) {
     return erreur(405, 'Méthode non prise en charge.');
   }
 
+  // ---------- programme et commande phyto (25/11/2026) ----------
+  if (p[0] === 'phyto') {
+    const E = moi.exploitation_id;
+    const ecrit = peut(moi, 'phyto');
+    const dateOk = j => /^\d{4}-\d{2}-\d{2}$/.test(j || '') && !isNaN(Date.parse(j + 'T00:00:00Z'));
+    const quantite = v => { const n = Math.round(Number(String(v ?? '').replace(',', '.').replace(/\s/g, '')) * 1000) / 1000; return isFinite(n) && n >= 0 && n <= 10000000 ? n : null; };
+    const UNITES = ['L', 'kg', 't'], STATUTS = ['autorise', 'retire', 'engrais', 'nonphyto'];
+    const PRODUIT = 'SELECT p.id, p.nom, p.q, p.u, p.fam, p.cat, p.statut, p.fin, p.cmr, p.fournisseur, p.modifie_le, c.nom AS modifie_par FROM phyto_produits p LEFT JOIN comptes c ON c.id = p.modifie_par';
+    if (p.length === 1 && methode === 'GET') {
+      const produits = (await env.DB.prepare(PRODUIT + ' WHERE p.exploitation_id = ? ORDER BY p.nom COLLATE NOCASE').bind(E).all()).results;
+      const campagnes = (await env.DB.prepare(
+        `SELECT k.campagne, k.debut, k.donnees, k.modifie_le, c.nom AS modifie_par FROM phyto_campagnes k LEFT JOIN comptes c ON c.id = k.modifie_par
+          WHERE k.exploitation_id = ? ORDER BY k.campagne DESC`).bind(E).all()).results
+        .map(k => { let d = { cultures: [] }; try { d = JSON.parse(k.donnees); } catch {} return { ...k, donnees: d }; });
+      return json({ produits, campagnes, ecrit });
+    }
+    if (!ecrit) return erreur(403, 'Votre compte peut consulter les programmes phyto, pas les modifier.');
+    // Une campagne entière (assolement + programmes). « avant » = la version chargée, pour ne pas écraser
+    // sans le savoir ce qu'un autre appareil a enregistré entre-temps.
+    if (p[1] === 'campagnes' && p.length === 3 && methode === 'PUT') {
+      const campagne = texte(decodeURIComponent(p[2]), 20);
+      if (!campagne) return erreur(400, 'Nom de campagne manquant.');
+      if (corps.debut && !dateOk(corps.debut)) return erreur(400, 'Date de début de campagne invalide.');
+      const d = corps.donnees && Array.isArray(corps.donnees.cultures) ? corps.donnees : null;
+      if (!d) return erreur(400, 'Programme illisible.');
+      const brut = JSON.stringify({ cultures: d.cultures.slice(0, 100) });
+      if (brut.length > 300000) return erreur(413, 'Programme trop gros.');
+      const actuel = await env.DB.prepare('SELECT k.modifie_le, c.nom AS par FROM phyto_campagnes k LEFT JOIN comptes c ON c.id = k.modifie_par WHERE k.exploitation_id = ? AND k.campagne = ?').bind(E, campagne).first();
+      if (actuel && corps.avant !== undefined && corps.avant !== actuel.modifie_le && !corps.forcer)
+        return erreur(409, 'La campagne ' + campagne + ' a été modifiée entre-temps' + (actuel.par ? ' par ' + actuel.par : '') + ' sur un autre appareil.', { conflit: true });
+      const r = await env.DB.prepare(
+        `INSERT INTO phyto_campagnes (exploitation_id, campagne, debut, donnees, modifie_par, modifie_le) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%f','now'))
+         ON CONFLICT (exploitation_id, campagne) DO UPDATE SET debut = excluded.debut, donnees = excluded.donnees, modifie_par = excluded.modifie_par, modifie_le = excluded.modifie_le
+         RETURNING modifie_le`).bind(E, campagne, corps.debut || null, brut, moi.id).first();
+      return json({ ok: true, modifie_le: r.modifie_le });
+    }
+    if (p[1] === 'campagnes' && p.length === 3 && methode === 'DELETE') {
+      if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
+      await env.DB.prepare('DELETE FROM phyto_campagnes WHERE exploitation_id = ? AND campagne = ?').bind(E, texte(decodeURIComponent(p[2]), 20)).run();
+      return json({ ok: true });
+    }
+    // Produits du stock
+    const lireProduit = (c, avant = {}) => {
+      const v = k => c[k] === undefined ? avant[k] : c[k];
+      const nom = texte(v('nom'), 80);
+      if (!nom) return 'Donnez le nom du produit (nom commercial du bidon).';
+      const q = quantite(v('q') ?? 0); if (q === null) return 'Quantité invalide.';
+      const u = UNITES.includes(v('u')) ? v('u') : 'L';
+      const cat = v('cat') === 'Engrais' ? 'Engrais' : 'Phyto';
+      const statut = STATUTS.includes(v('statut')) ? v('statut') : (cat === 'Engrais' ? 'engrais' : 'autorise');
+      const fin = v('fin') ? (dateOk(v('fin')) ? v('fin') : false) : null; if (fin === false) return 'Date de fin d\'utilisation invalide.';
+      return { nom, q, u, cat, statut, fin, fam: texte(v('fam'), 40) || null, cmr: texte(v('cmr'), 20) || null, fournisseur: texte(v('fournisseur'), 60) || null };
+    };
+    if (p[1] === 'produits' && p.length === 2 && methode === 'POST') {
+      const x = lireProduit(corps); if (typeof x === 'string') return erreur(400, x);
+      if (await env.DB.prepare('SELECT id FROM phyto_produits WHERE exploitation_id = ? AND nom = ? COLLATE NOCASE').bind(E, x.nom).first())
+        return erreur(409, '« ' + x.nom + ' » est déjà dans le stock.');
+      const r = await env.DB.prepare('INSERT INTO phyto_produits (exploitation_id, nom, q, u, fam, cat, statut, fin, cmr, fournisseur, modifie_par) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .bind(E, x.nom, x.q, x.u, x.fam, x.cat, x.statut, x.fin, x.cmr, x.fournisseur, moi.id).first();
+      return json(await env.DB.prepare(PRODUIT + ' WHERE p.id = ?').bind(r.id).first(), 201);
+    }
+    if (p[1] === 'produits' && p.length === 3 && (methode === 'PATCH' || methode === 'DELETE')) {
+      const av = await env.DB.prepare('SELECT * FROM phyto_produits WHERE id = ? AND exploitation_id = ?').bind(Number(p[2]), E).first();
+      if (!av) return erreur(404, 'Produit introuvable.');
+      if (methode === 'DELETE') {
+        if (!chef) return erreur(403, 'Réservé au chef d\'exploitation.');
+        await env.DB.prepare('DELETE FROM phyto_produits WHERE id = ?').bind(av.id).run();
+        return json({ ok: true });
+      }
+      const x = lireProduit(corps, av); if (typeof x === 'string') return erreur(400, x);
+      if (x.nom.toLowerCase() !== av.nom.toLowerCase() && await env.DB.prepare('SELECT id FROM phyto_produits WHERE exploitation_id = ? AND nom = ? COLLATE NOCASE AND id <> ?').bind(E, x.nom, av.id).first())
+        return erreur(409, '« ' + x.nom + ' » est déjà dans le stock.');
+      await env.DB.prepare("UPDATE phyto_produits SET nom = ?, q = ?, u = ?, fam = ?, cat = ?, statut = ?, fin = ?, cmr = ?, fournisseur = ?, modifie_par = ?, modifie_le = datetime('now') WHERE id = ?")
+        .bind(x.nom, x.q, x.u, x.fam, x.cat, x.statut, x.fin, x.cmr, x.fournisseur, moi.id, av.id).run();
+      return json(await env.DB.prepare(PRODUIT + ' WHERE p.id = ?').bind(av.id).first());
+    }
+    return erreur(405, 'Méthode non prise en charge.');
+  }
+
   // ---------- exploitations (administrateur du site) ----------
   if (p[0] === 'exploitations') {
     if (!moi.super_admin) return erreur(403, 'Réservé à l\'administrateur du site.');
@@ -762,7 +845,7 @@ export async function api(request, env, url) {
       await env.DB.batch([
         q('DELETE FROM sessions WHERE compte_id IN (SELECT id FROM comptes WHERE exploitation_id = ?)'),
         q('DELETE FROM releves_pluie WHERE pluviometre_id IN (SELECT id FROM pluviometres WHERE exploitation_id = ?)'),
-        ...['entretiens', 'materiel', 'heures_engins', 'gnr_pleins', 'gnr_livraisons', 'engins', 'pluviometres', 'semences', 'reglages', 'comptes']
+        ...['phyto_campagnes', 'phyto_produits', 'entretiens', 'materiel', 'heures_engins', 'gnr_pleins', 'gnr_livraisons', 'engins', 'pluviometres', 'semences', 'reglages', 'comptes']
           .map(t => q(`DELETE FROM ${t} WHERE exploitation_id = ?`)),
         q('DELETE FROM exploitations WHERE id = ?'),
       ]);

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Programme et commande phyto</title>
+<meta name="theme-color" content="#6A4C93">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/commun/outil.css">
+<style>
+body.theme-phyto{--accent:#6A4C93;--accent-fonce:#4E3570;--accent-clair:#EFE8F6;}
+.barre-campagne{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.barre-campagne > div{flex:1;min-width:140px}
+.vues{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;position:sticky;top:0;z-index:4;background:var(--bg);padding:6px 0;margin:0 0 10px}
+.vues button{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:9px 2px;font:inherit;font-size:.82rem;font-weight:700;color:var(--ink);cursor:pointer;line-height:1.15}
+.vues button.ici{background:var(--accent);border-color:var(--accent);color:#fff}
+.sauve{font-size:.8rem;color:var(--muted);min-height:1.2em;margin:4px 0 0}
+.sauve.erreur{color:var(--rouge)}
+.lignes{list-style:none;margin:0;padding:0}
+.lignes > li{border-bottom:1px solid var(--grille);padding:10px 0}
+.cult{display:grid;grid-template-columns:1fr 110px 40px;gap:8px;align-items:center}
+.tete-prod{display:flex;gap:8px}
+.tete-prod input{flex:1}
+.prod{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:end;margin-top:6px}
+.prod label{margin:0 0 3px;font-size:.72rem}
+.croixg{width:40px;height:44px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--muted);font-size:1.1rem;cursor:pointer}
+.info{font-size:.8rem;color:var(--muted);margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.badge{display:inline-block;font-size:.68rem;font-weight:800;border-radius:999px;padding:2px 8px;letter-spacing:.02em}
+.b-cmr{background:#FBE3DC;color:#9A3412}
+.b-retire{background:#E8E4DA;color:#5A4A2A}
+.b-fin{background:#FFF1CC;color:#7A5A00}
+.b-absent{background:#FFF1CC;color:#7A5A00;border:1px dashed #C9A227}
+.b-unite{background:#FBE3DC;color:#9A3412}
+.total{display:flex;justify-content:space-between;font-weight:800;padding:10px 0 0;font-size:1.05rem}
+.tab td.cmd{font-weight:800;color:var(--accent-fonce)}
+.tab td.zero{color:var(--muted);font-weight:400}
+.tab td.nom{min-width:130px}
+.tab td.nom .info{margin-top:2px}
+.stock li{display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--grille);padding:8px 0}
+.stock li .n{flex:1;min-width:0}
+.stock li .n button{background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--ink);text-align:left;cursor:pointer}
+.stock li .n small{display:block;color:var(--muted);font-size:.75rem}
+.stock li input{width:96px;text-align:right}
+.stock li .u{width:24px;color:var(--muted);font-size:.85rem}
+.filtres{display:grid;grid-template-columns:1fr 130px;gap:8px}
+.ligne-boutons{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.ligne-boutons .principal{flex:1}
+.secondaire{background:var(--accent-clair);color:var(--accent-fonce);border:none;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer;font-size:.95rem}
+.sauve:empty{display:none}
+.tab td.nom{min-width:110px}
+@media print{
+  body{background:#fff;padding:0}
+  .applis,.vues,.barre-campagne,.ligne-boutons,.sauve,.onglets-ferme,#vueAssol,#vueProg,#vueStock,.pas-imprimer{display:none!important}
+  .card{border:0;box-shadow:none;padding:0}
+}
+</style>
+<script src="/commun/onglets.js" defer></script>
+</head>
+<body class="theme-phyto">
+  <div class="applis"><a href="../">← Applis de la ferme</a><span id="qui"></span><span class="etat" id="etat"></span><a class="sortir" href="../?deconnexion">⏻ Se déconnecter</a></div>
+  <h1>Programme et commande phyto</h1>
+  <p class="sub">Du stock du local au programme de chaque culture, puis à la commande.</p>
+
+  <div class="card" id="pasConnecte" hidden><p class="vide" style="margin:0">Les programmes phyto sont enregistrés dans l'espace de l'exploitation : <a href="../">connectez-vous depuis l'accueil</a>.</p></div>
+  <div class="card" id="pasAcces" hidden><p class="vide" style="margin:0">Votre compte n'a pas accès aux programmes phyto. Demandez-le au chef d'exploitation.</p></div>
+
+  <div id="contenu" hidden>
+    <div class="card barre-campagne">
+      <div><label for="campagne" style="margin-top:0">Campagne</label><select id="campagne"></select></div>
+      <button class="secondaire" id="nouvelleCampagne" type="button">＋ Nouvelle campagne</button>
+      <p class="sauve" id="sauve" style="flex-basis:100%"></p>
+      <p class="hint" id="lectureSeule" hidden style="flex-basis:100%">Votre compte peut consulter, pas modifier.</p>
+    </div>
+
+    <div class="vues" role="tablist">
+      <button type="button" data-vue="Assol">Assolement</button>
+      <button type="button" data-vue="Prog">Programmes</button>
+      <button type="button" data-vue="Cmd">À commander</button>
+      <button type="button" data-vue="Stock">Stock</button>
+    </div>
+
+    <!-- ============ ASSOLEMENT ============ -->
+    <div class="card" id="vueAssol" hidden>
+      <h2>Assolement <span id="aTitre"></span></h2>
+      <label for="debut">Début de campagne <span class="leger">(un produit retiré avant cette date ne compte pas dans le stock)</span></label>
+      <input type="date" id="debut">
+      <h3>Cultures</h3>
+      <ul class="lignes" id="cultures"></ul>
+      <div class="total"><span>Total</span><span id="totalHa"></span></div>
+      <div class="ligne-boutons"><button class="principal" id="ajoutCulture" type="button">＋ Ajouter une culture</button></div>
+    </div>
+
+    <!-- ============ PROGRAMMES ============ -->
+    <div class="card" id="vueProg" hidden>
+      <h2>Programmes</h2>
+      <p class="vide" id="pasDeCulture" hidden>Ajoutez d'abord les cultures dans l'onglet « Assolement ».</p>
+      <div id="progBloc">
+        <label for="culture" style="margin-top:0">Culture</label>
+        <select id="culture"></select>
+        <ul class="lignes" id="produits"></ul>
+        <div class="ligne-boutons">
+          <button class="principal" id="ajoutProduit" type="button">＋ Ajouter un produit</button>
+          <button class="secondaire" id="copier" type="button">Copier le programme d'une autre culture</button>
+        </div>
+        <div class="panneau" id="copierBloc" hidden>
+          <label for="copierDe">Copier depuis</label>
+          <select id="copierDe"></select>
+          <div class="ligne-boutons"><button class="principal" id="copierOk" type="button">Copier</button><button class="lien" id="copierNon" type="button">Annuler</button></div>
+        </div>
+      </div>
+      <datalist id="listeProduits"></datalist>
+    </div>
+
+    <!-- ============ À COMMANDER ============ -->
+    <div class="card" id="vueCmd" hidden>
+      <h2>À commander — campagne <span id="cTitre"></span></h2>
+      <p class="hint pas-imprimer" style="margin-top:-4px">Besoin = dose × surface × % traité, pour toutes les cultures. Stock utilisable = stock du local, sans les produits retirés avant le <span id="cDebut"></span>. À commander = besoin − stock utilisable.</p>
+      <label class="pas-imprimer" style="display:flex;align-items:center;gap:8px;font-weight:600"><input type="checkbox" id="seulCmd" style="width:20px;height:20px"> Seulement ce qu'il faut commander</label>
+      <div class="defile"><table class="tab" id="tabCmd"></table></div>
+      <div class="ligne-boutons pas-imprimer">
+        <button class="principal" id="copierCmd" type="button">📋 Copier pour Excel</button>
+        <button class="secondaire" id="excelCmd" type="button">⬇ Fichier Excel</button>
+        <button class="secondaire" id="imprimerCmd" type="button">🖨 Imprimer / PDF</button>
+      </div>
+      <p class="msg" id="cmdMsg" hidden></p>
+      <h3>En stock, mais pas au programme</h3>
+      <div class="defile"><table class="tab" id="tabHors"></table></div>
+    </div>
+
+    <!-- ============ STOCK ============ -->
+    <div class="card" id="vueStock" hidden>
+      <h2>Stock du local</h2>
+      <div class="filtres">
+        <input type="search" id="recherche" placeholder="Chercher un produit…" autocomplete="off">
+        <select id="filtreCat"><option value="">Tout</option><option>Phyto</option><option>Engrais</option></select>
+      </div>
+      <p class="hint" id="nbStock"></p>
+      <ul class="lignes stock" id="listeStock"></ul>
+      <div class="panneau" id="ficheProduit">
+        <h3 id="fpTitre">Ajouter un produit</h3>
+        <label for="fpNom">Nom commercial (comme sur le bidon, comme dans Geofolia)</label><input type="text" id="fpNom" maxlength="80">
+        <div class="grille2">
+          <div><label for="fpQ">Quantité au local</label><input type="text" id="fpQ" inputmode="decimal"></div>
+          <div><label for="fpU">Unité</label><select id="fpU"><option>L</option><option>kg</option><option>t</option></select></div>
+          <div><label for="fpCat">Catégorie</label><select id="fpCat"><option>Phyto</option><option>Engrais</option></select></div>
+          <div><label for="fpFam">Famille</label><input type="text" id="fpFam" maxlength="40" list="familles" placeholder="Herbicides…"></div>
+          <div><label for="fpStatut">Statut</label><select id="fpStatut"><option value="autorise">Autorisé</option><option value="retire">Retiré</option><option value="engrais">Engrais</option><option value="nonphyto">Pas un phyto</option></select></div>
+          <div><label for="fpFin">Fin d'utilisation <span class="leger">(si retiré)</span></label><input type="date" id="fpFin"></div>
+          <div><label for="fpCmr">CMR</label><select id="fpCmr"><option value="">Non</option><option>CMR 2</option><option>CMR 1</option></select></div>
+          <div><label for="fpFour">Fournisseur</label><input type="text" id="fpFour" maxlength="60" list="fournisseurs"></div>
+        </div>
+        <div class="ligne-boutons"><button class="principal" id="fpOk" type="button">Ajouter</button><button class="lien" id="fpAnnuler" type="button" hidden>Annuler</button><button class="lien danger" id="fpSuppr" type="button" hidden>Supprimer du stock</button></div>
+        <p class="msg" id="fpMsg" hidden></p>
+        <datalist id="familles"></datalist><datalist id="fournisseurs"></datalist>
+      </div>
+    </div>
+  </div>
+
+<script src="/commun/outil.js"></script>
+<script>
+"use strict";
+let D = null;           // {produits, campagnes, ecrit}
+let C = null;           // campagne affichée {campagne, debut, donnees:{cultures}, modifie_le}
+let vue = lireChoix("phyto.vue") || "Assol";
+const lireNb = v => { const n = parseFloat(String(v ?? "").replace(",", ".").replace(/\s/g, "")); return isFinite(n) ? n : null; };
+const nb = (x, d=2) => x==null ? "" : Number(x).toLocaleString("fr-FR", {maximumFractionDigits:d});
+const dateFr = j => j ? j.slice(8)+"/"+j.slice(5,7)+"/"+j.slice(0,4) : "";
+const cle = n => String(n||"").replace(/\s+/g," ").trim().toLowerCase();
+const nouvelId = () => Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const el = (tag, cls, txt) => { const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; };
+const ecrit = () => !!(D && D.ecrit);
+
+/* ---------- produits du stock ---------- */
+let parNom = new Map();
+function indexer(){ parNom = new Map(D.produits.map(p=>[cle(p.nom), p])); }
+const produit = nom => parNom.get(cle(nom));
+const debutCampagne = () => (C && C.debut) || aujourdhui();
+// Stock qu'on peut encore utiliser au début de la campagne
+function utilisable(p){
+  if(!p) return 0;
+  if(p.statut==="retire") return p.fin && p.fin >= debutCampagne() ? p.q : 0;
+  return p.q;
+}
+function badges(boite, nom, absentSiManque){
+  const p = produit(nom);
+  if(!p){ if(absentSiManque && cle(nom)) boite.appendChild(el("span","badge b-absent","pas en stock")); return; }
+  if(p.cmr) boite.appendChild(el("span","badge b-cmr",p.cmr));
+  if(p.statut==="retire"){
+    if(p.fin && p.fin >= debutCampagne()) boite.appendChild(el("span","badge b-fin","Fin d'utilisation le "+dateFr(p.fin)));
+    else boite.appendChild(el("span","badge b-retire", p.fin ? "Retiré — fin d'utilisation le "+dateFr(p.fin) : "Retiré"));
+  }
+}
+// Conversion d'unités (seulement kg ↔ t)
+function convertir(q, de, vers){
+  if(de===vers) return q;
+  if(de==="kg" && vers==="t") return q/1000;
+  if(de==="t" && vers==="kg") return q*1000;
+  return null;
+}
+
+/* ---------- chargement, enregistrement ---------- */
+async function charger(){
+  try{ D = await appel("GET","/api/phyto"); garder("phyto", D); etat(""); }
+  catch(e){ if(e.status===401) return deconnecte(); if(e.status===403) return sansAcces(); D = relire("phyto"); if(!D) return etat("Pas de réseau.", true); etat("Hors ligne : dernières données connues.", true); }
+  indexer();
+  const voulue = (C && C.campagne) || lireChoix("phyto.campagne");
+  C = D.campagnes.find(k=>k.campagne===voulue) || D.campagnes[0] || null;
+  if(!C){ const an = String(new Date().getFullYear() + (new Date().getMonth()>=7 ? 1 : 0)); C = {campagne:an, debut:an+"-02-01", donnees:{cultures:[]}, modifie_le:undefined, neuve:true}; D.campagnes.push(C); }
+  tout();
+}
+function tout(){
+  const s=$("campagne"); s.innerHTML="";
+  D.campagnes.slice().sort((a,b)=>b.campagne.localeCompare(a.campagne)).forEach(k=>{ const o=el("option",null,"Campagne "+k.campagne); o.value=k.campagne; s.appendChild(o); });
+  s.value=C.campagne;
+  $("nouvelleCampagne").hidden = !ecrit(); $("lectureSeule").hidden = ecrit();
+  $("listeProduits").innerHTML=""; D.produits.forEach(p=>{ const o=el("option"); o.value=p.nom; $("listeProduits").appendChild(o); });
+  const remplir=(id, k)=>{ const l=$(id); l.innerHTML=""; [...new Set(D.produits.map(p=>p[k]).filter(Boolean))].sort().forEach(v=>{ const o=el("option"); o.value=v; l.appendChild(o); }); };
+  remplir("familles","fam"); remplir("fournisseurs","fournisseur");
+  montrer(vue);
+}
+let minuteur = null, enCours = false, encore = false;
+function modifie(){
+  if(!ecrit()) return;
+  $("sauve").className="sauve"; $("sauve").textContent="Modifications en cours…";
+  clearTimeout(minuteur); minuteur = setTimeout(enregistrer, 900);
+}
+async function enregistrer(forcer){
+  if(enCours){ encore = true; return; }
+  enCours = true;
+  const k = C;
+  try{
+    const r = await appel("PUT","/api/phyto/campagnes/"+encodeURIComponent(k.campagne), {debut:k.debut||null, donnees:k.donnees, avant:k.modifie_le, forcer:!!forcer});
+    k.modifie_le = r.modifie_le; delete k.neuve; garder("phyto", D);
+    const n=new Date(); $("sauve").className="sauve"; $("sauve").textContent="✓ Enregistré à "+deux(n.getHours())+"h"+deux(n.getMinutes())+" — retrouvé sur le téléphone et l'ordinateur.";
+  }catch(e){
+    if(e.data && e.data.conflit){
+      enCours = false;
+      if(confirm(e.message+"\n\nOK : garder VOS modifications (elles remplacent l'autre version).\nAnnuler : reprendre la version enregistrée (vos dernières modifications sont perdues).")) return enregistrer(true);
+      C = null; garderChoix("phyto.campagne", k.campagne); return charger();
+    }
+    garder("phyto", D);
+    $("sauve").className="sauve erreur"; $("sauve").textContent = e.status===0 ? "⚠ Pas de réseau : pas encore enregistré. Ça repartira à la prochaine modification." : "⚠ "+e.message;
+  }finally{ enCours = false; if(encore){ encore=false; enregistrer(); } }
+}
+window.addEventListener("online", ()=>{ if(/réseau/.test($("sauve").textContent)) enregistrer(); });
+window.addEventListener("beforeunload", e=>{ if(minuteur && $("sauve").textContent.startsWith("Modifications")){ enregistrer(); e.preventDefault(); e.returnValue=""; } });
+
+$("campagne").addEventListener("change", ()=>{ C = D.campagnes.find(k=>k.campagne===$("campagne").value); garderChoix("phyto.campagne", C.campagne); $("sauve").textContent=""; tout(); });
+$("nouvelleCampagne").addEventListener("click", ()=>{
+  const prop = String(Math.max(new Date().getFullYear(), ...D.campagnes.map(k=>Number(k.campagne)||0)) + 1);
+  const n = (prompt("Nouvelle campagne (ex. "+prop+") :", prop)||"").trim(); if(!n) return;
+  if(D.campagnes.some(k=>k.campagne===n)) return alert("La campagne "+n+" existe déjà.");
+  let donnees = {cultures:[]};
+  if(C && C.donnees.cultures.length && confirm("Reprendre l'assolement et les programmes de la campagne "+C.campagne+" pour démarrer ?\n(OK : copier · Annuler : partir de zéro)"))
+    donnees = JSON.parse(JSON.stringify(C.donnees));
+  const an = /^\d{4}$/.test(n) ? n : String(new Date().getFullYear()+1);
+  C = {campagne:n, debut:an+"-02-01", donnees, modifie_le:undefined, neuve:true}; D.campagnes.push(C);
+  garderChoix("phyto.campagne", n); tout(); enregistrer();
+});
+
+/* ---------- vues ---------- */
+function montrer(v){
+  vue = v; garderChoix("phyto.vue", v);
+  document.querySelectorAll(".vues button").forEach(b=>b.classList.toggle("ici", b.dataset.vue===v));
+  ["Assol","Prog","Cmd","Stock"].forEach(x=>$("vue"+x).hidden = x!==v);
+  ({Assol:dessinerAssol, Prog:dessinerProg, Cmd:dessinerCmd, Stock:dessinerStock})[v]();
+}
+document.querySelectorAll(".vues button").forEach(b=>b.addEventListener("click", ()=>montrer(b.dataset.vue)));
+
+/* ---------- assolement ---------- */
+function totalHa(){ return C.donnees.cultures.reduce((s,c)=>s+(Number(c.surface)||0),0); }
+function dessinerAssol(){
+  $("aTitre").textContent = C.campagne; $("debut").value = C.debut||""; $("debut").disabled = !ecrit();
+  const ul=$("cultures"); ul.innerHTML="";
+  if(!C.donnees.cultures.length) ul.appendChild(el("li","vide","Aucune culture pour l'instant."));
+  C.donnees.cultures.forEach((c,i)=>{
+    const li=el("li"), g=el("div","cult");
+    const nom=el("input"); nom.type="text"; nom.maxLength=60; nom.value=c.nom||""; nom.placeholder="ex. Blé tendre"; nom.setAttribute("aria-label","Culture");
+    const ha=el("input"); ha.type="text"; ha.inputMode="decimal"; ha.value=c.surface!=null?nb(c.surface,2):""; ha.placeholder="ha"; ha.setAttribute("aria-label","Surface en hectares");
+    const x=el("button","croixg","✕"); x.type="button"; x.title="Retirer";
+    nom.addEventListener("input", ()=>{ c.nom=nom.value.trim(); modifie(); });
+    ha.addEventListener("input", ()=>{ c.surface=lireNb(ha.value); $("totalHa").textContent=nb(totalHa())+" ha"; modifie(); });
+    x.addEventListener("click", ()=>{ if((c.lignes||[]).length && !confirm("Retirer « "+(c.nom||"cette culture")+" » et son programme ("+c.lignes.length+" produit(s)) ?")) return; C.donnees.cultures.splice(i,1); modifie(); dessinerAssol(); });
+    [nom,ha,x].forEach(e=>e.disabled=!ecrit());
+    g.append(nom, ha, x); li.appendChild(g); ul.appendChild(li);
+  });
+  $("totalHa").textContent = nb(totalHa())+" ha";
+  $("ajoutCulture").hidden = !ecrit();
+}
+$("debut").addEventListener("change", ()=>{ C.debut = $("debut").value || null; modifie(); });
+$("ajoutCulture").addEventListener("click", ()=>{ C.donnees.cultures.push({id:nouvelId(), nom:"", surface:null, lignes:[]}); modifie(); dessinerAssol(); const l=$("cultures").querySelectorAll("input[type=text]"); if(l.length>1) l[l.length-2].focus(); });
+
+/* ---------- programmes ---------- */
+let cultureIci = lireChoix("phyto.culture");
+const nomCulture = c => (c.nom||"(sans nom)")+(c.surface?" — "+nb(c.surface)+" ha":"");
+function dessinerProg(){
+  const cs = C.donnees.cultures;
+  $("pasDeCulture").hidden = !!cs.length; $("progBloc").hidden = !cs.length; $("copierBloc").hidden = true;
+  if(!cs.length) return;
+  const s=$("culture"); s.innerHTML="";
+  cs.forEach(c=>{ const o=el("option",null,nomCulture(c)+" · "+(c.lignes||[]).length+" produit(s)"); o.value=c.id; s.appendChild(o); });
+  if(!cs.some(c=>c.id===cultureIci)) cultureIci = cs[0].id;
+  s.value = cultureIci;
+  dessinerLignes();
+  $("ajoutProduit").hidden = $("copier").hidden = !ecrit();
+}
+const cultureCourante = () => C.donnees.cultures.find(c=>c.id===cultureIci);
+function dessinerLignes(){
+  const c = cultureCourante(), ul=$("produits"); ul.innerHTML="";
+  c.lignes = c.lignes || [];
+  if(!c.lignes.length) ul.appendChild(el("li","vide","Aucun produit dans ce programme."));
+  c.lignes.forEach((l,i)=>{
+    const li=el("li");
+    const nom=el("input"); nom.type="text"; nom.setAttribute("list","listeProduits"); nom.maxLength=80; nom.value=l.produit||""; nom.placeholder="Produit (liste du stock ou nom libre)"; nom.setAttribute("aria-label","Produit");
+    const g=el("div","prod");
+    const champ=(lib, input, cls)=>{ const d=el("div",cls); const lb=el("label",null,lib); d.append(lb,input); return d; };
+    const dose=el("input"); dose.type="text"; dose.inputMode="decimal"; dose.value=l.dose!=null?nb(l.dose,4):"";
+    const u=el("select"); ["L","kg","t","g"].forEach(x=>u.appendChild(el("option",null,x))); u.value=l.u||"L";
+    const pct=el("input"); pct.type="text"; pct.inputMode="decimal"; pct.value=l.pct!=null?nb(l.pct,1):"100";
+    const x=el("button","croixg","✕"); x.type="button"; x.title="Retirer";
+    g.append(champ("Dose / ha",dose), champ("Unité",u), champ("% surface",pct));
+    const tete=el("div","tete-prod"); tete.append(nom, x);
+    const info=el("div","info");
+    const maj=()=>{
+      info.innerHTML=""; badges(info, l.produit, true);
+      const p=produit(l.produit);
+      if(p && convertir(1, l.u||"L", p.u)==null) info.appendChild(el("span","badge b-unite","unité ≠ stock ("+p.u+")"));
+      if(l.dose && c.surface){ info.appendChild(el("span",null,"→ "+nb(l.dose*c.surface*(l.pct??100)/100)+" "+(l.u||"L")+" pour "+nb(c.surface*(l.pct??100)/100)+" ha")); }
+      if(p) info.appendChild(el("span",null,"· stock "+nb(p.q)+" "+p.u));
+    };
+    nom.addEventListener("change", ()=>{ l.produit=nom.value.replace(/\s+/g," ").trim(); const p=produit(l.produit); if(p){ l.produit=p.nom; nom.value=p.nom; if(p.u!=="t"){ l.u=p.u; u.value=p.u; } else if(!l.u||l.u==="L"){ l.u="kg"; u.value="kg"; } } maj(); modifie(); });
+    nom.addEventListener("input", ()=>{ l.produit=nom.value.replace(/\s+/g," ").trim(); modifie(); });
+    dose.addEventListener("input", ()=>{ l.dose=lireNb(dose.value); maj(); modifie(); });
+    u.addEventListener("change", ()=>{ l.u=u.value; maj(); modifie(); });
+    pct.addEventListener("input", ()=>{ const v=lireNb(pct.value); l.pct = v==null ? 100 : v; maj(); modifie(); });
+    x.addEventListener("click", ()=>{ c.lignes.splice(i,1); modifie(); dessinerLignes(); });
+    [nom,dose,u,pct,x].forEach(e=>e.disabled=!ecrit());
+    maj(); li.append(tete,g,info); ul.appendChild(li);
+  });
+}
+$("culture").addEventListener("change", ()=>{ cultureIci=$("culture").value; garderChoix("phyto.culture", cultureIci); dessinerLignes(); $("copierBloc").hidden=true; });
+$("ajoutProduit").addEventListener("click", ()=>{ const c=cultureCourante(); c.lignes.push({produit:"", dose:null, u:"L", pct:100}); modifie(); dessinerLignes(); const l=$("produits").querySelectorAll(".tete-prod input"); l[l.length-1].focus(); });
+$("copier").addEventListener("click", ()=>{
+  const s=$("copierDe"); s.innerHTML="";
+  D.campagnes.slice().sort((a,b)=>b.campagne.localeCompare(a.campagne)).forEach(k=>k.donnees.cultures.forEach(c=>{
+    if(k===C && c.id===cultureIci) return; if(!(c.lignes||[]).length) return;
+    const o=el("option",null,(c.nom||"(sans nom)")+" — "+k.campagne+" · "+c.lignes.length+" produit(s)"); o.value=k.campagne+"|"+c.id; s.appendChild(o);
+  }));
+  if(!s.options.length) return alert("Aucun autre programme à copier pour l'instant.");
+  $("copierBloc").hidden=false;
+});
+$("copierNon").addEventListener("click", ()=>$("copierBloc").hidden=true);
+$("copierOk").addEventListener("click", ()=>{
+  const [kc, id] = $("copierDe").value.split("|"); const src = D.campagnes.find(k=>k.campagne===kc).donnees.cultures.find(c=>c.id===id);
+  const c = cultureCourante();
+  if(c.lignes.length && !confirm("Remplacer les "+c.lignes.length+" produit(s) de « "+(c.nom||"cette culture")+" » par le programme de « "+src.nom+" » ?")) return;
+  c.lignes = JSON.parse(JSON.stringify(src.lignes)); modifie(); dessinerProg();
+});
+
+/* ---------- à commander ---------- */
+function calculer(){
+  const besoins = new Map();   // clé → {nom, u, besoin, p, alerte, cultures:Set}
+  C.donnees.cultures.forEach(c=>(c.lignes||[]).forEach(l=>{
+    if(!cle(l.produit) || !l.dose || !c.surface) return;
+    const q = l.dose * c.surface * (l.pct??100) / 100, u = l.u||"L";
+    const p = produit(l.produit);
+    let k = cle(l.produit), uu = u, qq = q;
+    if(p){ const v = convertir(q, u, p.u); if(v==null) k += "|"+u; else { uu = p.u; qq = v; } }
+    else k += "|"+u;
+    const b = besoins.get(k) || {nom: p ? p.nom : l.produit, u: uu, besoin:0, p: (p && k===cle(l.produit)) ? p : null, autreUnite: !!p && k!==cle(l.produit), cultures:new Set()};
+    b.besoin += qq; b.cultures.add(c.nom||"?"); besoins.set(k, b);
+  }));
+  return [...besoins.values()].map(b=>{
+    const reel = b.p ? b.p.q : 0, util = b.p ? utilisable(b.p) : 0;
+    return {...b, reel, util, cmd: Math.max(0, b.besoin - util)};
+  }).sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{numeric:true}));
+}
+function dessinerCmd(){
+  $("cTitre").textContent = C.campagne; $("cDebut").textContent = dateFr(debutCampagne());
+  const lignes = calculer(), seul = $("seulCmd").checked, t=$("tabCmd"); t.innerHTML="";
+  t.innerHTML = "<tr><th>Produit</th><th>À commander</th><th>Besoin</th><th>Stock réel</th><th>Utilisable</th></tr>";
+  const vis = lignes.filter(x=>!seul || x.cmd>0);
+  if(!vis.length){ const tr=el("tr"), td=el("td","vide", lignes.length ? "Rien à commander : le stock couvre le programme." : "Aucun produit au programme pour l'instant."); td.colSpan=5; tr.appendChild(td); t.appendChild(tr); }
+  vis.forEach(x=>{
+    const tr=el("tr"), n=el("td","nom"); n.appendChild(el("b",null,x.nom));
+    const i=el("div","info"); badges(i, x.nom, true); if(x.autreUnite) i.appendChild(el("span","badge b-unite","unité ≠ stock")); if(x.p && x.p.fournisseur) i.appendChild(el("span",null,x.p.fournisseur));
+    n.appendChild(i); n.appendChild(el("small",null,[...x.cultures].join(", ")));
+    tr.append(n, el("td", x.cmd>0?"cmd":"zero", x.cmd>0 ? nb(x.cmd)+" "+x.u : "0"), el("td",null,nb(x.besoin)+" "+x.u), el("td",null,x.p?nb(x.reel)+" "+x.u:"—"), el("td",null,x.p?nb(x.util)+" "+x.u:"—"));
+    t.appendChild(tr);
+  });
+  // Stock en local, non prévu au programme
+  const prevus = new Set(lignes.filter(x=>x.p).map(x=>x.p.id));
+  const hors = D.produits.filter(p=>p.q>0 && !prevus.has(p.id)).sort((a,b)=>a.cat.localeCompare(b.cat)||a.nom.localeCompare(b.nom,"fr",{numeric:true}));
+  const h=$("tabHors"); h.innerHTML="<tr><th>Produit</th><th>Stock</th><th>Utilisable</th></tr>";
+  if(!hors.length){ const tr=el("tr"), td=el("td","vide","Tout le stock est prévu au programme."); td.colSpan=3; tr.appendChild(td); h.appendChild(tr); }
+  hors.forEach(p=>{ const tr=el("tr"), n=el("td","nom"); n.appendChild(el("span",null,p.nom)); const i=el("div","info"); badges(i,p.nom); if(p.fam) i.appendChild(el("span",null,p.fam)); n.appendChild(i);
+    tr.append(n, el("td",null,nb(p.q)+" "+p.u), el("td",null,nb(utilisable(p))+" "+p.u)); h.appendChild(tr); });
+}
+$("seulCmd").addEventListener("change", dessinerCmd);
+function tableauCmd(sep){
+  const nbx = x => String(Math.round(x*100)/100).replace(".",",");
+  const l = [["Produit","Fournisseur","Unité","Besoin","Stock réel","Stock utilisable","À commander","Remarque","Cultures"]];
+  calculer().filter(x=>!$("seulCmd").checked || x.cmd>0).forEach(x=>{
+    const rq=[]; if(!x.p) rq.push("pas en stock"); if(x.p && x.p.cmr) rq.push(x.p.cmr); if(x.p && x.p.statut==="retire") rq.push(x.p.fin ? "fin d'utilisation le "+dateFr(x.p.fin) : "retiré"); if(x.autreUnite) rq.push("unité différente du stock");
+    l.push([x.nom, x.p&&x.p.fournisseur||"", x.u, nbx(x.besoin), x.p?nbx(x.reel):"", x.p?nbx(x.util):"", nbx(x.cmd), rq.join(", "), [...x.cultures].join(", ")]);
+  });
+  return l.map(r=>r.map(v=>sep===";"?csv(v):String(v).replace(/[\t\n]/g," ")).join(sep));
+}
+$("copierCmd").addEventListener("click", async ()=>{
+  const txt = tableauCmd("\t").join("\n");
+  try{ await navigator.clipboard.writeText(txt); }
+  catch(e){ const z=el("textarea"); z.value=txt; document.body.appendChild(z); z.select(); document.execCommand("copy"); z.remove(); }
+  message("cmdMsg","Tableau copié : dans Excel, cliquez sur une case puis Coller (Ctrl+V).","ok");
+});
+$("excelCmd").addEventListener("click", ()=>telecharger("commande-phyto-"+C.campagne+".csv", tableauCmd(";")));
+$("imprimerCmd").addEventListener("click", ()=>window.print());
+
+/* ---------- stock ---------- */
+let enEdition = null;
+function dessinerStock(){
+  const q = cle($("recherche").value), cat = $("filtreCat").value, ul=$("listeStock"); ul.innerHTML="";
+  const l = D.produits.filter(p=>(!cat||p.cat===cat) && (!q || cle(p.nom).includes(q) || cle(p.fam).includes(q)));
+  $("nbStock").textContent = l.length+" produit(s)"+(l.length!==D.produits.length?" sur "+D.produits.length:"")+" · touchez un nom pour sa fiche";
+  l.forEach(p=>{
+    const li=el("li"), n=el("div","n"), b=el("button",null,p.nom); b.type="button";
+    b.addEventListener("click", ()=>editer(p));
+    const i=el("div","info"); badges(i,p.nom); i.appendChild(el("span",null,[p.fam, p.fournisseur].filter(Boolean).join(" · ")));
+    n.append(b,i);
+    const inp=el("input"); inp.type="text"; inp.inputMode="decimal"; inp.value=nb(p.q,3); inp.disabled=!ecrit(); inp.setAttribute("aria-label","Quantité de "+p.nom);
+    inp.addEventListener("change", async ()=>{
+      const v=lireNb(inp.value); if(v==null||v<0){ inp.value=nb(p.q,3); return alert("Quantité invalide."); }
+      try{ const r=await appel("PATCH","/api/phyto/produits/"+p.id,{q:v}); Object.assign(p,r); garder("phyto",D); inp.value=nb(p.q,3); inp.style.background="#E6F0E8"; setTimeout(()=>inp.style.background="",900); }
+      catch(e){ alert(e.message); inp.value=nb(p.q,3); }
+    });
+    li.append(n, inp, el("span","u",p.u)); ul.appendChild(li);
+  });
+  $("ficheProduit").hidden = !ecrit();
+}
+$("recherche").addEventListener("input", dessinerStock);
+$("filtreCat").addEventListener("change", dessinerStock);
+function editer(p){
+  if(!ecrit()) return;
+  enEdition = p || null;
+  const v = p || {nom:"", q:0, u:"L", cat:"Phyto", fam:"", statut:"autorise", fin:"", cmr:"", fournisseur:""};
+  $("fpTitre").textContent = p ? "Fiche : "+p.nom : "Ajouter un produit";
+  $("fpNom").value=v.nom; $("fpQ").value=nb(v.q,3); $("fpU").value=v.u; $("fpCat").value=v.cat; $("fpFam").value=v.fam||""; $("fpStatut").value=v.statut; $("fpFin").value=v.fin||""; $("fpCmr").value=v.cmr||""; $("fpFour").value=v.fournisseur||"";
+  $("fpOk").textContent = p ? "Enregistrer" : "Ajouter"; $("fpAnnuler").hidden = !p; $("fpSuppr").hidden = !(p && chef());
+  message("fpMsg","");
+  if(p) $("ficheProduit").scrollIntoView({behavior:"smooth", block:"start"});
+}
+$("fpAnnuler").addEventListener("click", ()=>editer(null));
+$("fpOk").addEventListener("click", async ()=>{
+  const c = {nom:$("fpNom").value, q:$("fpQ").value, u:$("fpU").value, cat:$("fpCat").value, fam:$("fpFam").value, statut:$("fpStatut").value, fin:$("fpFin").value||null, cmr:$("fpCmr").value, fournisseur:$("fpFour").value};
+  try{
+    if(enEdition){
+      const ancien = enEdition.nom, r = await appel("PATCH","/api/phyto/produits/"+enEdition.id, c); Object.assign(enEdition, r);
+      // Renommé : les programmes qui l'utilisaient suivent
+      if(cle(ancien)!==cle(r.nom)){ let n=0; D.campagnes.forEach(k=>k.donnees.cultures.forEach(cu=>(cu.lignes||[]).forEach(l=>{ if(cle(l.produit)===cle(ancien)){ l.produit=r.nom; n++; if(k!==C) k.aRenommer=true; } }))); if(n){ modifie(); D.campagnes.filter(k=>k.aRenommer).forEach(k=>{ delete k.aRenommer; appel("PUT","/api/phyto/campagnes/"+encodeURIComponent(k.campagne),{debut:k.debut,donnees:k.donnees}).then(x=>k.modifie_le=x.modifie_le).catch(()=>{}); }); } }
+      message("fpMsg","Enregistré.","ok");
+    } else {
+      const r = await appel("POST","/api/phyto/produits", c); D.produits.push(r); D.produits.sort((a,b)=>a.nom.localeCompare(b.nom,"fr",{sensitivity:"base"}));
+      message("fpMsg","« "+r.nom+" » ajouté au stock.","ok"); $("fpNom").value=""; $("fpQ").value="0";
+    }
+    indexer(); garder("phyto",D); tout();
+  }catch(e){ message("fpMsg", e.message, "erreur"); }
+});
+$("fpSuppr").addEventListener("click", async ()=>{
+  const p=enEdition; if(!p || !confirm("Supprimer « "+p.nom+" » du stock ? Les programmes qui le citent le garderont, marqué « pas en stock ».")) return;
+  try{ await appel("DELETE","/api/phyto/produits/"+p.id); D.produits=D.produits.filter(x=>x!==p); indexer(); garder("phyto",D); editer(null); tout(); }
+  catch(e){ message("fpMsg", e.message, "erreur"); }
+});
+
+demarrer("phyto", charger);
+</script>
+</body>
+</html>
